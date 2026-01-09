@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+  }
+  .dark {
+    /* Rich slate backgrounds */
+    --background:222 47% 4.5%;       /* Deep slate blue-grey */
+    --foreground: 45 25% 78%;        /* Soft warm beige - no bright white */
+
+    /* Cards with subtle elevation */
+    --card: 217 33% 17%;              /* Slightly lighter slate */
+    --card-foreground: 45 25% 78%;   /* Soft warm beige */
+
+    /* Popovers and dropdowns */
+    --popover: 217 33% 15%;           /* Dark slate */
+    --popover-foreground: 45 25% 78%; /* Soft warm beige */
+
+    /* Primary accent - Vibrant amber/gold */
+    --primary: 45 93% 58%;            /* Golden amber */
+    --primary-foreground: 222 47% 11%; /* Dark text on gold */
+
+    /* Secondary - Warm slate */
+    --secondary: 217 32% 23%;         /* Medium slate */
+    --secondary-foreground: 45 25% 78%; /* Soft warm beige */
+
+    /* Muted areas - readable without being harsh */
+    --muted: 217 32% 20%;             /* Warm dark slate */
+    --muted-foreground: 45 20% 72%;   /* Muted warm beige */
+
+    /* Accent - Warm gold/amber tint */
+    --accent: 38 92% 50%;             /* Vibrant orange-gold */
+    --accent-foreground: 222 47% 11%; /* Dark text */
+
+    /* Destructive/Error - Warm red */
+    --destructive: 0 84% 60%;         /* Bright red */
+    --destructive-foreground: 45 25% 78%; /* Soft warm beige */
+
+    /* Borders and inputs - Visible but subtle */
+    --border: 217 32% 28%;            /* Medium-light slate */
+    --input: 217 32% 28%;             /* Medium-light slate */
+    --ring: 45 93% 58%;               /* Golden amber ring */
+
+    /* Chart colors - Vibrant and warm */
+    --chart-1: 45 93% 58%;            /* Gold */
+    --chart-2: 168 76% 42%;           /* Teal */
+    --chart-3: 27 96% 61%;            /* Orange */
+    --chart-4: 280 67% 65%;           /* Purple */
+    --chart-5: 338 78% 65%;           /* Pink */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
