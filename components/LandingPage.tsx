@@ -6,6 +6,7 @@ import { motion, useScroll, useTransform, useSpring } from "framer-motion";
 import {
   ArrowRight,
   BadgeCheck,
+  Check,
   ChevronRight,
   MapPin,
   Ruler,
@@ -36,7 +37,7 @@ export default function LandingPage() {
       <TrustLogos />
       <FeaturesShowcase />
       <HowItWorks />
-      <Pricing />
+      {/* <Pricing /> */}
       <CTA />
       <FAQ />
       <Footer />
@@ -61,7 +62,7 @@ function Nav() {
     <header
       className={`sticky top-0 z-40 transition-all ${
         scrolled
-          ? "bg-white/70 dark:bg-black/80 backdrop-blur-md border-b border-neutral-200 dark:border-orange-500/20"
+          ? "bg-white/70 dark:bg-black/80 backdrop-blur-md border-b border-neutral-200 dark:border-slate-500/20"
           : "bg-white/30 dark:bg-black/40 backdrop-blur-sm"
       }`}
     >
@@ -70,7 +71,7 @@ function Nav() {
           <motion.div
             whileHover={{ rotate: 2, scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="h-8 w-8 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 text-white grid place-items-center shadow-lg shadow-orange-500/40 dark:shadow-orange-500/60 ring-2 ring-orange-400/30"
+            className="h-8 w-8 rounded-xl bg-gradient-to-br from-slate-500 via-slate-600 to-slate-700 text-white grid place-items-center shadow-lg shadow-slate-500/40 dark:shadow-slate-500/60 ring-2 ring-slate-400/30"
           >
             <span className="text-[10px] font-black tracking-widest drop-shadow-lg">MMR</span>
           </motion.div>
@@ -80,25 +81,24 @@ function Nav() {
           </p>
         </div>
         <nav className="hidden md:flex items-center gap-8 text-sm text-neutral-700 dark:text-neutral-300">
-          <a href="#features" className="hover:text-neutral-900 dark:hover:text-orange-400 transition-colors">Features</a>
-          <a href="#how" className="hover:text-neutral-900 dark:hover:text-orange-400 transition-colors">How it works</a>
-          <a href="#pricing" className="hover:text-neutral-900 dark:hover:text-orange-400 transition-colors">Pricing</a>
-          <a href="#faq" className="hover:text-neutral-900 dark:hover:text-orange-400 transition-colors">FAQ</a>
+          <a href="#features" className="hover:text-neutral-900 dark:hover:text-slate-400 transition-colors">Features</a>
+          <a href="#how" className="hover:text-neutral-900 dark:hover:text-slate-400 transition-colors">How it works</a>
+          <a href="#faq" className="hover:text-neutral-900 dark:hover:text-slate-400 transition-colors">FAQ</a>
         </nav>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Link href={SIGNIN_PATH} className="px-3 py-2 text-sm rounded-xl hover:bg-neutral-100 dark:hover:bg-orange-500/10 dark:hover:text-orange-400 transition-colors">
+          <Link href={SIGNIN_PATH} className="px-3 py-2 text-sm rounded-xl hover:bg-neutral-100 dark:hover:bg-slate-500/10 dark:hover:text-slate-400 transition-colors">
             Sign in
           </Link>
           <Link
             href={SIGNUP_PATH}
-            className="px-3 py-2 text-sm font-semibold text-neutral-900 dark:text-orange-400 underline-offset-4 transition hover:underline"
+            className="px-3 py-2 text-sm font-semibold text-neutral-900 dark:text-slate-400 underline-offset-4 transition hover:underline"
           >
             Create account
           </Link>
           <Link
             href={SIGNIN_PATH}
-            className="mr-1 inline-flex items-center gap-1 rounded-xl bg-neutral-900 dark:bg-orange-500 px-3 py-2 text-sm font-semibold text-white dark:text-black shadow dark:shadow-orange-500/40 transition active:scale-[.98] hover:-translate-y-[1px] dark:hover:bg-orange-400"
+            className="mr-1 inline-flex items-center gap-1 rounded-xl bg-neutral-900 dark:bg-slate-500 px-3 py-2 text-sm font-semibold text-white dark:text-black shadow dark:shadow-slate-500/40 transition active:scale-[.98] hover:-translate-y-[1px] dark:hover:bg-slate-400"
           >
             Enter Dashboard <ArrowRight className="h-4 w-4" />
           </Link>
@@ -711,143 +711,74 @@ function MiniEstimateWindow() {
 /*                                   PRICING                                  */
 /* -------------------------------------------------------------------------- */
 function Pricing() {
-  // Per-use pricing calculator - No subscription!
-  const calculatePrice = (squareFeet: number): { price: number; label: string } => {
-    const BASE_PRICE = 85;
-    const FIRST_TIER_MAX = 1500;
-    const INCREMENT = 500;
-    const PRICE_INCREASE = 5;
-
-    if (squareFeet <= FIRST_TIER_MAX) {
-      return { price: BASE_PRICE, label: "0-1,500 sq ft" };
-    }
-
-    const sfAboveFirstTier = squareFeet - FIRST_TIER_MAX;
-    const incrementsAbove = Math.ceil(sfAboveFirstTier / INCREMENT);
-    const price = BASE_PRICE + (incrementsAbove * PRICE_INCREASE);
-
-    const minSF = FIRST_TIER_MAX + (incrementsAbove - 1) * INCREMENT + 1;
-    const maxSF = FIRST_TIER_MAX + incrementsAbove * INCREMENT;
-    const label = `${minSF.toLocaleString()}-${maxSF.toLocaleString()} sq ft`;
-
-    return { price, label };
-  };
-
-  // Example tiers for display
-  const EXAMPLE_TIERS = [
-    { label: "0-1,500", price: 85 },
-    { label: "1,501-2,000", price: 90 },
-    { label: "2,001-2,500", price: 95 },
-    { label: "2,501-3,000", price: 100 },
-    { label: "3,001-3,500", price: 105 },
-    { label: "3,501-4,000", price: 110 },
-    { label: "4,001-4,500", price: 115 },
-    { label: "4,501-5,000", price: 120 },
-  ];
-
-  // tiny estimator
-  const [sf, setSf] = useState<string>("");
-  const n = Number(sf.replace(/[^\d.]/g, ""));
-  const result = Number.isFinite(n) && n > 0 ? calculatePrice(n) : null;
+  // Single flat rate pricing
+  const PRICE = 1440;
+  const MAX_SF = 50000;
 
   return (
-    <section id="pricing" className="py-24 bg-gradient-to-br from-white via-orange-50/20 to-white dark:from-black dark:via-orange-950/10 dark:to-black">
+    <section id="pricing" className="py-24 bg-gradient-to-br from-white via-slate-50/20 to-white dark:from-black dark:via-slate-950/10 dark:to-black">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <header className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Simple Per-Use Pricing</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Simple, Transparent Pricing</h2>
           <p className="mt-3 text-neutral-700 dark:text-neutral-300 text-lg">
-            No subscriptions. No monthly fees. Pay only for what you use, starting at just <span className="font-bold text-orange-600 dark:text-orange-400">$85</span> per project.
+            No subscriptions. No monthly fees. One price for full access.
           </p>
         </header>
 
-        {/* Pricing Calculator */}
+        {/* Pricing Card */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mt-10 max-w-4xl mx-auto rounded-2xl border-2 border-orange-200 dark:border-orange-800 bg-white dark:bg-card p-8 shadow-xl"
+          className="mt-10 max-w-2xl mx-auto rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-card p-8 shadow-xl"
         >
-          <div className="text-center mb-6">
-            <h3 className="text-2xl font-bold">Pricing Calculator</h3>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-2">Enter your roof size to see the per-project cost</p>
+          <div className="text-center">
+            <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">Full Access Package</p>
+            <div className="text-5xl font-black text-slate-600 dark:text-slate-400">
+              ${PRICE.toLocaleString()}
+            </div>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-2">
+              Up to {MAX_SF.toLocaleString()} SF
+            </p>
           </div>
 
-          <div className="flex items-end gap-6 flex-wrap justify-center">
-            <div className="flex-1 min-w-[280px] max-w-md">
-              <label htmlFor="sf" className="block text-sm font-semibold mb-2">
-                Roof Square Footage
-              </label>
-              <div className="rounded-xl border-2 border-border bg-background focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-orange-500 transition-all">
-                <input
-                  id="sf"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  placeholder="e.g., 2,450"
-                  value={sf}
-                  onChange={(e) => setSf(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl outline-none text-lg bg-transparent"
-                />
+          <div className="mt-8 grid sm:grid-cols-2 gap-3">
+            {[
+              "Up to 50,000 SF coverage",
+              "Advanced 3D roof visualization",
+              "50+ premium paint colors",
+              "Material cost calculator",
+              "Bill of materials (BOM)",
+              "Professional quote generator",
+              "CSV/PDF exports",
+              "Priority support",
+            ].map((feature) => (
+              <div key={feature} className="flex items-center gap-2 text-sm">
+                <Check className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                <span>{feature}</span>
               </div>
-            </div>
-            <div className="flex-1 min-w-[280px] max-w-md">
-              <div className="text-sm font-semibold mb-2">Your Project Cost</div>
-              <div className="rounded-xl border-2 border-orange-500 bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/20 dark:to-card px-4 py-3">
-                <div className="text-3xl font-black text-orange-600 dark:text-orange-400">
-                  {result ? `$${result.price}` : "—"}
-                </div>
-                <div className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-                  {result ? result.label : "Enter size to calculate"}
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
 
-          <div className="mt-6 text-center">
+          <div className="mt-8 text-center">
             <Link
               href={SIGNIN_PATH}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-3 text-base font-semibold text-white shadow-lg hover:from-orange-600 hover:to-orange-700 active:scale-[.98] transition-all"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-slate-500 to-slate-600 px-6 py-3 text-base font-semibold text-white shadow-lg hover:from-slate-600 hover:to-slate-700 active:scale-[.98] transition-all"
             >
               Get Started <ArrowRight className="h-5 w-5" />
             </Link>
           </div>
-        </motion.div>
 
-        {/* Tier table */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mt-10 rounded-2xl border-2 border-neutral-200 dark:border-neutral-800 bg-white dark:bg-card shadow-lg overflow-hidden"
-        >
-          <div className="px-6 py-4 border-b-2 border-neutral-200 dark:border-neutral-800 bg-gradient-to-r from-neutral-50 to-white dark:from-neutral-900 dark:to-card">
-            <p className="text-base font-bold">Pricing Tiers</p>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">$85 base + $5 per 500 SF increment above 1,500 SF</p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px bg-neutral-200 dark:bg-neutral-800">
-            {EXAMPLE_TIERS.map((t, i) => {
-              const active = result && result.label.includes(t.label);
-              return (
-                <div
-                  key={t.label}
-                  className={`p-5 ${active ? "bg-orange-50 dark:bg-orange-950/20" : "bg-white dark:bg-card"}`}
-                >
-                  <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{t.label} SF</div>
-                  <div className="mt-2 text-3xl font-bold text-orange-600 dark:text-orange-400">${t.price}</div>
-                  <div className="mt-1 text-xs text-neutral-500">per project</div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="px-5 py-4 border-t bg-neutral-50/60 dark:bg-neutral-900/40 text-sm text-neutral-700 dark:text-neutral-300">
-            Simple per-use pricing. <span className="font-medium">Pay only for what you need</span> — no subscriptions, no commitments. Exports, takeoffs, and proposals included with every project.
-          </div>
+          <p className="mt-4 text-center text-xs text-neutral-500">
+            One-time payment • No recurring charges • Instant access
+          </p>
         </motion.div>
 
         {/* FAQ-ish reminders */}
-        <div className="mt-6 flex flex-wrap gap-3 text-sm text-neutral-600 dark:text-neutral-400">
+        <div className="mt-6 flex flex-wrap justify-center gap-3 text-sm text-neutral-600 dark:text-neutral-400">
           <Badge>No subscription required</Badge>
           <Badge>No setup fees</Badge>
-          <Badge>Pay per project</Badge>
+          <Badge>One-time payment</Badge>
           <Badge>CSV/PDF exports included</Badge>
         </div>
       </div>
@@ -982,7 +913,7 @@ function Footer() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 text-sm text-neutral-700">
           <div>
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 grid place-items-center text-[10px] font-bold text-white shadow-md shadow-orange-500/30">MMR</div>
+              <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-slate-500 via-slate-600 to-slate-700 grid place-items-center text-[10px] font-bold text-white shadow-md shadow-slate-500/30">MMR</div>
               <span className="font-semibold text-neutral-900">My Metal Roofer</span>
             </div>
             <p className="mt-3 max-w-xs">Metal roof dimensions and estimating for metal roofing contractors.</p>
@@ -991,7 +922,6 @@ function Footer() {
             <p className="font-semibold text-neutral-900">Product</p>
             <ul className="mt-2 space-y-1">
               <li><a className="hover:text-neutral-900" href="#features">Features</a></li>
-              <li><a className="hover:text-neutral-900" href="#pricing">Pricing</a></li>
               <li><a className="hover:text-neutral-900" href="/changelog">Changelog</a></li>
             </ul>
           </div>
@@ -1000,6 +930,7 @@ function Footer() {
             <ul className="mt-2 space-y-1">
               <li><a className="hover:text-neutral-900" href="/about">About</a></li>
               <li><a className="hover:text-neutral-900" href="/contact">Contact</a></li>
+              <li><a className="hover:text-neutral-900" href="mailto:help@mymetalroofer.com">Support</a></li>
               <li><a className="hover:text-neutral-900" href="/status">Status</a></li>
             </ul>
           </div>
@@ -1262,7 +1193,7 @@ function TrustLogos() {
 /* -------------------------------------------------------------------------- */
 function Configurator3D() {
   return (
-    <section id="configurator" className="relative py-24 overflow-hidden bg-gradient-to-br from-white via-orange-50/30 to-white dark:from-black dark:via-orange-950/20 dark:to-black">
+    <section id="configurator" className="relative py-24 overflow-hidden bg-gradient-to-br from-white via-slate-50/30 to-white dark:from-black dark:via-slate-950/20 dark:to-black">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <motion.div
@@ -1271,13 +1202,13 @@ function Configurator3D() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 text-sm font-medium mb-6">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 dark:bg-slate-500/20 text-slate-600 dark:text-slate-400 text-sm font-medium mb-6">
             <Sparkles className="h-4 w-4" />
             Interactive 3D Visualization
           </div>
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
             Configure Your Roof in{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-600">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-500 to-slate-700">
               Real-Time 3D
             </span>
           </h2>
@@ -1323,9 +1254,9 @@ function Configurator3D() {
           ].map((feature, idx) => (
             <div
               key={idx}
-              className="p-6 rounded-2xl border border-neutral-200 dark:border-orange-500/20 bg-white/50 dark:bg-black/30 backdrop-blur-sm"
+              className="p-6 rounded-2xl border border-neutral-200 dark:border-slate-500/20 bg-white/50 dark:bg-black/30 backdrop-blur-sm"
             >
-              <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 flex items-center justify-center mb-4">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-500/20 text-slate-600 dark:text-slate-400 flex items-center justify-center mb-4">
                 {feature.icon}
               </div>
               <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>

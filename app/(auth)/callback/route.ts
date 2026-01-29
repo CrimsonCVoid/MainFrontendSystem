@@ -37,13 +37,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${requestUrl.origin}/signin?error=oauth_exchange_failed`);
   }
 
+  // Use getUser() after exchange for secure validation
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (session?.user) {
+  if (user) {
     try {
-      await ensureUserRecord(session.user, supabase);
+      await ensureUserRecord(user, supabase);
     } catch (error) {
       console.warn("ensureUserRecord failed during callback:", error);
     }

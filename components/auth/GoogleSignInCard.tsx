@@ -25,7 +25,7 @@ export function GoogleSignInCard() {
   return (
     <div className="w-full max-w-md space-y-8 rounded-3xl border border-neutral-200 dark:border-border bg-white dark:bg-card p-10 shadow-lg">
       <header className="space-y-2 text-center">
-        <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 text-sm font-semibold text-white shadow-xl shadow-orange-500/40 ring-2 ring-orange-400/20">
+        <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-500 via-slate-600 to-slate-700 text-sm font-semibold text-white shadow-xl shadow-slate-500/40 ring-2 ring-slate-400/20">
           MMR
         </span>
         <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-foreground">

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir /b \"c:\\\\Users\\\\wcart\\\\Downloads\\\\MyMetalRoofer\\\\app\\\\api\")",
+      "Bash(\"c:/Users/wcart/Downloads/MyMetalRoofer/app/invite/[token]/page.tsx\")",
+      "Bash(npx tsc:*)",
+      "Bash(ls:*)",
+      "Bash(powershell -Command \"Remove-Item -LiteralPath ''\\\\?\\\\c:\\\\Users\\\\wcart\\\\Downloads\\\\MyMetalRoofer\\\\nul'' -Force -Recurse -ErrorAction SilentlyContinue; if \\(Test-Path ''c:\\\\Users\\\\wcart\\\\Downloads\\\\MyMetalRoofer\\\\nul''\\) { Write-Host ''Still exists'' } else { Write-Host ''Removed successfully'' }\")"
+    ]
+  }
+}

@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
-import { FolderOpen, Settings, Menu, LogOut, CreditCard } from "lucide-react";
+import { FolderOpen, Settings, Menu, LogOut, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -18,7 +18,7 @@ interface SidebarProps {
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: FolderOpen },
-  { href: "/billing", label: "Billing", icon: CreditCard },
+  { href: "/audit", label: "Audit Log", icon: History },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

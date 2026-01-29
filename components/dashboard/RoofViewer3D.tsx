@@ -46,7 +46,7 @@ async function ensureBabylon() {
   await babylonReady;
 }
 
-type PanelProfile = "standing-seam" | "r-panel" | "5v-crimp" | "pbr-panel";
+type PanelProfile = "standing-seam" | "5v-crimp" | "pbr-panel";
 
 type Props = {
   className?: string;
@@ -68,6 +68,8 @@ type Props = {
   color?: string;
   /** hide all UI controls (for hero/landing page) */
   hideControls?: boolean;
+  /** callback when canvas is ready for screenshot capture */
+  onCanvasReady?: (canvas: HTMLCanvasElement) => void;
 };
 
 export default function RoofViewer3D({
@@ -81,6 +83,7 @@ export default function RoofViewer3D({
   spin = true,
   color = "#4B5563",
   hideControls = false,
+  onCanvasReady,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -163,12 +166,6 @@ export default function RoofViewer3D({
       icon: "|||"
     },
     {
-      id: "r-panel" as const,
-      name: "R-Panel",
-      description: "Exposed fasteners",
-      icon: "∩∩∩"
-    },
-    {
       id: "5v-crimp" as const,
       name: "5V Crimp",
       description: "Agricultural panel",
@@ -220,6 +217,7 @@ export default function RoofViewer3D({
       const engine = new B.Engine(canvasRef.current, true, {
         antialias: true,
         powerPreference: "high-performance",
+        preserveDrawingBuffer: true, // Required for canvas.toDataURL() screenshot capture
       });
       engine.setHardwareScalingLevel(1 / Math.min(window.devicePixelRatio || 1, 2));
       engineRef.current = engine;
@@ -258,11 +256,16 @@ export default function RoofViewer3D({
       // Root transform node for rotation control
       const root = new B.TransformNode("root", scene);
 
-      // Metal roof panel material (PBR with metallic properties)
+      // Metal roof panel material (PBR with metallic properties and glitter effect)
       const panelMat = new B.PBRMetallicRoughnessMaterial("panelMat", scene);
       panelMat.baseColor = B.Color3.FromHexString(selectedColor);
-      panelMat.metallic = 1; panelMat.roughness = 0.25;
+      panelMat.metallic = 0.9; // High metallic value for reflective metal appearance
+      panelMat.roughness = 0.2; // Low roughness for shinier, more reflective surface
       panelMat.backFaceCulling = false;
+      // Add clear coat layer for sparkle/glitter effect
+      panelMat.clearCoat.isEnabled = true;
+      panelMat.clearCoat.intensity = 0.5;
+      panelMat.clearCoat.roughness = 0.1; // Very smooth clear coat for maximum sparkle
       panelMaterialRef.current = panelMat;
 
       // KY - INTEGRATION POINT:
@@ -302,7 +305,11 @@ export default function RoofViewer3D({
       }, scene);
       const ridgeMat = new B.PBRMetallicRoughnessMaterial("ridgeMat", scene);
       ridgeMat.baseColor = B.Color3.FromHexString("#374151");
-      ridgeMat.metallic = 1; ridgeMat.roughness = 0.3;
+      ridgeMat.metallic = 0.9; ridgeMat.roughness = 0.3;
+      // Add clear coat for subtle shine on ridge cap
+      ridgeMat.clearCoat.isEnabled = true;
+      ridgeMat.clearCoat.intensity = 0.4;
+      ridgeMat.clearCoat.roughness = 0.15;
       ridge.material = ridgeMat;
       ridge.position.set(0, rise + ridge.getBoundingInfo().boundingBox.extendSize.y, 0);
       ridge.parent = root;
@@ -324,6 +331,11 @@ export default function RoofViewer3D({
 
       engine.runRenderLoop(() => scene.render());
       engine.resize();
+
+      // Notify parent that canvas is ready for screenshot capture
+      if (onCanvasReady && canvasRef.current) {
+        onCanvasReady(canvasRef.current);
+      }
 
       return () => {
         try { engine.stopRenderLoop(); } catch {}
@@ -490,7 +502,7 @@ export default function RoofViewer3D({
         <div className="lg:w-80">
           <div className="bg-white dark:bg-card border-2 border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col" style={{ height: '700px' }}>
             {/* Header */}
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-3 flex-shrink-0">
+            <div className="bg-gradient-to-r from-slate-500 to-slate-600 px-4 py-3 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
@@ -526,7 +538,7 @@ export default function RoofViewer3D({
                     onClick={() => setSelectedSeries(series)}
                     className={`flex-1 px-2 py-2 text-xs font-bold rounded-lg transition-all ${
                       selectedSeries === series
-                        ? "bg-white dark:bg-card shadow-md text-orange-600"
+                        ? "bg-white dark:bg-card shadow-md text-slate-600"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -546,7 +558,7 @@ export default function RoofViewer3D({
                       onClick={() => setSelectedColor(colorOption.hex)}
                       className={`aspect-square rounded-lg transition-all relative group ${
                         selectedColor === colorOption.hex
-                          ? "ring-3 ring-orange-500 ring-offset-2 shadow-lg scale-105"
+                          ? "ring-3 ring-slate-500 ring-offset-2 shadow-lg scale-105"
                           : "hover:shadow-md hover:scale-105 border-2 border-border"
                       }`}
                       style={{ backgroundColor: colorOption.hex }}
@@ -554,7 +566,7 @@ export default function RoofViewer3D({
                     >
                       {selectedColor === colorOption.hex && (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                          <div className="w-6 h-6 bg-slate-500 rounded-full flex items-center justify-center shadow-lg">
                             <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                             </svg>

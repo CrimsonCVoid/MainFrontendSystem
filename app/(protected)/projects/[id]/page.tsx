@@ -24,21 +24,20 @@ export default async function ProjectPage({
   const resolvedParams = await params;
   const supabase = await createSupabaseServerClient();
 
-  // Get current user
+  // Get current user securely
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     redirect("/signin");
   }
 
-  // Fetch project with proper error handling
+  // Fetch project - RLS handles access control based on org membership and visibility settings
   const { data: project, error } = await supabase
     .from("projects")
     .select("*")
     .eq("id", resolvedParams.id)
-    .eq("user_id", session.user.id)
     .single();
 
   // Handle project not found or unauthorized access
@@ -63,7 +62,7 @@ export default async function ProjectPage({
   }
 
   // Render client component with project data
-  return <ProjectPageClient project={project} userId={session.user.id} />;
+  return <ProjectPageClient project={project} userId={user.id} />;
 }
 
 /**

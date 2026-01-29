@@ -17,23 +17,121 @@
  * - Most common: 16" and 18" widths
  */
 
+/**
+ * Complete standing seam panel specifications including installation details
+ */
 export interface SeamWidth {
-  inches: number;
-  meters: number;
-  label: string;
+  inches: number;              // Panel width (rib to rib)
+  meters: number;              // Panel width in metric
+  label: string;               // Display label
+  seamHeight: number;          // Seam profile height in inches
+  clipSpacing: number;         // Clip spacing interval in inches
+  panelThickness: number;      // Panel gauge (24ga, 22ga, etc.)
+  overlap: number;             // Panel overlap at seams in inches
+  effectiveCoverage: number;   // Actual coverage width after overlap in inches
 }
 
 export const STANDING_SEAM_WIDTHS: SeamWidth[] = [
-  { inches: 10, meters: 0.254, label: '10"' },
-  { inches: 12, meters: 0.3048, label: '12"' },
-  { inches: 14, meters: 0.3556, label: '14"' },
-  { inches: 15, meters: 0.381, label: '15"' },
-  { inches: 15.5, meters: 0.3937, label: '15.5"' },
-  { inches: 16, meters: 0.4064, label: '16"' },
-  { inches: 18, meters: 0.4572, label: '18"' },
-  { inches: 20, meters: 0.508, label: '20"' },
-  { inches: 22, meters: 0.5588, label: '22"' },
-  { inches: 24, meters: 0.6096, label: '24"' },
+  {
+    inches: 10,
+    meters: 0.254,
+    label: '10"',
+    seamHeight: 1.5,
+    clipSpacing: 24,
+    panelThickness: 24,
+    overlap: 0.5,
+    effectiveCoverage: 9.5
+  },
+  {
+    inches: 12,
+    meters: 0.3048,
+    label: '12"',
+    seamHeight: 1.5,
+    clipSpacing: 24,
+    panelThickness: 24,
+    overlap: 0.5,
+    effectiveCoverage: 11.5
+  },
+  {
+    inches: 14,
+    meters: 0.3556,
+    label: '14"',
+    seamHeight: 1.75,
+    clipSpacing: 24,
+    panelThickness: 24,
+    overlap: 0.5,
+    effectiveCoverage: 13.5
+  },
+  {
+    inches: 15,
+    meters: 0.381,
+    label: '15"',
+    seamHeight: 1.75,
+    clipSpacing: 24,
+    panelThickness: 24,
+    overlap: 0.5,
+    effectiveCoverage: 14.5
+  },
+  {
+    inches: 15.5,
+    meters: 0.3937,
+    label: '15.5"',
+    seamHeight: 1.75,
+    clipSpacing: 24,
+    panelThickness: 24,
+    overlap: 0.5,
+    effectiveCoverage: 15
+  },
+  {
+    inches: 16,
+    meters: 0.4064,
+    label: '16"',
+    seamHeight: 2,
+    clipSpacing: 24,
+    panelThickness: 24,
+    overlap: 0.5,
+    effectiveCoverage: 15.5
+  },
+  {
+    inches: 18,
+    meters: 0.4572,
+    label: '18"',
+    seamHeight: 2,
+    clipSpacing: 24,
+    panelThickness: 24,
+    overlap: 0.5,
+    effectiveCoverage: 17.5
+  },
+  {
+    inches: 20,
+    meters: 0.508,
+    label: '20"',
+    seamHeight: 2.25,
+    clipSpacing: 24,
+    panelThickness: 22,
+    overlap: 0.5,
+    effectiveCoverage: 19.5
+  },
+  {
+    inches: 22,
+    meters: 0.5588,
+    label: '22"',
+    seamHeight: 2.25,
+    clipSpacing: 24,
+    panelThickness: 22,
+    overlap: 0.5,
+    effectiveCoverage: 21.5
+  },
+  {
+    inches: 24,
+    meters: 0.6096,
+    label: '24"',
+    seamHeight: 2.5,
+    clipSpacing: 24,
+    panelThickness: 22,
+    overlap: 0.5,
+    effectiveCoverage: 23.5
+  },
 ];
 
 export const DEFAULT_SEAM_WIDTH = STANDING_SEAM_WIDTHS.find(w => w.inches === 18);

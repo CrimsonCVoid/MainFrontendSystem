@@ -70,9 +70,27 @@ export async function signOut() {
 
 /**
  * Returns the active session in the browser (if any).
+ * Note: For security, prefer getCurrentUser() which validates with Supabase Auth server.
+ * This function uses getSession() which reads from local storage without server validation.
  */
 export async function getCurrentSession(): Promise<Session | null> {
   const client = resolveClient();
+
+  // First try to get the user securely to refresh session if needed
+  try {
+    const { data: userData } = await client.auth.getUser();
+    if (userData.user) {
+      // User is authenticated, now get the session
+      const { data, error } = await client.auth.getSession();
+      if (error) {
+        throw new Error(error.message);
+      }
+      return data.session ?? null;
+    }
+  } catch {
+    // Fall through to regular getSession
+  }
+
   const { data, error } = await client.auth.getSession();
   if (error) {
     throw new Error(error.message);
