@@ -82,9 +82,9 @@ export default function AuthPortal({ initialMode = "signin" }: AuthPortalProps) 
     let active = true;
 
     const bootstrap = async () => {
-      const { data } = await supabase.auth.getSession();
+      // Use getUser() for secure auth validation
+      const { data: { user } } = await supabase.auth.getUser();
       if (!active) return;
-      const user = data.session?.user;
       if (user) {
         await completeAuth(user);
       }
@@ -179,7 +179,7 @@ export default function AuthPortal({ initialMode = "signin" }: AuthPortalProps) 
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 rounded-lg flex items-center justify-center shadow-lg shadow-orange-500/40 ring-2 ring-orange-400/20 group-hover:shadow-xl group-hover:scale-105 transition-all">
+              <div className="w-10 h-10 bg-gradient-to-br from-slate-500 via-slate-600 to-slate-700 rounded-lg flex items-center justify-center shadow-lg shadow-slate-500/40 ring-2 ring-slate-400/20 group-hover:shadow-xl group-hover:scale-105 transition-all">
                 <span className="text-white text-sm font-bold drop-shadow-lg">MMR</span>
               </div>
               <div className="hidden sm:block">
@@ -204,7 +204,7 @@ export default function AuthPortal({ initialMode = "signin" }: AuthPortalProps) 
               {mode === "signin" ? (
                 <button
                   onClick={() => switchMode("signup")}
-                  className="text-sm font-medium px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600 transition-all shadow-sm hover:shadow-md"
+                  className="text-sm font-medium px-4 py-2 rounded-lg bg-gradient-to-r from-slate-500 to-slate-500 text-white hover:from-slate-600 hover:to-slate-600 transition-all shadow-sm hover:shadow-md"
                 >
                   Sign Up
                 </button>
@@ -222,14 +222,14 @@ export default function AuthPortal({ initialMode = "signin" }: AuthPortalProps) 
       </nav>
 
       {/* Main Content */}
-      <div className="pt-16 min-h-screen bg-gradient-to-br from-neutral-50 via-orange-50/20 to-neutral-50">
+      <div className="pt-16 min-h-screen bg-gradient-to-br from-neutral-50 via-slate-50/20 to-neutral-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-20">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
 
             {/* Left Side - Hero Content */}
             <div className="space-y-8 order-2 lg:order-1">
               <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
                   </svg>
@@ -287,8 +287,8 @@ export default function AuthPortal({ initialMode = "signin" }: AuthPortalProps) 
                     desc: "PDF and CSV reports"
                   },
                 ].map((feature, i) => (
-                  <div key={i} className="flex items-start gap-3 p-4 rounded-xl bg-white border border-neutral-200 hover:border-orange-300 hover:shadow-sm transition-all">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+                  <div key={i} className="flex items-start gap-3 p-4 rounded-xl bg-white border border-neutral-200 hover:border-slate-300 hover:shadow-sm transition-all">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
                       {feature.icon}
                     </div>
                     <div>
@@ -396,7 +396,7 @@ export default function AuthPortal({ initialMode = "signin" }: AuthPortalProps) 
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                       placeholder="you@company.com"
-                      className="h-11 border-neutral-300 focus:border-orange-500 focus:ring-orange-500/20"
+                      className="h-11 border-neutral-300 focus:border-slate-500 focus:ring-slate-500/20"
                     />
                   </div>
 
@@ -412,7 +412,7 @@ export default function AuthPortal({ initialMode = "signin" }: AuthPortalProps) 
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       placeholder="••••••••"
-                      className="h-11 border-neutral-300 focus:border-orange-500 focus:ring-orange-500/20"
+                      className="h-11 border-neutral-300 focus:border-slate-500 focus:ring-slate-500/20"
                     />
                     {mode === "signup" && (
                       <p className="text-xs text-neutral-500">Must be at least {MIN_PASSWORD_LENGTH} characters</p>
@@ -431,7 +431,7 @@ export default function AuthPortal({ initialMode = "signin" }: AuthPortalProps) 
                         value={confirmPassword}
                         onChange={(event) => setConfirmPassword(event.target.value)}
                         placeholder="••••••••"
-                        className="h-11 border-neutral-300 focus:border-orange-500 focus:ring-orange-500/20"
+                        className="h-11 border-neutral-300 focus:border-slate-500 focus:ring-slate-500/20"
                       />
                     </div>
                   )}
@@ -439,7 +439,7 @@ export default function AuthPortal({ initialMode = "signin" }: AuthPortalProps) 
                   <Button
                     type="submit"
                     size="lg"
-                    className="w-full gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md hover:shadow-lg transition-all h-12 font-semibold"
+                    className="w-full gap-2 bg-gradient-to-r from-slate-500 to-slate-500 hover:from-slate-600 hover:to-slate-600 text-white shadow-md hover:shadow-lg transition-all h-12 font-semibold"
                     disabled={!canSubmit || busy}
                   >
                     {busy ? (
@@ -463,7 +463,7 @@ export default function AuthPortal({ initialMode = "signin" }: AuthPortalProps) 
                     <button
                       type="button"
                       onClick={() => switchMode(modeCopy.switchTarget)}
-                      className="font-semibold text-orange-600 hover:text-orange-700 transition-colors"
+                      className="font-semibold text-slate-600 hover:text-slate-700 transition-colors"
                     >
                       {modeCopy.switchTarget === "signup" ? "Sign up" : "Sign in"}
                     </button>
@@ -473,9 +473,9 @@ export default function AuthPortal({ initialMode = "signin" }: AuthPortalProps) 
                 {mode === "signup" && (
                   <p className="text-xs text-center text-neutral-500 pt-2">
                     By signing up, you agree to our{" "}
-                    <a href="#" className="text-orange-600 hover:text-orange-700">Terms</a>
+                    <a href="#" className="text-slate-600 hover:text-slate-700">Terms</a>
                     {" "}and{" "}
-                    <a href="#" className="text-orange-600 hover:text-orange-700">Privacy Policy</a>
+                    <a href="#" className="text-slate-600 hover:text-slate-700">Privacy Policy</a>
                   </p>
                 )}
               </div>

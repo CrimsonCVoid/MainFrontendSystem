@@ -49,9 +49,9 @@
     --popover: 217 33% 15%;           /* Dark slate */
     --popover-foreground: 45 25% 78%; /* Soft warm beige */
 
-    /* Primary accent - Vibrant amber/gold */
-    --primary: 45 93% 58%;            /* Golden amber */
-    --primary-foreground: 222 47% 11%; /* Dark text on gold */
+    /* Primary accent - Steel blue */
+    --primary: 215 25% 45%;            /* Steel blue */
+    --primary-foreground: 210 40% 98%; /* Light text on blue */
 
     /* Secondary - Warm slate */
     --secondary: 217 32% 23%;         /* Medium slate */
@@ -61,9 +61,9 @@
     --muted: 217 32% 20%;             /* Warm dark slate */
     --muted-foreground: 45 20% 72%;   /* Muted warm beige */
 
-    /* Accent - Warm gold/amber tint */
-    --accent: 38 92% 50%;             /* Vibrant orange-gold */
-    --accent-foreground: 222 47% 11%; /* Dark text */
+    /* Accent - Steel blue tint */
+    --accent: 215 25% 45%;             /* Steel blue */
+    --accent-foreground: 210 40% 98%; /* Light text */
 
     /* Destructive/Error - Warm red */
     --destructive: 0 84% 60%;         /* Bright red */
@@ -72,12 +72,12 @@
     /* Borders and inputs - Visible but subtle */
     --border: 217 32% 28%;            /* Medium-light slate */
     --input: 217 32% 28%;             /* Medium-light slate */
-    --ring: 45 93% 58%;               /* Golden amber ring */
+    --ring: 215 25% 45%;               /* Steel blue ring */
 
-    /* Chart colors - Vibrant and warm */
-    --chart-1: 45 93% 58%;            /* Gold */
+    /* Chart colors - Cool tones */
+    --chart-1: 215 25% 45%;           /* Steel blue */
     --chart-2: 168 76% 42%;           /* Teal */
-    --chart-3: 27 96% 61%;            /* Orange */
+    --chart-3: 195 53% 56%;           /* Sky blue */
     --chart-4: 280 67% 65%;           /* Purple */
     --chart-5: 338 78% 65%;           /* Pink */
   }

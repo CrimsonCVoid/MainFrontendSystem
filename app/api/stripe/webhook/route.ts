@@ -246,7 +246,14 @@ async function handleSubscriptionEvent(event: Stripe.Event) {
 
 async function handleCheckoutCompleted(event: Stripe.Event) {
   const session = event.data.object as Stripe.Checkout.Session;
-  const { userId, type, projectId, squareFootage } = session.metadata || {};
+  const metadata = session.metadata || {};
+  const { userId, type, projectId, squareFootage, org_id, package_id, sf_amount, price_cents, user_id } = metadata;
+
+  // Handle SF Pool Purchase
+  if (type === "sf_pool_purchase" && org_id && sf_amount) {
+    await handleSFPoolPurchase(session, metadata);
+    return;
+  }
 
   if (!userId) {
     console.error("[Webhook] No userId in session metadata");
@@ -280,6 +287,54 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
   }
 
   console.log(`[Webhook] Checkout completed: ${session.id}`);
+}
+
+/**
+ * Handle SF Pool Purchase completion.
+ * Adds purchased SF to the organization's pool.
+ */
+async function handleSFPoolPurchase(
+  session: Stripe.Checkout.Session,
+  metadata: Record<string, string>
+) {
+  const { org_id, sf_amount, price_cents, user_id, package_id } = metadata;
+
+  const sfAmount = parseInt(sf_amount, 10);
+  const priceCents = parseInt(price_cents, 10);
+
+  if (isNaN(sfAmount) || sfAmount <= 0) {
+    console.error("[Webhook] Invalid sf_amount in SF pool purchase:", sf_amount);
+    return;
+  }
+
+  console.log(`[Webhook] Processing SF pool purchase: ${sfAmount} SF for org ${org_id}`);
+
+  // Call the add_sf_to_pool function to atomically update the pool
+  const { data: result, error } = await supabaseAdmin.rpc("add_sf_to_pool", {
+    p_org_id: org_id,
+    p_user_id: user_id,
+    p_sf_amount: sfAmount,
+    p_price_cents: priceCents,
+    p_stripe_session_id: session.id,
+    p_stripe_payment_id: session.payment_intent as string || null,
+    p_notes: `Purchased ${package_id} package via Stripe`,
+  });
+
+  if (error) {
+    console.error("[Webhook] Failed to add SF to pool:", error);
+    return;
+  }
+
+  const response = result as { success: boolean; message: string; new_total?: number; remaining?: number };
+
+  if (response.success) {
+    console.log(
+      `[Webhook] SF pool purchase successful: ${sfAmount} SF added to org ${org_id}. ` +
+      `New total: ${response.new_total}, Remaining: ${response.remaining}`
+    );
+  } else {
+    console.error("[Webhook] SF pool purchase failed:", response.message);
+  }
 }
 
 async function handlePaymentSucceeded(event: Stripe.Event) {

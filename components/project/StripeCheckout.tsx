@@ -12,11 +12,11 @@ interface StripeCheckoutProps {
 }
 
 /**
- * Stripe Checkout Component - PER-USE ONLY
+ * Stripe Checkout Component
  *
- * Integrates Stripe payment processing for per-use project pricing.
+ * Integrates Stripe payment processing for project access.
  * Features:
- * - Per-use pricing based on square footage ($85 base + $5 per 500 SF)
+ * - Flat rate pricing: $1,440 for up to 50,000 SF
  * - Secure checkout flow
  * - Real-time payment status
  * - No subscriptions
@@ -104,11 +104,11 @@ export default function StripeCheckout({
   };
 
   return (
-    <div className="rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 p-6 shadow-sm border border-orange-100">
+    <div className="rounded-xl bg-gradient-to-br from-slate-50 to-slate-50 p-6 shadow-sm border border-slate-100">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-2">
-          <CreditCard className="h-5 w-5 text-orange-600" />
+          <CreditCard className="h-5 w-5 text-slate-600" />
           <h3 className="text-lg font-semibold text-neutral-900">
             Project Payment
           </h3>
@@ -127,50 +127,45 @@ export default function StripeCheckout({
       )}
 
       {/* Payment Option */}
-      <div className="rounded-lg bg-white p-4 border-2 border-orange-200">
+      <div className="rounded-lg bg-white p-4 border-2 border-slate-200">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h4 className="font-semibold text-neutral-900 text-lg">
-              Project Access
+              Full Access Package
             </h4>
             <p className="text-sm text-neutral-600 mt-1">
-              Per-use pricing based on square footage
+              Up to 50,000 SF
             </p>
           </div>
           <div className="text-right">
-            <p className="text-3xl font-bold text-orange-600">$85+</p>
+            <p className="text-3xl font-bold text-slate-600">$1,440</p>
             <p className="text-xs text-neutral-500">one-time</p>
           </div>
         </div>
 
-        <div className="mb-4 rounded-lg bg-orange-50 border border-orange-200 p-3">
-          <p className="text-sm font-medium text-neutral-900 mb-1">
-            Pricing: $85 base + $5 per 500 SF increment
-          </p>
-          <p className="text-xs text-neutral-600">
-            0-1,500 SF: $85 • 1,501-2,000 SF: $90 • 2,001-2,500 SF: $95
-          </p>
-        </div>
-
         <ul className="mb-4 space-y-2 text-sm text-neutral-700">
           <li className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-orange-500" />
+            <Check className="h-4 w-4 text-slate-500" />
+            Up to 50,000 SF coverage
+          </li>
+          <li className="flex items-center gap-2">
+            <Check className="h-4 w-4 text-slate-500" />
             Advanced 3D roof visualization
           </li>
           <li className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-orange-500" />
+            <Check className="h-4 w-4 text-slate-500" />
             50+ premium paint colors
           </li>
           <li className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-orange-500" />
+            <Check className="h-4 w-4 text-slate-500" />
             Material cost calculator & BOM
           </li>
           <li className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-orange-500" />
+            <Check className="h-4 w-4 text-slate-500" />
             Professional quote generator
           </li>
           <li className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-orange-500" />
+            <Check className="h-4 w-4 text-slate-500" />
             CSV/PDF exports
           </li>
         </ul>
@@ -178,7 +173,7 @@ export default function StripeCheckout({
         <Button
           onClick={() => handleCheckout("estimate")}
           disabled={loading}
-          className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600"
+          className="w-full bg-gradient-to-r from-slate-500 to-slate-500 hover:from-slate-600 hover:to-slate-600"
         >
           {loading ? (
             <>
@@ -198,7 +193,7 @@ export default function StripeCheckout({
       <div className="mt-4 text-center">
         <p className="text-xs text-neutral-500">
           🔒 Secure checkout powered by{" "}
-          <span className="font-semibold">Stripe</span> • No subscriptions • Pay once per project
+          <span className="font-semibold">Stripe</span> • No subscriptions • No monthly fees
         </p>
       </div>
     </div>

@@ -30,17 +30,17 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  // Refresh session if expired - required for Server Components
+  // Use getUser() for secure server-side auth validation
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const path = req.nextUrl.pathname;
   const isProtected = PROTECTED_PREFIXES.some((prefix) => path.startsWith(prefix));
   const isAuthPage = AUTH_PATHS.has(path);
 
-  // Redirect to login if accessing protected route without session
-  if (isProtected && !session) {
+  // Redirect to login if accessing protected route without authenticated user
+  if (isProtected && !user) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = "/signin";
     if (!AUTH_PATHS.has(path)) {
@@ -49,8 +49,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Redirect to dashboard if accessing auth pages with active session
-  if (session && isAuthPage) {
+  // Redirect to dashboard if accessing auth pages with active user
+  if (user && isAuthPage) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";
     return NextResponse.redirect(redirectUrl);

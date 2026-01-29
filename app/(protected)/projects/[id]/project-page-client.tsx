@@ -1,69 +1,58 @@
 "use client";
 
-/**
- * PROJECT PAGE CLIENT - Individual Project Detail View
- *
- * Full-featured project detail page with 3D viewer, address management,
- * quote calculator, and export functionality.
- *
- * KY - KEY SECTIONS:
- * 1. Line 89-103: Integration point for loading/generating roof_data
- * 2. handleAddressUpdate (search for it): Saves address changes and should trigger roof regeneration
- * 3. ProjectViewer component: Displays 3D model from roof_data (see ProjectViewer.tsx)
- * 4. Pricing/quote calculations: Based on square_footage from roof_data
- *
- * KY - DATA FLOW:
- * 1. Page loads project from Supabase (passed as prop from server component)
- * 2. If project has address but no roof_data:
- *    - Call /api/roof-generate with lat/lng
- *    - Update project.roof_data with geometry results
- * 3. Pass roof_data to ProjectViewer component for 3D visualization
- * 4. Use roof_data.total_area_sf for quote calculations and Stripe pricing
- *
- * KY - TABS:
- * - Overview: Project info, address, 3D viewer
- * - Quote: Cost breakdown (materials, labor, fees)
- * - Takeoff: Material list (panels, trims) - populated from roof_data.measurements
- * - Export: PDF/CSV download functionality
- */
-
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
-  Save,
   Loader2,
-  Settings,
-  User,
   MapPin,
-  Calendar,
   FileText,
   Box,
   DollarSign,
-  Clock,
   Check,
   Download,
   Send,
   Package,
   BarChart3,
   CheckCircle2,
-  CreditCard,
   AlertCircle,
+  Building2,
+  Calendar,
+  Clock,
+  Pencil,
+  Save,
+  X,
 } from "lucide-react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import ProjectDetails from "@/components/project/ProjectDetails";
 import ProjectViewer from "@/components/project/ProjectViewer";
 import AddressInput, { type AddressData } from "@/components/project/AddressInput";
+import EstimationTab from "@/components/project/EstimationTab";
+import { DuplicateAddressDialog } from "@/components/project/DuplicateAddressDialog";
+import { OwnershipBadge } from "@/components/project/OwnershipBadge";
+import { CreatorAvatar } from "@/components/project/CreatorAvatar";
+import { ProjectActivityTimeline } from "@/components/project/ProjectActivityTimeline";
+import AddressVerificationModal from "@/components/project/AddressVerificationModal";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
-import { getPricingTier, hasActiveSubscription } from "@/lib/pricing";
+import { getPricingTier } from "@/lib/pricing";
+import { findDuplicateProject, type DuplicateProjectResult } from "@/lib/projects";
 import type { Tables } from "@/lib/database.types";
+import { useOrg, useSFPool } from "@/components/providers/org-provider";
 
 type ProjectRow = Tables<"projects">;
 type UserRow = Tables<"users">;
+
+interface CreatorInfo {
+  id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+}
+
 
 interface ProjectPageClientProps {
   project: ProjectRow;
@@ -77,23 +66,29 @@ export default function ProjectPageClient({
   const router = useRouter();
   const supabase = getSupabaseBrowserClient();
 
-  // Local state
+  // Core state
   const [project, setProject] = useState<ProjectRow>(initialProject);
   const [user, setUser] = useState<UserRow | null>(null);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [isSavingAddress, setIsSavingAddress] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [lastSavedTime, setLastSavedTime] = useState<string>("");
-  const [showSettings, setShowSettings] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [creator, setCreator] = useState<CreatorInfo | null>(null);
+  const [activeTab, setActiveTab] = useState<"overview" | "3d-model" | "estimation">("overview");
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  // Quote state (mock data)
-  const [quote, setQuote] = useState({
-    materialsCost: 4500,
-    laborCost: 3200,
-    permitsFees: 450,
-    contingency: 315,
-  });
+  // Computed ownership
+  const isOwn = project.user_id === userId;
+
+  // Edit mode state
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [editName, setEditName] = useState(project.name);
+  const [editDescription, setEditDescription] = useState(project.description || "");
+
+  // SF Pool state (used for verification modal)
+  const { org, refreshOrgs } = useOrg();
+  const { pool, hasEnough, format: formatSF } = useSFPool();
+  const projectSF = project.square_footage || 500; // Default to 500 if not set
+
+  // Canvas ref for 3D screenshot
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Address state
   const [addressData, setAddressData] = useState<AddressData | null>(() => {
@@ -114,948 +109,778 @@ export default function ProjectPageClient({
     return null;
   });
 
-  // KY - INTEGRATION POINT:
-  // Load roof geometry data when project loads
-  // If project.roof_data is null, trigger generation:
-  // useEffect(() => {
-  //   if (project.latitude && !project.roof_data) {
-  //     fetch('/api/roof-generate', {
-  //       method: 'POST',
-  //       body: JSON.stringify({ projectId: project.id, latitude: project.latitude, longitude: project.longitude })
-  //     }).then(res => res.json()).then(data => {
-  //       // Update project with roof_data
-  //       supabase.from('projects').update({ roof_data: data }).eq('id', project.id)
-  //     })
-  //   }
-  // }, [project.id, project.latitude, project.roof_data])
+  // Duplicate address state
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [duplicateResult, setDuplicateResult] = useState<DuplicateProjectResult | null>(null);
+  const [pendingAddressData, setPendingAddressData] = useState<AddressData | null>(null);
 
-  // Fetch user data
+  // Address verification modal state
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationAddressData, setVerificationAddressData] = useState<AddressData | null>(null);
+
+  // Fetch fresh project data on mount to ensure persistence
   useEffect(() => {
-    async function fetchUser() {
+    async function fetchLatestProject() {
       const { data } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("id", initialProject.id)
+        .single();
+      if (data) {
+        setProject(data);
+        // Update address state if project has address data
+        if (data.address && data.city && data.state) {
+          setAddressData({
+            address: data.address,
+            address_line2: data.address_line2 || undefined,
+            city: data.city,
+            state: data.state,
+            postal_code: data.postal_code || "",
+            country: data.country || "US",
+            latitude: data.latitude || 0,
+            longitude: data.longitude || 0,
+            google_place_id: data.google_place_id || "",
+            formatted_address: `${data.address}, ${data.city}, ${data.state} ${data.postal_code}`,
+          });
+        }
+      }
+    }
+    fetchLatestProject();
+  }, [initialProject.id, supabase]);
+
+  // Fetch user data and project creator
+  useEffect(() => {
+    async function fetchUserAndCreator() {
+      // Fetch current user
+      const { data: userData } = await supabase
         .from("users")
         .select("*")
         .eq("id", userId)
         .single();
+      if (userData) setUser(userData);
 
-      if (data) setUser(data);
+      // Fetch project creator if different from current user
+      if (project.user_id) {
+        const { data: creatorData } = await supabase
+          .from("users")
+          .select("id, email, full_name, avatar_url")
+          .eq("id", project.user_id)
+          .single();
+        if (creatorData) {
+          const creator = creatorData as { id: string; email: string | null; full_name: string | null; avatar_url: string | null };
+          setCreator({
+            id: creator.id,
+            email: creator.email || "",
+            full_name: creator.full_name,
+            avatar_url: creator.avatar_url,
+          });
+        }
+      }
     }
-    fetchUser();
-  }, [userId, supabase]);
+    fetchUserAndCreator();
+  }, [userId, project.user_id, supabase]);
 
-  /**
-   * ⚠️ PRESERVED SUPABASE LOGIC - DO NOT MODIFY
-   * Update project details (name, description, square_footage, etc.)
-   */
-  const handleUpdateProject = useCallback(
+  // Save helper with feedback
+  const saveToDatabase = useCallback(
     async (updates: Partial<ProjectRow>) => {
-      setIsUpdating(true);
-      setSaveStatus("saving");
-
+      setSaving(true);
+      setSaveMessage(null);
       try {
-        const { data, error } = await (supabase
-          .from("projects")
-          .update as any)({
-            ...updates,
-            updated_at: new Date().toISOString(),
-          })
+        // RLS handles access control based on org membership and visibility settings
+        const { data, error } = await (supabase.from("projects").update as any)({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
           .eq("id", project.id)
-          .eq("user_id", userId)
           .select()
           .single();
 
         if (error) throw error;
-
         setProject(data);
-        setSaveStatus("saved");
-        setLastSavedTime(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }));
-        setTimeout(() => setSaveStatus("idle"), 2000);
+        setSaveMessage("Saved");
+        setTimeout(() => setSaveMessage(null), 2000);
+        return true;
       } catch (error: any) {
-        console.error("Failed to update project:", error);
-        setSaveStatus("error");
-        alert("Failed to update project. Please try again.");
+        console.error("Save failed:", error);
+        setSaveMessage("Error saving");
+        return false;
       } finally {
-        setIsUpdating(false);
+        setSaving(false);
       }
     },
     [project.id, userId, supabase]
   );
 
-  /**
-   * ⚠️ PRESERVED SUPABASE LOGIC - DO NOT MODIFY
-   * Handle address change and auto-save
-   */
+  // Handle details save
+  const handleSaveDetails = useCallback(async () => {
+    const success = await saveToDatabase({
+      name: editName.trim() || project.name,
+      description: editDescription.trim() || null,
+    });
+    if (success) {
+      setIsEditingDetails(false);
+    }
+  }, [editName, editDescription, project.name, saveToDatabase]);
+
+  // Save address to database (used after duplicate check)
+  const saveAddressToDatabase = useCallback(
+    async (newAddress: AddressData) => {
+      setAddressData(newAddress);
+      await saveToDatabase({
+        address: newAddress.address,
+        address_line2: newAddress.address_line2 || null,
+        city: newAddress.city,
+        state: newAddress.state,
+        postal_code: newAddress.postal_code,
+        country: newAddress.country,
+        latitude: newAddress.latitude,
+        longitude: newAddress.longitude,
+        google_place_id: newAddress.google_place_id,
+      });
+    },
+    [saveToDatabase]
+  );
+
+  // Handle address change with duplicate check and verification
   const handleAddressChange = useCallback(
     async (newAddress: AddressData | null) => {
-      setAddressData(newAddress);
+      if (!newAddress) {
+        setAddressData(null);
+        return;
+      }
 
-      if (newAddress) {
-        setIsSavingAddress(true);
-        setSaveStatus("saving");
-
+      // Check for duplicates if we have an organization
+      if (org?.id && newAddress.address && newAddress.city && newAddress.state) {
         try {
-          const { data, error } = await (supabase
-            .from("projects")
-            .update as any)({
-              address: newAddress.address,
-              address_line2: newAddress.address_line2 || null,
-              city: newAddress.city,
-              state: newAddress.state,
-              postal_code: newAddress.postal_code,
-              country: newAddress.country,
-              latitude: newAddress.latitude,
-              longitude: newAddress.longitude,
-              google_place_id: newAddress.google_place_id,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", project.id)
-            .eq("user_id", userId)
-            .select()
-            .single();
+          const duplicate = await findDuplicateProject(
+            org.id,
+            newAddress.address,
+            newAddress.city,
+            newAddress.state,
+            project.id // Exclude current project
+          );
 
-          if (error) throw error;
-
-          setProject(data);
-          setSaveStatus("saved");
-          setLastSavedTime(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }));
-          setTimeout(() => setSaveStatus("idle"), 2000);
-        } catch (error: any) {
-          console.error("Failed to save address:", error);
-          setSaveStatus("error");
-          alert("Failed to save address. Please try again.");
-        } finally {
-          setIsSavingAddress(false);
+          if (duplicate) {
+            // Store pending address and show dialog
+            setPendingAddressData(newAddress);
+            setDuplicateResult(duplicate);
+            setShowDuplicateDialog(true);
+            return;
+          }
+        } catch (err) {
+          // If duplicate check fails, proceed anyway
+          console.warn("Duplicate check failed:", err);
         }
       }
+
+      // If project is NOT paid, show verification modal
+      if (!project.payment_completed) {
+        setVerificationAddressData(newAddress);
+        setShowVerificationModal(true);
+        return;
+      }
+
+      // Already paid, save directly
+      await saveAddressToDatabase(newAddress);
     },
-    [project.id, userId, supabase]
+    [org?.id, project.id, project.payment_completed, saveAddressToDatabase]
   );
 
-  // Calculate pricing
-  const pricingTier = project.square_footage
-    ? getPricingTier(project.square_footage)
-    : null;
+  // Handle duplicate dialog confirmation
+  const handleDuplicateConfirm = useCallback(async () => {
+    if (pendingAddressData) {
+      await saveAddressToDatabase(pendingAddressData);
+    }
+    setShowDuplicateDialog(false);
+    setPendingAddressData(null);
+    setDuplicateResult(null);
+  }, [pendingAddressData, saveAddressToDatabase]);
 
-  const hasSubscription = user
-    ? hasActiveSubscription(user)
-    : false;
+  // Handle duplicate dialog cancel
+  const handleDuplicateCancel = useCallback(() => {
+    setShowDuplicateDialog(false);
+    setPendingAddressData(null);
+    setDuplicateResult(null);
+  }, []);
 
-  const totalQuote = quote.materialsCost + quote.laborCost + quote.permitsFees + quote.contingency;
+  // Handle verification modal - confirm with SF pool
+  const handleVerificationConfirmWithPool = useCallback(async () => {
+    if (!verificationAddressData || !org) return;
+
+    try {
+      // Deduct from SF pool
+      const res = await fetch(`/api/orgs/${org.id}/sf-pool/deduct`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: project.id,
+          squareFootage: projectSF,
+          notes: `Unlocked project: ${project.name}`,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to deduct from SF pool");
+      }
+
+      // Save address
+      await saveAddressToDatabase(verificationAddressData);
+
+      // Refresh project data
+      const { data: updatedProject } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("id", project.id)
+        .single();
+
+      if (updatedProject) {
+        setProject(updatedProject);
+      }
+
+      // Refresh org data to update pool balance
+      await refreshOrgs();
+
+      // Close modal
+      setShowVerificationModal(false);
+      setVerificationAddressData(null);
+    } catch (err: any) {
+      console.error("Pool verification failed:", err);
+      throw err;
+    }
+  }, [verificationAddressData, org, project.id, project.name, projectSF, saveAddressToDatabase, supabase, refreshOrgs]);
+
+  // Handle verification modal - confirm with promo code
+  const handleVerificationConfirmWithPromo = useCallback(
+    async (promoCode: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+      if (!verificationAddressData) {
+        return { success: false, error: "No address data" };
+      }
+
+      try {
+        const res = await fetch("/api/promo-keys/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            keyCode: promoCode,
+            projectId: project.id,
+            userId: userId,
+          }),
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          return { success: false, error: data.error || "Invalid promo code" };
+        }
+
+        // Save address
+        await saveAddressToDatabase(verificationAddressData);
+
+        // Refresh project data
+        const { data: updatedProject } = await supabase
+          .from("projects")
+          .select("*")
+          .eq("id", project.id)
+          .single();
+
+        if (updatedProject) {
+          setProject(updatedProject);
+        }
+
+        // Close modal
+        setShowVerificationModal(false);
+        setVerificationAddressData(null);
+
+        return { success: true, message: data.message };
+      } catch (err: any) {
+        return { success: false, error: err.message || "Failed to apply promo code" };
+      }
+    },
+    [verificationAddressData, project.id, userId, saveAddressToDatabase, supabase]
+  );
+
+  // Handle verification modal cancel
+  const handleVerificationCancel = useCallback(() => {
+    setShowVerificationModal(false);
+    setVerificationAddressData(null);
+  }, []);
+
+  const pricingTier = project.square_footage ? getPricingTier(project.square_footage) : null;
+
+  const tabs = [
+    { id: "overview", label: "Overview", icon: FileText },
+    { id: "3d-model", label: "3D Model", icon: Box },
+    { id: "estimation", label: "Estimation", icon: DollarSign },
+  ] as const;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-neutral-50 to-stone-50">
-      {/* Enhanced Header with Autosave Indicator */}
-      <header className="sticky top-0 z-50 border-b border-white/20 bg-white/70 backdrop-blur-xl shadow-sm">
-        <div className="mx-auto max-w-[1920px] px-6 py-3">
-          <div className="flex items-center justify-between">
-            {/* Left: Back Button */}
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 transition-all hover:bg-white/80 hover:text-neutral-900"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Dashboard</span>
-            </Link>
-
-            {/* Center: Project Title */}
-            <div className="flex-1 mx-6">
-              <h1 className="text-center text-lg font-semibold text-neutral-900 truncate">
-                {project.name}
-              </h1>
+    <div className="min-h-screen bg-neutral-50">
+      {/* Header - Matches Dashboard */}
+      <header className="sticky top-0 z-40 bg-white border-b border-neutral-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between h-16">
+            {/* Left: Back + Logo */}
+            <div className="flex items-center gap-4">
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-2 text-neutral-600 hover:text-neutral-900 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="hidden sm:inline text-sm font-medium">Dashboard</span>
+              </Link>
+              <div className="h-6 w-px bg-neutral-200" />
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center">
+                  <Building2 className="w-3.5 h-3.5 text-white" />
+                </div>
+                <span className="text-sm font-semibold text-neutral-900 hidden sm:inline">MyMetalRoofer</span>
+              </div>
             </div>
 
-            {/* Right: Save Status + User Avatar */}
+            {/* Center: Project Name + Creator */}
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-semibold text-neutral-900 truncate max-w-xs">
+                  {project.name}
+                </h1>
+                <OwnershipBadge isOwn={isOwn} size="sm" />
+              </div>
+              {creator && (
+                <div className="flex items-center gap-2 text-xs text-neutral-500">
+                  <CreatorAvatar creator={creator} size="sm" />
+                  <span>
+                    {isOwn ? "Created by you" : `Created by ${creator.full_name || creator.email.split("@")[0]}`}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Right: Status + Save Indicator */}
             <div className="flex items-center gap-3">
-              {/* Autosave Status */}
-              <AnimatePresence mode="wait">
-                {saveStatus === "saving" && (
+              {/* Save Status */}
+              <AnimatePresence>
+                {saving && (
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs text-blue-700"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center gap-1.5 text-xs text-neutral-500"
                   >
-                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <Loader2 className="w-3 h-3 animate-spin" />
                     Saving...
                   </motion.div>
                 )}
-                {saveStatus === "saved" && (
+                {saveMessage === "Saved" && !saving && (
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center gap-1.5 text-xs text-emerald-600"
                   >
-                    <Check className="h-3 w-3" />
-                    Saved {lastSavedTime && `at ${lastSavedTime}`}
-                  </motion.div>
-                )}
-                {saveStatus === "error" && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="rounded-full bg-red-50 px-3 py-1.5 text-xs text-red-700"
-                  >
-                    Error saving
+                    <Check className="w-3 h-3" />
+                    Saved
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* User Avatar */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md transition-all hover:shadow-lg hover:scale-105"
-                >
-                  {user?.avatar_url ? (
-                    <img
-                      src={user.avatar_url}
-                      alt={user.full_name || user.email}
-                      className="h-full w-full rounded-full object-cover"
-                    />
-                  ) : (
-                    <User className="h-4 w-4" />
-                  )}
-                </button>
-
-                {/* Settings Dropdown */}
-                <AnimatePresence>
-                  {showSettings && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="absolute right-0 top-12 w-56 rounded-xl border border-neutral-200 bg-white/95 backdrop-blur-xl shadow-xl"
-                    >
-                      <div className="p-3 border-b border-neutral-100">
-                        <p className="text-sm font-medium text-neutral-900">{user?.full_name || "User"}</p>
-                        <p className="text-xs text-neutral-500">{user?.email}</p>
-                      </div>
-                      <div className="p-2">
-                        <Link
-                          href="/settings"
-                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50"
-                        >
-                          <Settings className="h-4 w-4" />
-                          Account Settings
-                        </Link>
-                        <Link
-                          href="/dashboard"
-                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50"
-                        >
-                          <ArrowLeft className="h-4 w-4" />
-                          All Projects
-                        </Link>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content with Tabbed Interface */}
-      <div className="mx-auto max-w-[1920px] p-4 md:p-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          {/* Tab Navigation - Apple-style */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-white/50 bg-white/80 p-2 shadow-lg backdrop-blur-xl"
-          >
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-2 bg-transparent">
-              <TabsTrigger
-                value="overview"
-                className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white"
+      {/* Tab Navigation */}
+      <div className="bg-white border-b border-neutral-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <nav className="flex gap-1 -mb-px">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab.id
+                    ? "border-slate-900 text-slate-900"
+                    : "border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300"
+                }`}
               >
-                <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Overview</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="3d-model"
-                className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white"
-              >
-                <Box className="h-4 w-4" />
-                <span className="hidden sm:inline">3D Model</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="materials"
-                className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white"
-              >
-                <Package className="h-4 w-4" />
-                <span className="hidden sm:inline">CAD Export</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="quote"
-                className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white"
-              >
-                <DollarSign className="h-4 w-4" />
-                <span className="hidden sm:inline">Quote</span>
-              </TabsTrigger>
-            </TabsList>
-          </motion.div>
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
 
-          {/* Tab Content with Framer Motion Transitions */}
-          <AnimatePresence mode="wait">
-            {/* OVERVIEW TAB */}
-            <TabsContent value="overview" className="mt-0">
-              <motion.div
-                key="overview"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.3 }}
-                className="grid grid-cols-1 gap-6 lg:grid-cols-3"
-              >
-                {/* Left Column - Project Details */}
-                <div className="space-y-6 lg:col-span-2">
-                  {/* Project Stats Cards */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      className="rounded-2xl border border-white/50 bg-white/80 p-4 shadow-lg backdrop-blur-xl text-center"
-                    >
-                      <BarChart3 className="h-6 w-6 mx-auto mb-2 text-blue-500" />
-                      <p className="text-2xl font-bold text-neutral-900">
-                        {project.square_footage?.toLocaleString() || "—"}
-                      </p>
-                      <p className="text-xs text-neutral-600">Square Feet</p>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      className="rounded-2xl border border-white/50 bg-white/80 p-4 shadow-lg backdrop-blur-xl text-center"
-                    >
-                      <MapPin className="h-6 w-6 mx-auto mb-2 text-teal-500" />
-                      <p className="text-2xl font-bold text-neutral-900">
-                        {addressData ? "✓" : "—"}
-                      </p>
-                      <p className="text-xs text-neutral-600">Address Set</p>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      className="rounded-2xl border border-white/50 bg-white/80 p-4 shadow-lg backdrop-blur-xl text-center"
-                    >
-                      <DollarSign className="h-6 w-6 mx-auto mb-2 text-emerald-500" />
-                      <p className="text-2xl font-bold text-neutral-900">
-                        ${totalQuote.toLocaleString()}
-                      </p>
-                      <p className="text-xs text-neutral-600">Est. Total</p>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      className="rounded-2xl border border-white/50 bg-white/80 p-4 shadow-lg backdrop-blur-xl text-center"
-                    >
-                      <Check className="h-6 w-6 mx-auto mb-2 text-blue-500" />
-                      <p className="text-2xl font-bold text-neutral-900">
-                        {project.payment_completed ? "Paid" : "Pending"}
-                      </p>
-                      <p className="text-xs text-neutral-600">Status</p>
-                    </motion.div>
-                  </div>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        <AnimatePresence mode="wait">
+          {/* OVERVIEW TAB */}
+          {activeTab === "overview" && (
+            <motion.div
+              key="overview"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-6"
+            >
+              {/* Stats Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <StatCard
+                  label="Square Feet"
+                  value={project.square_footage?.toLocaleString() || "—"}
+                  icon={BarChart3}
+                  color="blue"
+                />
+                <StatCard
+                  label="Status"
+                  value={project.payment_completed ? "Verified" : "Draft"}
+                  icon={project.payment_completed ? CheckCircle2 : Clock}
+                  color={project.payment_completed ? "green" : "neutral"}
+                />
+              </div>
 
+              <div className="grid lg:grid-cols-3 gap-6">
+                {/* Left Column */}
+                <div className="lg:col-span-2 space-y-6">
                   {/* Project Details Card */}
-                  <div className="rounded-2xl border border-white/50 bg-white/80 p-6 shadow-lg backdrop-blur-xl">
-                    <ProjectDetails
-                      project={project}
-                      onUpdate={handleUpdateProject}
-                      isUpdating={isUpdating}
-                    />
-                  </div>
-
-                  {/* Address Card */}
-                  <div className="rounded-2xl border border-white/50 bg-white/80 p-6 shadow-lg backdrop-blur-xl">
-                    <div className="mb-4 flex items-center gap-2">
-                      <div className="rounded-lg bg-teal-100 p-2">
-                        <MapPin className="h-5 w-5 text-teal-600" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-neutral-900">
-                        Property Location
-                      </h3>
+                  <div className="rounded-xl border border-neutral-200 bg-white p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-semibold text-neutral-900">Project Details</h2>
+                      {!isEditingDetails ? (
+                        <Button variant="ghost" size="sm" onClick={() => setIsEditingDetails(true)}>
+                          <Pencil className="w-4 h-4 mr-1" />
+                          Edit
+                        </Button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => {
+                            setIsEditingDetails(false);
+                            setEditName(project.name);
+                            setEditDescription(project.description || "");
+                          }}>
+                            <X className="w-4 h-4 mr-1" />
+                            Cancel
+                          </Button>
+                          <Button size="sm" onClick={handleSaveDetails} disabled={saving}>
+                            <Save className="w-4 h-4 mr-1" />
+                            Save
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    <AddressInput
-                      value={addressData}
-                      onChange={handleAddressChange}
-                      disabled={isSavingAddress}
-                      placeholder="Search address..."
-                    />
-                    {addressData && (
-                      <div className="mt-4 rounded-xl bg-neutral-50 p-4 text-sm">
-                        <p className="text-neutral-600">
-                          <strong>Coordinates:</strong><br />
-                          {addressData.latitude.toFixed(6)}, {addressData.longitude.toFixed(6)}
-                        </p>
+
+                    {isEditingDetails ? (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-neutral-700 mb-1">Project Name</label>
+                          <Input
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            placeholder="Enter project name"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-neutral-700 mb-1">Description</label>
+                          <Textarea
+                            value={editDescription}
+                            onChange={(e) => setEditDescription(e.target.value)}
+                            placeholder="Optional notes about the project"
+                            rows={3}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-sm text-neutral-500">Name</p>
+                          <p className="font-medium text-neutral-900">{project.name}</p>
+                        </div>
+                        {project.description && (
+                          <div>
+                            <p className="text-sm text-neutral-500">Description</p>
+                            <p className="text-neutral-700">{project.description}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Creator Attribution */}
+                    {creator && (
+                      <div className="mt-6 pt-4 border-t border-neutral-100">
+                        <p className="text-sm text-neutral-500 mb-2">Created by</p>
+                        <div className="flex items-center gap-3">
+                          <CreatorAvatar creator={creator} size="md" />
+                          <div>
+                            <p className="font-medium text-neutral-900">
+                              {creator.full_name || creator.email.split("@")[0]}
+                              {isOwn && <span className="ml-2 text-blue-600 text-sm">(You)</span>}
+                            </p>
+                            <p className="text-sm text-neutral-500">{creator.email}</p>
+                          </div>
+                          <div className="ml-auto">
+                            <OwnershipBadge isOwn={isOwn} size="md" />
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center gap-4 text-xs text-neutral-500">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            Created {new Date(project.created_at).toLocaleDateString()}
+                          </div>
+                          {project.updated_at && (
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Updated {new Date(project.updated_at).toLocaleDateString()}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
+
+                  {/* Address Card */}
+                  <div className={`rounded-xl border ${project.payment_completed ? "border-emerald-200 bg-emerald-50/30" : "border-neutral-200 bg-white"} p-6`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${project.payment_completed ? "bg-emerald-100" : "bg-teal-50"}`}>
+                          <MapPin className={`w-4 h-4 ${project.payment_completed ? "text-emerald-600" : "text-teal-600"}`} />
+                        </div>
+                        <h2 className="text-lg font-semibold text-neutral-900">Property Address</h2>
+                      </div>
+                      {project.payment_completed && (
+                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Verified
+                        </Badge>
+                      )}
+                    </div>
+
+                    {project.payment_completed ? (
+                      // Verified: Show address with option to change
+                      <>
+                        <AddressInput
+                          value={addressData}
+                          onChange={handleAddressChange}
+                          disabled={saving}
+                          placeholder="Search for an address..."
+                        />
+                        {addressData && (
+                          <div className="mt-4 p-3 rounded-lg bg-emerald-50 text-sm text-emerald-700">
+                            <p><strong>Coordinates:</strong> {addressData.latitude.toFixed(6)}, {addressData.longitude.toFixed(6)}</p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      // Not verified: Show address input with verification hint
+                      <>
+                        <AddressInput
+                          value={addressData}
+                          onChange={handleAddressChange}
+                          disabled={saving}
+                          placeholder="Search for an address..."
+                        />
+                        <div className="mt-3 p-3 rounded-lg bg-blue-50 border border-blue-100">
+                          <p className="text-sm text-blue-700 flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                            <span>
+                              Entering an address will prompt verification. You can use your organization's SF pool or a promo code to unlock this project.
+                            </span>
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* CAD Export Section (if paid) */}
+                  {project.payment_completed && (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                          <Package className="w-4 h-4 text-emerald-600" />
+                        </div>
+                        <div>
+                          <h2 className="text-lg font-semibold text-neutral-900">CAD Files Ready</h2>
+                          <p className="text-sm text-neutral-600">Download your project files</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {["DWG", "DXF", "PDF", "CSV"].map((format) => (
+                          <Button key={format} variant="outline" className="bg-white">
+                            <Download className="w-4 h-4 mr-2" />
+                            {format}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Right Column - Metadata & Actions */}
+                {/* Right Column */}
                 <div className="space-y-6">
-                  {/* Project Metadata */}
-                  <div className="rounded-2xl border border-white/50 bg-white/80 p-6 shadow-lg backdrop-blur-xl">
-                    <h3 className="mb-4 text-lg font-semibold text-neutral-900">
-                      Project Info
-                    </h3>
+                  {/* Project Info */}
+                  <div className="rounded-xl border border-neutral-200 bg-white p-6">
+                    <h3 className="text-lg font-semibold text-neutral-900 mb-4">Project Info</h3>
                     <div className="space-y-3 text-sm">
                       <div className="flex items-center justify-between">
-                        <span className="text-neutral-600">Created</span>
+                        <span className="text-neutral-500 flex items-center gap-2">
+                          <Calendar className="w-4 h-4" />
+                          Created
+                        </span>
                         <span className="font-medium text-neutral-900">
                           {new Date(project.created_at).toLocaleDateString()}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-neutral-600">Last Updated</span>
+                        <span className="text-neutral-500 flex items-center gap-2">
+                          <Clock className="w-4 h-4" />
+                          Updated
+                        </span>
                         <span className="font-medium text-neutral-900">
                           {new Date(project.updated_at).toLocaleDateString()}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-neutral-600">Payment</span>
-                        <Badge variant={project.payment_completed ? "default" : "secondary"}>
-                          {project.payment_completed ? "Completed" : "Pending"}
-                        </Badge>
-                      </div>
+                      {pricingTier && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-neutral-500">Pricing Tier</span>
+                          <span className="font-medium text-neutral-900">{pricingTier.label}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Quick Actions */}
-                  <div className="rounded-2xl border border-white/50 bg-white/80 p-6 shadow-lg backdrop-blur-xl">
-                    <h3 className="mb-4 text-lg font-semibold text-neutral-900">
-                      Quick Actions
-                    </h3>
+                  <div className="rounded-xl border border-neutral-200 bg-white p-6">
+                    <h3 className="text-lg font-semibold text-neutral-900 mb-4">Quick Actions</h3>
                     <div className="space-y-2">
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => setActiveTab("quote")}
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Export Quote PDF
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => alert("Share coming soon!")}
-                      >
-                        <Send className="mr-2 h-4 w-4" />
-                        Send to Client
-                      </Button>
                       <Button
                         variant="outline"
                         className="w-full justify-start"
                         onClick={() => setActiveTab("3d-model")}
                       >
-                        <Box className="mr-2 h-4 w-4" />
+                        <Box className="w-4 h-4 mr-2" />
                         View 3D Model
                       </Button>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            </TabsContent>
-
-            {/* 3D MODEL TAB */}
-            <TabsContent value="3d-model" className="mt-0">
-              <motion.div
-                key="3d-model"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.3 }}
-                className="rounded-2xl border border-white/50 bg-white/80 shadow-2xl backdrop-blur-xl overflow-hidden"
-                style={{ height: "calc(100vh - 240px)", minHeight: "600px" }}
-              >
-                <ProjectViewer
-                  projectId={project.id}
-                  projectName={project.name}
-                />
-              </motion.div>
-            </TabsContent>
-
-            {/* CAD EXPORT TAB */}
-            <TabsContent value="materials" className="mt-0">
-              <motion.div
-                key="materials"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.3 }}
-              >
-                {project.payment_completed ? (
-                  // UNLOCKED - Show CAD Export Options
-                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                    {/* Left - CAD Export Options */}
-                    <div className="lg:col-span-2 space-y-6">
-                      <div className="rounded-2xl border border-white/50 bg-white/80 p-6 shadow-lg backdrop-blur-xl">
-                        <div className="flex items-center gap-3 mb-6">
-                          <div className="rounded-lg bg-emerald-100 p-2">
-                            <Package className="h-5 w-5 text-emerald-600" />
-                          </div>
-                          <div>
-                            <h2 className="text-2xl font-bold text-neutral-900">
-                              CAD Files & Specifications
-                            </h2>
-                            <p className="text-sm text-neutral-600">
-                              Export detailed technical drawings for your metal roof project
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Export Formats */}
-                        <div className="space-y-4 mb-6">
-                          <h3 className="text-lg font-semibold text-neutral-900">Available Export Formats</h3>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {[
-                              { format: "DWG", desc: "AutoCAD Drawing", icon: "📐" },
-                              { format: "DXF", desc: "Drawing Exchange Format", icon: "📄" },
-                              { format: "PDF", desc: "Technical Drawings", icon: "📋" },
-                              { format: "CSV", desc: "Material Cut List", icon: "📊" },
-                            ].map((item) => (
-                              <button
-                                key={item.format}
-                                className="flex items-center gap-3 p-4 rounded-xl border border-neutral-200 bg-white hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
-                              >
-                                <span className="text-2xl">{item.icon}</span>
-                                <div>
-                                  <p className="font-semibold text-neutral-900">{item.format}</p>
-                                  <p className="text-xs text-neutral-600">{item.desc}</p>
-                                </div>
-                                <Download className="ml-auto h-5 w-5 text-neutral-400" />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Technical Specifications */}
-                        <div className="rounded-xl bg-neutral-50 p-4 space-y-3">
-                          <h4 className="text-sm font-semibold text-neutral-900">Technical Specifications</h4>
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <p className="text-neutral-600">Roof Area</p>
-                              <p className="font-medium text-neutral-900">2,500 SF</p>
-                            </div>
-                            <div>
-                              <p className="text-neutral-600">Panel Type</p>
-                              <p className="font-medium text-neutral-900">Standing Seam</p>
-                            </div>
-                            <div>
-                              <p className="text-neutral-600">Gauge</p>
-                              <p className="font-medium text-neutral-900">24 Gauge</p>
-                            </div>
-                            <div>
-                              <p className="text-neutral-600">Coating</p>
-                              <p className="font-medium text-neutral-900">Kynar 500</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Material Cut List */}
-                      <div className="rounded-2xl border border-white/50 bg-white/80 p-6 shadow-lg backdrop-blur-xl">
-                        <h3 className="text-lg font-semibold text-neutral-900 mb-4">
-                          Material Cut List
-                        </h3>
-                        <div className="space-y-2">
-                          {[
-                            { item: "16\" Standing Seam Panels", qty: "42 sheets", length: "20' each" },
-                            { item: "Ridge Cap", qty: "65 LF", length: "10' lengths" },
-                            { item: "Eave Trim", qty: "120 LF", length: "12' lengths" },
-                            { item: "Gable Trim", qty: "80 LF", length: "10' lengths" },
-                            { item: "Panel Clips", qty: "840 pcs", length: "—" },
-                            { item: "Self-Tapping Screws", qty: "12 lbs", length: "#10 x 1\"" },
-                          ].map((material, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between p-3 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors"
-                            >
-                              <div className="flex-1">
-                                <p className="text-sm font-medium text-neutral-900">{material.item}</p>
-                                <p className="text-xs text-neutral-600">{material.length}</p>
-                              </div>
-                              <span className="text-sm font-semibold text-neutral-700">{material.qty}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right - Download Actions */}
-                    <div className="space-y-6">
-                      <div className="rounded-2xl border border-white/50 bg-gradient-to-br from-emerald-50 to-white p-6 shadow-lg backdrop-blur-xl">
-                        <div className="flex items-center gap-2 mb-4">
-                          <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                          <h3 className="text-lg font-semibold text-neutral-900">
-                            Export Ready
-                          </h3>
-                        </div>
-
-                        <p className="text-sm text-neutral-600 mb-6">
-                          Your project has been unlocked. Download CAD files and technical specifications for fabrication.
-                        </p>
-
-                        <div className="space-y-3">
-                          <Button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
-                            <Download className="mr-2 h-4 w-4" />
-                            Download All Files (.zip)
-                          </Button>
-                          <Button variant="outline" className="w-full">
-                            <FileText className="mr-2 h-4 w-4" />
-                            Technical Specifications PDF
-                          </Button>
-                          <Button variant="outline" className="w-full">
-                            <Package className="mr-2 h-4 w-4" />
-                            Material Cut List (CSV)
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Project Info */}
-                      <div className="rounded-2xl border border-white/50 bg-white/80 p-6 shadow-lg backdrop-blur-xl">
-                        <h4 className="text-sm font-semibold text-neutral-900 mb-3">
-                          Project Details
-                        </h4>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-neutral-600">Square Footage</span>
-                            <span className="font-medium text-neutral-900">2,500 SF</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-neutral-600">Pricing Tier</span>
-                            <span className="font-medium text-neutral-900">
-                              {pricingTier?.label || "Standard"}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-neutral-600">Project Fee</span>
-                            <span className="font-medium text-neutral-900">
-                              ${pricingTier?.price ? (pricingTier.price / 100).toFixed(2) : "60.00"}
-                            </span>
-                          </div>
-                          <div className="border-t border-neutral-200 pt-2 mt-2">
-                            <div className="flex justify-between">
-                              <span className="text-neutral-600">Status</span>
-                              <span className="flex items-center gap-1 text-emerald-600 font-medium">
-                                <CheckCircle2 className="h-3 w-3" />
-                                Paid
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  // LOCKED - Show Paywall
-                  <div className="rounded-2xl border border-white/50 bg-gradient-to-br from-white via-blue-50/20 to-indigo-50/20 p-12 shadow-lg backdrop-blur-xl">
-                    <div className="max-w-2xl mx-auto text-center">
-                      {/* Lock Icon */}
-                      <div className="relative mx-auto mb-6 w-20 h-20">
-                        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 opacity-20 blur-xl"></div>
-                        <div className="relative rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 p-6 flex items-center justify-center">
-                          <Package className="h-8 w-8 text-white" />
-                        </div>
-                      </div>
-
-                      <h2 className="text-3xl font-bold text-neutral-900 mb-3">
-                        CAD Files & Specifications
-                      </h2>
-                      <p className="text-neutral-600 mb-8">
-                        Unlock detailed CAD drawings, cut lists, and technical specifications for your metal roof project
-                      </p>
-
-                      {/* Features List */}
-                      <div className="rounded-xl bg-white/80 p-6 mb-8 text-left">
-                        <h3 className="text-lg font-semibold text-neutral-900 mb-4">What's Included:</h3>
-                        <ul className="space-y-3">
-                          {[
-                            "Complete CAD files (DWG, DXF formats)",
-                            "Technical specification PDF with dimensions",
-                            "Material cut list with exact quantities",
-                            "Panel layout and installation guide",
-                            "Trim and flashing specifications",
-                            "Fastener schedule and placement diagrams",
-                          ].map((feature, idx) => (
-                            <li key={idx} className="flex items-start gap-3 text-sm">
-                              <CheckCircle2 className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                              <span className="text-neutral-700">{feature}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* Pricing */}
-                      <div className="rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 p-6 text-white mb-6">
-                        {hasSubscription ? (
-                          // User has subscription - show only project fee
-                          <>
-                            <div className="flex items-center justify-between">
-                              <div className="text-left">
-                                <p className="text-sm opacity-90">Project Square Footage</p>
-                                <p className="text-3xl font-bold mt-1">2,500 SF</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-sm opacity-90">One-Time Fee</p>
-                                <p className="text-3xl font-bold mt-1">
-                                  ${pricingTier?.price ? (pricingTier.price / 100).toFixed(2) : "60.00"}
-                                </p>
-                              </div>
-                            </div>
-                            <p className="text-xs opacity-75 mt-4">
-                              Based on {pricingTier?.label || "1,501 - 3,000 SF"} tier pricing
-                            </p>
-                          </>
-                        ) : (
-                          // User doesn't have subscription - show subscription + project fee breakdown
-                          <>
-                            <div className="space-y-3 mb-4">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm opacity-90">Project Fee (2,500 SF)</span>
-                                <span className="text-lg font-semibold">
-                                  ${pricingTier?.price ? (pricingTier.price / 100).toFixed(2) : "60.00"}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="border-t border-white/20 pt-3">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm opacity-90">Total Today</span>
-                                <span className="text-3xl font-bold">
-                                  ${((1000 + (pricingTier?.price || 6000)) / 100).toFixed(2)}
-                                </span>
-                              </div>
-                            </div>
-                          </>
-                        )}
-                      </div>
-
-                      {/* CTA */}
-                      {hasSubscription ? (
-                        <Button
-                          size="lg"
-                          className="bg-white text-blue-600 hover:bg-neutral-50 px-8 py-6 text-lg font-semibold"
-                          onClick={async () => {
-                            try {
-                              const res = await fetch("/api/stripe/checkout", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  userId,
-                                  projectId: project.id,
-                                  type: "per_project",
-                                  squareFootage: 2500,
-                                }),
-                              });
-
-                              const data = await res.json();
-                              if (!res.ok) throw new Error(data.error || "Failed to create checkout");
-
-                              if (data.url) {
-                                window.location.href = data.url;
-                              }
-                            } catch (err: any) {
-                              console.error("Checkout error:", err);
-                              alert(err.message || "Failed to start checkout. Please try again.");
-                            }
-                          }}
-                        >
-                          <CreditCard className="mr-2 h-5 w-5" />
-                          Unlock CAD Files - ${pricingTier?.price ? (pricingTier.price / 100).toFixed(2) : "60.00"}
-                        </Button>
-                      ) : (
-                        <Button
-                          size="lg"
-                          className="bg-white text-blue-600 hover:bg-neutral-50 px-8 py-6 text-lg font-semibold"
-                          onClick={async () => {
-                            try {
-                              const res = await fetch("/api/stripe/checkout", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  userId,
-                                  projectId: project.id,
-                                  type: "subscription_plus_project",
-                                  squareFootage: 2500,
-                                }),
-                              });
-
-                              const data = await res.json();
-                              if (!res.ok) throw new Error(data.error || "Failed to create checkout");
-
-                              if (data.url) {
-                                window.location.href = data.url;
-                              }
-                            } catch (err: any) {
-                              console.error("Checkout error:", err);
-                              alert(err.message || "Failed to start checkout. Please try again.");
-                            }
-                          }}
-                        >
-                          <CreditCard className="mr-2 h-5 w-5" />
-                          Subscribe + Unlock - ${((1000 + (pricingTier?.price || 6000)) / 100).toFixed(2)}
-                        </Button>
-                      )}
-
-                      <p className="text-xs text-neutral-500 mt-6">
-                        Secure payment • Instant download • Cancel anytime
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            </TabsContent>
-
-            {/* QUOTE & INVOICE TAB */}
-            <TabsContent value="quote" className="mt-0">
-              <motion.div
-                key="quote"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.3 }}
-                className="grid grid-cols-1 gap-6 lg:grid-cols-3"
-              >
-                {/* Left - Quote Preview */}
-                <div className="lg:col-span-2">
-                  <div className="rounded-2xl border border-white/50 bg-white/80 p-8 shadow-lg backdrop-blur-xl">
-                    {/* Quote Header */}
-                    <div className="mb-8 flex items-start justify-between border-b border-neutral-200 pb-6">
-                      <div>
-                        <h1 className="text-3xl font-bold text-neutral-900 mb-2">
-                          Project Quote
-                        </h1>
-                        <p className="text-sm text-neutral-600">{project.name}</p>
-                        {addressData && (
-                          <p className="text-sm text-neutral-600">
-                            {addressData.formatted_address}
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-neutral-600">Quote Date</p>
-                        <p className="text-sm font-medium text-neutral-900">
-                          {new Date().toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Line Items */}
-                    <div className="space-y-4 mb-8">
-                      <div className="flex justify-between py-3 border-b border-neutral-100">
-                        <div>
-                          <p className="font-medium text-neutral-900">Materials</p>
-                          <p className="text-sm text-neutral-600">
-                            Standing seam panels, synthetic underlayment
-                          </p>
-                        </div>
-                        <p className="font-medium text-neutral-900">
-                          ${quote.materialsCost.toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="flex justify-between py-3 border-b border-neutral-100">
-                        <div>
-                          <p className="font-medium text-neutral-900">Labor</p>
-                          <p className="text-sm text-neutral-600">
-                            Installation and removal ({project.square_footage} SF)
-                          </p>
-                        </div>
-                        <p className="font-medium text-neutral-900">
-                          ${quote.laborCost.toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="flex justify-between py-3 border-b border-neutral-100">
-                        <div>
-                          <p className="font-medium text-neutral-900">Permits & Fees</p>
-                          <p className="text-sm text-neutral-600">Building permits and inspections</p>
-                        </div>
-                        <p className="font-medium text-neutral-900">
-                          ${quote.permitsFees.toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="flex justify-between py-3 border-b border-neutral-100">
-                        <div>
-                          <p className="font-medium text-neutral-900">Contingency (5%)</p>
-                          <p className="text-sm text-neutral-600">Unforeseen conditions</p>
-                        </div>
-                        <p className="font-medium text-neutral-900">
-                          ${quote.contingency.toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Total */}
-                    <div className="rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 p-6 text-white">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm opacity-90">Total Project Cost</p>
-                          <p className="text-xs opacity-75 mt-1">Valid for 30 days</p>
-                        </div>
-                        <p className="text-4xl font-bold">
-                          ${totalQuote.toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Terms */}
-                    <div className="mt-8 rounded-xl bg-neutral-50 p-4">
-                      <p className="text-xs font-medium text-neutral-700 mb-2">Terms & Conditions</p>
-                      <p className="text-xs text-neutral-600 leading-relaxed">
-                        50% deposit required to begin work. Final payment due upon completion.
-                        Warranty: 20-year manufacturer warranty on materials, 5-year workmanship guarantee.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right - Actions */}
-                <div className="space-y-6">
-                  <div className="rounded-2xl border border-white/50 bg-white/80 p-6 shadow-lg backdrop-blur-xl">
-                    <h3 className="text-lg font-semibold text-neutral-900 mb-4">
-                      Quote Actions
-                    </h3>
-                    <div className="space-y-3">
-                      <Button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
-                        <Download className="mr-2 h-4 w-4" />
-                        Download PDF
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start"
+                        onClick={() => setActiveTab("estimation")}
+                      >
+                        <DollarSign className="w-4 h-4 mr-2" />
+                        Create Estimate
                       </Button>
-                      <Button variant="outline" className="w-full">
-                        <Send className="mr-2 h-4 w-4" />
+                      <Button variant="outline" className="w-full justify-start">
+                        <Send className="w-4 h-4 mr-2" />
                         Send to Client
                       </Button>
-                      <Button variant="outline" className="w-full">
-                        <Clock className="mr-2 h-4 w-4" />
-                        View History
-                      </Button>
                     </div>
                   </div>
 
-                  {/* Payment Status */}
-                  <div className="rounded-2xl border border-white/50 bg-white/80 p-6 shadow-lg backdrop-blur-xl">
-                    <h3 className="text-lg font-semibold text-neutral-900 mb-4">
-                      Payment Status
-                    </h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-neutral-600">Deposit (50%)</span>
-                        <Badge variant={project.payment_completed ? "default" : "secondary"}>
-                          {project.payment_completed ? "Paid" : "Pending"}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-neutral-600">Final Payment</span>
-                        <Badge variant="secondary">Pending</Badge>
-                      </div>
-                    </div>
-                  </div>
+                  {/* Activity Timeline */}
+                  <ProjectActivityTimeline projectId={project.id} />
                 </div>
-              </motion.div>
-            </TabsContent>
+              </div>
+            </motion.div>
+          )}
 
-          </AnimatePresence>
-        </Tabs>
+          {/* 3D MODEL TAB */}
+          {activeTab === "3d-model" && (
+            <motion.div
+              key="3d-model"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="rounded-xl border border-neutral-200 bg-white overflow-hidden"
+              style={{ height: "calc(100vh - 200px)", minHeight: "500px" }}
+            >
+              <ProjectViewer
+                projectId={project.id}
+                projectName={project.name}
+                onCanvasReady={(canvas) => {
+                  canvasRef.current = canvas;
+                }}
+              />
+            </motion.div>
+          )}
+
+          {/* ESTIMATION TAB */}
+          {activeTab === "estimation" && (
+            <motion.div
+              key="estimation"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <EstimationTab
+                project={project}
+                user={user}
+                userId={userId}
+                organizationId={org?.id}
+                addressData={addressData}
+                canvasRef={canvasRef}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      {/* Duplicate Address Warning Dialog */}
+      <DuplicateAddressDialog
+        open={showDuplicateDialog}
+        onOpenChange={setShowDuplicateDialog}
+        duplicate={duplicateResult}
+        address={pendingAddressData ? `${pendingAddressData.address}, ${pendingAddressData.city}, ${pendingAddressData.state}` : ""}
+        onConfirm={handleDuplicateConfirm}
+        onCancel={handleDuplicateCancel}
+      />
+
+      {/* Address Verification Modal */}
+      {showVerificationModal && verificationAddressData && (
+        <AddressVerificationModal
+          addressData={{
+            address: verificationAddressData.address,
+            city: verificationAddressData.city,
+            state: verificationAddressData.state,
+            zip: verificationAddressData.postal_code,
+          }}
+          squareFootage={projectSF}
+          sfPool={pool}
+          projectId={project.id}
+          userId={userId}
+          onConfirmWithPool={handleVerificationConfirmWithPool}
+          onConfirmWithPromo={handleVerificationConfirmWithPromo}
+          onCancel={handleVerificationCancel}
+        />
+      )}
+    </div>
+  );
+}
+
+// Stat Card Component
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  color,
+}: {
+  label: string;
+  value: string;
+  icon: any;
+  color: "blue" | "green" | "amber" | "neutral";
+}) {
+  const colors = {
+    blue: "bg-blue-50 text-blue-600",
+    green: "bg-emerald-50 text-emerald-600",
+    amber: "bg-amber-50 text-amber-600",
+    neutral: "bg-neutral-100 text-neutral-600",
+  };
+
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-white p-4">
+      <div className="flex items-center gap-3 mb-2">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${colors[color]}`}>
+          <Icon className="w-4 h-4" />
+        </div>
+        <span className="text-sm text-neutral-500">{label}</span>
       </div>
+      <p className="text-xl font-semibold text-neutral-900">{value}</p>
     </div>
   );
 }
