@@ -14,6 +14,7 @@ import { SketchLine } from "./drawings";
 
 import TestingConfig from "./EditorUI.json";
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
+import { Test } from "./backend";
 
 type BABYLON_LineOptions = {
     points: BABYLON.Vector3[];
@@ -110,6 +111,8 @@ type EditorControls = {
 };
 
 export class Editor {
+    static ActiveEditor: Editor;
+
     Engine: BABYLON.Engine;
     Scene: BABYLON.Scene;
     Camera: BABYLON.ArcRotateCamera;
@@ -348,7 +351,7 @@ export class Editor {
         let FirstRotation = false;
 
         Scene.onPointerObservable.add((pi) => {
-            if (this.RoofUI.isForegroundPicked) return; // Prevent drawing when interacting with GUI
+            // if (this.RoofUI.isForegroundPicked) return; // Prevent drawing when interacting with GUI
             // pi.pickInfo?
 
             const p = this.pickOnGround(Scene.pointerX, Scene.pointerY);
@@ -387,13 +390,13 @@ export class Editor {
             }
 
             if (ChangingPitch && pi.type === BABYLON.PointerEventTypes.POINTERWHEEL && SketchLine.ActiveSketch) {
-                console.log(pi);
+                // console.log(pi);
                 // console.log(pi.event.wheelDelta);
                 let IncrementValue = (HoldingShift ? .5 : 1) * (pi.event.wheelDelta / 120);
-                SketchLine.ActiveSketch.Line0.PITCH = Math.max(0, SketchLine.ActiveSketch.Line0.PITCH + IncrementValue);
-                SketchLine.ActiveSketch.Line1.PITCH = Math.max(0, SketchLine.ActiveSketch.Line1.PITCH + IncrementValue);
-                SketchLine.ActiveSketch.LineA.PITCH = Math.max(0, SketchLine.ActiveSketch.LineA.PITCH + IncrementValue);
-                SketchLine.ActiveSketch.LineB.PITCH = Math.max(0, SketchLine.ActiveSketch.LineB.PITCH + IncrementValue);
+                SketchLine.ActiveSketch.Lines["0"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["0"].PITCH + IncrementValue);
+                SketchLine.ActiveSketch.Lines["1"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["1"].PITCH + IncrementValue);
+                SketchLine.ActiveSketch.Lines["A"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["A"].PITCH + IncrementValue);
+                SketchLine.ActiveSketch.Lines["B"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["B"].PITCH + IncrementValue);
                 SketchLine.ActiveSketch.UpdateWithPointer(HoldingShift);
             }
         });
@@ -403,7 +406,7 @@ export class Editor {
 
         var PanelViewCollapsed = true;
 
-        Scene.onKeyboardObservable.add((kbInfo) => {
+        Scene.onKeyboardObservable.add(async (kbInfo) => {
             if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYDOWN) {
                 switch (kbInfo.event.key) {
                     case "p":
@@ -437,6 +440,18 @@ export class Editor {
                         if (SketchLine.ActiveSketch && SketchLine.ActiveSketch.HasExtruded) SketchLine.ActiveSketch.DrawingMode = SketchLine.ActiveSketch.DrawingMode == "LINE" ? "EXTRUSION" : "LINE";
                         SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
                         break;
+
+
+
+                    case "o":
+                        // await Test(37.443185078072716, -122.13801955359011);
+                        // await Test(37.444938331695944, -122.13916635930947);
+                        // await Test(37.44412278382237, -122.13891846157102);
+                        await Test(36.278676208726246, -86.53094040983781);
+                        break;
+
+
+
 
                     case "e":
                         ChangingPitch = true;
@@ -603,28 +618,28 @@ export class Editor {
             let TEXT = PrimaryText0.text;
             PrimaryText0.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
             if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.Line0.PRIMARY = PrimaryText0.text;
+            SketchLine.ActiveSketch.Lines["0"].PRIMARY = PrimaryText0.text;
         });
 
         UI_Controls.Primary1.onPointerClickObservable.add(function (eventData, eventState) {
             let TEXT = PrimaryText1.text;
             PrimaryText1.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
             if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.Line1.PRIMARY = PrimaryText1.text;
+            SketchLine.ActiveSketch.Lines["1"].PRIMARY = PrimaryText1.text;
         });
 
         UI_Controls.Primary2.onPointerClickObservable.add(function (eventData, eventState) {
             let TEXT = PrimaryText2.text;
             PrimaryText2.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
             if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.LineA.PRIMARY = PrimaryText2.text;
+            SketchLine.ActiveSketch.Lines["A"].PRIMARY = PrimaryText2.text;
         });
 
         UI_Controls.Primary3.onPointerClickObservable.add(function (eventData, eventState) {
             let TEXT = PrimaryText3.text;
             PrimaryText3.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
             if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.LineB.PRIMARY = PrimaryText3.text;
+            SketchLine.ActiveSketch.Lines["B"].PRIMARY = PrimaryText3.text;
         });
         // console.log(UI_Controls.Rise0);
         // UI_Controls.Rise0.onTextChangedObservable.add(function (test) {
@@ -643,29 +658,29 @@ export class Editor {
         UI_Controls.Checkbox0.onIsCheckedChangedObservable.add(function (Value) {
             UpdateDrawing();
             if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.Line0.ENABLED = Value;
+            SketchLine.ActiveSketch.Lines["0"].ENABLED = Value;
         });
 
         UI_Controls.Checkbox1.onIsCheckedChangedObservable.add(function (Value) {
             UpdateDrawing();
             if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.Line1.ENABLED = Value;
+            SketchLine.ActiveSketch.Lines["1"].ENABLED = Value;
         });
 
         UI_Controls.Checkbox2.onIsCheckedChangedObservable.add(function (Value) {
             UI_Controls.Checkbox3.isChecked = Value ? UI_Controls.Checkbox3.isChecked : true
             UpdateDrawing();
             if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.LineB.ENABLED = UI_Controls.Checkbox3.isChecked;
-            SketchLine.ActiveSketch.LineA.ENABLED = Value;
+            SketchLine.ActiveSketch.Lines["B"].ENABLED = UI_Controls.Checkbox3.isChecked;
+            SketchLine.ActiveSketch.Lines["A"].ENABLED = Value;
         });
 
         UI_Controls.Checkbox3.onIsCheckedChangedObservable.add(function (Value) {
             UI_Controls.Checkbox2.isChecked = Value ? UI_Controls.Checkbox2.isChecked : true;
             UpdateDrawing();
             if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.LineA.ENABLED = UI_Controls.Checkbox2.isChecked;
-            SketchLine.ActiveSketch.LineB.ENABLED = Value;
+            SketchLine.ActiveSketch.Lines["A"].ENABLED = UI_Controls.Checkbox2.isChecked;
+            SketchLine.ActiveSketch.Lines["B"].ENABLED = Value;
         });
     }
 }

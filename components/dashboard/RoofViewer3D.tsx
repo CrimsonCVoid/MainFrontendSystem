@@ -271,10 +271,10 @@ export default function RoofViewer3D({
       cameraRef.current = Camera;
 
       // light
-      new BABYLON.HemisphericLight("h", new BABYLON.Vector3(0, 1, 0), Scene).intensity = .4; // 0.8;
-      const sun = new BABYLON.DirectionalLight("sun", new BABYLON.Vector3(-0.6, -1, -0.3), Scene);
-      sun.position = new BABYLON.Vector3(15, 20, 12);
-      sun.intensity = .4; // 1.1;
+      new BABYLON.HemisphericLight("h", new BABYLON.Vector3(0, 1, 0), Scene).intensity = 0.8;
+      const sun = new BABYLON.DirectionalLight("sun", new BABYLON.Vector3(-0.6, 1, -0.3), Scene);
+      sun.position = new BABYLON.Vector3(15, 2000, 12);
+      sun.intensity = 1.1;
 
       // Root transform node for rotation control
       const root = new BABYLON.TransformNode("root", Scene);
@@ -282,7 +282,7 @@ export default function RoofViewer3D({
       // Metal roof panel material (PBR with metallic properties)
       const panelMat = new BABYLON.PBRMetallicRoughnessMaterial("panelMat", Scene);
       panelMat.baseColor = BABYLON.Color3.FromHexString(selectedColor);
-      panelMat.metallic = 1; panelMat.roughness = 0.25;
+      panelMat.metallic = .5; panelMat.roughness = 0.25;
       panelMat.backFaceCulling = false;
       panelMaterialRef.current = panelMat;
 
@@ -454,7 +454,8 @@ export default function RoofViewer3D({
 
 
 
-      let ActiveEditor = new Editor(Engine, Scene, Camera, RoofUI, window);
+      let ActiveEditor = Editor.ActiveEditor = new Editor(Engine, Scene, Camera, RoofUI, window);
+      Editor.meshesRef = meshesRef;
 
 
 
@@ -480,6 +481,7 @@ export default function RoofViewer3D({
         const box = BABYLON.MeshBuilder.CreateBox(name, boxSettings, Scene);
         boxSettings.instance = box;
         box.material = panelMat;
+        Editor.meshesRef = meshesRef;
         meshesRef.current.push([box, boxSettings, name]);
 
         const sign = side === "left" ? -1 : +1;
@@ -540,6 +542,7 @@ export default function RoofViewer3D({
   // Update material color when selectedColor changes
   useEffect(() => {
     if (panelMaterialRef.current) {
+      Editor.meshesRef = meshesRef;
       panelMaterialRef.current.baseColor = BABYLON.Color3.FromHexString(selectedColor);
       for (let Data of meshesRef.current) {
         Data[0].material = panelMaterialRef.current; // .baseColor = BABYLON.Color3.FromHexString(selectedColor);

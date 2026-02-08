@@ -81,8 +81,9 @@ export class Vector3 {
 
 
 
-    DistanceFromPoint(A: Vector3) { return ((this.X - A.X) ** 2 + (this.Y - A.Y) ** 2 + (this.Z - A.Z) ** 2) ** .5; };
-    DistanceFromPointV2(A: Vector3) { return ((this.X - A.X) ** 2 + (this.Y - A.Y) ** 2) ** .5; };
+    DistanceFromPoint(A: Vector3) { return ((this.x - A.x) ** 2 + (this.y - A.y) ** 2 + (this.z - A.z) ** 2) ** .5; };
+    DistanceFromPointV2(A: Vector3) { return ((this.x - A.x) ** 2 + (this.y - A.y) ** 2) ** .5; };
+    DistanceFromPointXZ(A: Vector3) { return ((this.x - A.x) ** 2 + (this.z - A.z) ** 2) ** .5; };
 
 
     PointOnSegment(a: Vector3, b: Vector3, eps = 1e-10) {
@@ -198,7 +199,7 @@ export function segmentIntersection2D(p1: Vector3, p2: Vector3, p3: Vector3, p4:
         ((x1 * y2 - y1 * x2) * (y3 - y4) -
             (y1 - y2) * (x3 * y4 - y3 * x4)) / denom;
 
-    return { point: new Vector3(px, py), t1: (px - x1) / (x2 - x1), t2: (px - x3) / (x4 - x3) };
+    return { point: new Vector3(px, py), t1: (px - x1) / (x2 - x1), t2: (px - x3) / (x4 - x3), p1: p1, p2: p2, p3: p3, p4: p4 };
 }
 
 function segmentIntersection3D(p1: Vector3, p2: Vector3, p3: Vector3, p4: Vector3, epsilon = 1e-6) {
