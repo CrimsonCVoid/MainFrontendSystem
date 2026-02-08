@@ -90,43 +90,43 @@ export async function Test(Lat: number | string, Lon: number | string) {
         let Info = CalculateCorners(Data, Roof);
         let Length = ((Info.NE.x - Info.SW.x) ** 2 + (Info.NE.y - Info.SW.y) ** 2) ** .5;
         let Angle = Roof.azimuthDegrees * Math.PI / 180;
-        // let Sketch = new SketchLine(Editor.ActiveEditor, Info.CT.x - Info.dx * 100, Info.CT.y - Info.dy * 100, 0); // Info.NE.y); // Math.round(p.y));
-        // Sketch.Start();
-        // Sketch.Angle = Angle;
-        // Sketch.Length = Length;
-        // let CheapCF = CFrame.Angles(0, -Angle, 0).ToWorldSpace(CFrame.fromXYZ(0, 0, Length / 4));
-        // console.log(CheapCF);
-        // Sketch.X0 = Info.CT.x - Info.dx * Length / 2 + CheapCF.Z;
-        // Sketch.Y0 = Info.CT.y - Info.dy * Length / 2 + CheapCF.X;
-        // Sketch.X1 = Info.CT.x + Info.dx * Length / 2 + CheapCF.Z;
-        // Sketch.Y1 = Info.CT.y + Info.dy * Length / 2 + CheapCF.X;
-        // Sketch.Commit();
-        // Sketch.Lines["0"].ENABLED = false;
-        // Sketch.Lines["1"].ENABLED = false;
-        // // Sketch.Lines["A"].ENABLED = false;
-        // Sketch.Lines["B"].ENABLED = false;
-        // // Sketch.Lines["B"].RISE = 10;
-        // // Sketch.Lines["B"].RUN = 10;
-
-        // Sketch.Lines["A"].PRIMARY = "D";
-        // Sketch.Lines["0"].PRIMARY = "D";
-        // Sketch.Lines["1"].PRIMARY = "D";
-        // Sketch.Lines["B"].PRIMARY = "D";
-
-        // Sketch.Lines["A"].PITCH = Math.tan(Roof.pitchDegrees * Math.PI / 180) * 12;
-        // Sketch.Lines["B"].PITCH = Sketch.Lines["A"].PITCH;
-        // Sketch.Lines["1"].PITCH = Sketch.Lines["A"].PITCH;
-        // Sketch.Lines["0"].PITCH = Sketch.Lines["A"].PITCH;
-
-        // Sketch.Lines["0"].RISE = Length / 2 * Math.tan(Roof.pitchDegrees * Math.PI / 180);
-        // Sketch.Lines["1"].RISE = Length / 2 * Math.tan(Roof.pitchDegrees * Math.PI / 180);
-        // Sketch.Lines["A"].RISE = Length / 2 * Math.tan(Roof.pitchDegrees * Math.PI / 180);
-        // Sketch.Lines["B"].RISE = Length / 2 * Math.tan(Roof.pitchDegrees * Math.PI / 180);
-
-        // Sketch.Lines["0"].RUN = 10;
-        // Sketch.Lines["1"].RUN = 10;
-        // Sketch.Lines["A"].RUN = Length / 2; // 10;
+        let Sketch = new SketchLine(Editor.ActiveEditor, Info.CT.x - Info.dx * 100, Info.CT.y - Info.dy * 100, 0); // Info.NE.y); // Math.round(p.y));
+        Sketch.Start();
+        Sketch.Angle = Angle;
+        Sketch.Length = Length;
+        let CheapCF = CFrame.Angles(0, -Angle, 0).ToWorldSpace(CFrame.fromXYZ(0, 0, Length / 4));
+        console.log(CheapCF);
+        Sketch.X0 = Info.CT.x - Info.dx * Length / 2 + CheapCF.Z;
+        Sketch.Y0 = Info.CT.y - Info.dy * Length / 2 + CheapCF.X;
+        Sketch.X1 = Info.CT.x + Info.dx * Length / 2 + CheapCF.Z;
+        Sketch.Y1 = Info.CT.y + Info.dy * Length / 2 + CheapCF.X;
+        Sketch.Commit();
+        Sketch.Lines["0"].ENABLED = false;
+        Sketch.Lines["1"].ENABLED = false;
+        // Sketch.Lines["A"].ENABLED = false;
+        Sketch.Lines["B"].ENABLED = false;
+        // Sketch.Lines["B"].RISE = 10;
         // Sketch.Lines["B"].RUN = 10;
+
+        Sketch.Lines["A"].PRIMARY = "D";
+        Sketch.Lines["0"].PRIMARY = "D";
+        Sketch.Lines["1"].PRIMARY = "D";
+        Sketch.Lines["B"].PRIMARY = "D";
+
+        Sketch.Lines["A"].PITCH = Math.tan(Roof.pitchDegrees * Math.PI / 180) * 12;
+        Sketch.Lines["B"].PITCH = Sketch.Lines["A"].PITCH;
+        Sketch.Lines["1"].PITCH = Sketch.Lines["A"].PITCH;
+        Sketch.Lines["0"].PITCH = Sketch.Lines["A"].PITCH;
+
+        Sketch.Lines["0"].RISE = Length / 2 * Math.tan(Roof.pitchDegrees * Math.PI / 180);
+        Sketch.Lines["1"].RISE = Length / 2 * Math.tan(Roof.pitchDegrees * Math.PI / 180);
+        Sketch.Lines["A"].RISE = Length / 2 * Math.tan(Roof.pitchDegrees * Math.PI / 180);
+        Sketch.Lines["B"].RISE = Length / 2 * Math.tan(Roof.pitchDegrees * Math.PI / 180);
+
+        Sketch.Lines["0"].RUN = 10;
+        Sketch.Lines["1"].RUN = 10;
+        Sketch.Lines["A"].RUN = Length / 2; // 10;
+        Sketch.Lines["B"].RUN = 10;
 
         // Sketch.Lines["0"].RISE = Sketch.Lines["A"].RISE;
         // Sketch.Lines["1"].RISE = Sketch.Lines["0"].RISE;
