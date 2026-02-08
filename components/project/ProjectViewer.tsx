@@ -9,12 +9,14 @@ interface ProjectViewerProps {
   projectId: string;
   projectName: string;
   roofData?: any; // KY - Pass project.roof_data from parent
+  onCanvasReady?: (canvas: HTMLCanvasElement) => void;
 }
 
 export default function ProjectViewer({
   projectId,
   projectName,
   roofData, // KY - Use this to pass to RoofViewer3D
+  onCanvasReady,
 }: ProjectViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -89,6 +91,7 @@ export default function ProjectViewer({
           pitch={0.5}
           spin={false}
           hideControls={false}
+          onCanvasReady={onCanvasReady}
           // roofData={roofData}
         />
       </div>

@@ -19,7 +19,7 @@ export function createSupabaseBrowserClient(): SupabaseClient<Database> {
   const isBrowser = typeof window !== "undefined";
 
   return createBrowserClient<Database>(supabaseUrl!, supabaseAnonKey!, {
-    cookieEncoding: "raw",
+    // Note: Don't set cookieEncoding here - must match server clients (default: base64)
     auth: {
       persistSession: isBrowser,
       autoRefreshToken: true,
