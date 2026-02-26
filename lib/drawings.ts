@@ -160,29 +160,51 @@ export class ExtrusionLines {
         this.ExtrudedLine = ExtrudedLine;
 
         let V0 = ExtrudedLine.FocusSketchLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 0 : 1];
-        let V1 = ExtrudedLine.FocusSketchLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 1 : 0];
+        let V1 = ExtrudedLine.FocusSketchLine.LineSettings.points[ExtrudedLine.FocusPoint1 == "V0" ? 0 : 1];
 
-        if (ExtrudedLine.IsParallel) {
-            this.LineASettings = { points: [ExtrudedLine.FocusPoint0 == "V0" ? V1 : V0, ExtrudedLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 1 : 0]], updatable: true };
-            this.LineA = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings, this.ActiveEditor.Scene);
-            this.LineASettings.instance = this.LineA;
-            this.LineA.color = new BABYLON.Color3(0, 1, 1);
+        this.LineASettings = { points: [ExtrudedLine.FocusPoint0 == "V0" ? V1 : V0, ExtrudedLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 1 : 0]], updatable: true };
+        this.LineASettings.instance = this.LineA = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings, this.ActiveEditor.Scene);
+        this.LineA.color = new BABYLON.Color3(0, 1, 1);
+        // this.LineA.isVisible = false;
 
-            this.LineBSettings = { points: [ExtrudedLine.FocusPoint0 == "V0" ? V0 : V1, ExtrudedLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 0 : 1]], updatable: true };
-            this.LineB = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings, this.ActiveEditor.Scene);
-            this.LineBSettings.instance = this.LineB;
-            this.LineB.color = new BABYLON.Color3(0, 1, 1);
-        } else {
-            this.LineASettings = { points: [V0, ExtrudedLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 0 : 1]], updatable: true };
-            this.LineA = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings, this.ActiveEditor.Scene);
-            this.LineASettings.instance = this.LineA;
-            this.LineA.color = new BABYLON.Color3(0, 1, 1);
 
-            this.LineBSettings = { points: [V0, ExtrudedLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 1 : 0]], updatable: true };
-            this.LineB = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings, this.ActiveEditor.Scene);
-            this.LineBSettings.instance = this.LineB;
-            this.LineB.color = new BABYLON.Color3(0, 1, 1);
-        }
+        this.LineBSettings = { points: [ExtrudedLine.FocusPoint0 == "V0" ? V0 : V1, ExtrudedLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 0 : 1]], updatable: true };
+        this.LineBSettings.instance = this.LineB = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings, this.ActiveEditor.Scene);
+        this.LineB.color = new BABYLON.Color3(0, 1, 1);
+
+
+        // if (ExtrudedLine.IsParallel || ExtrudedLine.Length != 0) {
+        //     this.LineASettings = { points: [ExtrudedLine.FocusPoint0 == "V0" ? V1 : V0, ExtrudedLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 1 : 0]], updatable: true };
+        //     this.LineASettings.instance = this.LineA = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings, this.ActiveEditor.Scene);
+        //     this.LineA.color = new BABYLON.Color3(1, 1, 0);
+        //     // this.LineA.isVisible = false;
+
+
+        //     this.LineBSettings = { points: [ExtrudedLine.FocusPoint0 == "V0" ? V0 : V1, ExtrudedLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 0 : 1]], updatable: true };
+        //     this.LineBSettings.instance = this.LineB = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings, this.ActiveEditor.Scene);
+        //     this.LineB.color = new BABYLON.Color3(0, 1, 1);
+        // this.LineB.isVisible = false;
+        // } else {
+        //     this.LineASettings = { points: [V0, ExtrudedLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 0 : 1]], updatable: true };
+        //     this.LineASettings.instance = this.LineA = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings, this.ActiveEditor.Scene);
+        //     this.LineA.color = new BABYLON.Color3(0, 1, 1);
+        //     // this.LineA.isVisible = false;
+
+        //     this.LineBSettings = { points: [V0, ExtrudedLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 1 : 0]], updatable: true };
+        //     this.LineBSettings.instance = this.LineB = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings, this.ActiveEditor.Scene);
+        //     this.LineB.color = new BABYLON.Color3(0, 1, 1);
+        //     // this.LineB.isVisible = false;
+        // }
+
+        // this.LineA.isVisible = ExtrudedLine.Angle == 0 || ExtrudedLine.Angle == 180;
+        // this.LineB.isVisible = ExtrudedLine.Angle == 0 || ExtrudedLine.Angle == 180;
+        // this.LineA.color = this.LineB.color =
+        //     ExtrudedLine.Angle == 0 ? new BABYLON.Color3(1, 0, 0) : // "0" //
+        //         ExtrudedLine.Angle == 90 ? new BABYLON.Color3(0, 1, 0) : // "A" //
+        //             ExtrudedLine.Angle == 180 ? new BABYLON.Color3(0, 0, 1) : // "1" //
+        //                 ExtrudedLine.Angle == 270 ? new BABYLON.Color3(1, 1, 1) : // "B" //
+        //                     new BABYLON.Color3(0, 0, 0);
+
         this.PolygonSettings = { sideOrientation: BABYLON.Mesh.DOUBLESIDE, shape: [this.LineASettings.points[0], this.LineASettings.points[1], this.LineBSettings.points[1], this.LineBSettings.points[0]], updatable: true };
         this.Polygon = BABYLON.MeshBuilder.CreatePolygon("POLY", this.PolygonSettings, this.ActiveEditor.Scene, BABYLON_EARCUT.earcut);
 
@@ -239,7 +261,7 @@ export class ExtrusionLines {
 
         let NewCF = FocusCF.ToWorldSpace(CFrame.Angles(0, 0, -Math.PI / 2)); // FocusCF; // CFrame.Angles(0, 0, -Math.PI / 2).ToWorldSpace(FocusCF); //.ToWorldSpace(Surface.FocusCF);
         let BBL = NewCF.ToBabylon(); // I had to name this variable BBL. LOL
-        console.log(BBL);
+        // console.log(BBL);
         this.BBL = BBL;
         this.Polygon.position.copyFrom(this.BBL[0]);
         this.Polygon.rotationQuaternion?.copyFrom(this.BBL[1]);
@@ -251,7 +273,18 @@ export class ExtrusionLines {
 
 
         this.MAT = new BABYLON.StandardMaterial("material", this.ActiveEditor.Scene);
-        this.MAT.diffuseColor = this.ExtrudedLine.IsParallel ? new BABYLON.Color3(0, 0, 1) : new BABYLON.Color3(1, 0, 0);
+        // this.MAT.diffuseColor =
+        //     this.ExtrudedLine.Angle == 0 ? new BABYLON.Color3(1, 0, 0) : // "0" //
+        //         this.ExtrudedLine.Angle == 90 ? new BABYLON.Color3(0, 1, 0) : // "A" //
+        //             this.ExtrudedLine.Angle == 180 ? new BABYLON.Color3(0, 0, 1) : // "1" //
+        //                 this.ExtrudedLine.Angle == 270 ? new BABYLON.Color3(1, 1, 1) : // "B" //
+        //                     new BABYLON.Color3(0, 0, 0); // this.ExtrudedLine.IsParallel ? new BABYLON.Color3(0, 0, 1) : new BABYLON.Color3(1, 0, 0);
+        // this.MAT.diffuseColor =
+        //     this.ExtrudedLine.ID == "0" ? new BABYLON.Color3(1, 0, 0) :
+        //         this.ExtrudedLine.ID == "A" ? new BABYLON.Color3(0, 1, 0) :
+        //             this.ExtrudedLine.ID == "1" ? new BABYLON.Color3(0, 0, 1) :
+        //                 this.ExtrudedLine.ID == "B" ? new BABYLON.Color3(1, 1, 1) :
+        //                     new BABYLON.Color3(0, 0, 0); // this.ExtrudedLine.IsParallel ? new BABYLON.Color3(0, 0, 1) : new BABYLON.Color3(1, 0, 0);
     }
 
     Update() {
@@ -259,7 +292,7 @@ export class ExtrusionLines {
         this.LineB = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings);
         this.Polygon?.dispose();
 
-        let MainLength = this.ExtrudedLine.IsParallel ? this.ExtrudedLine.CF0.Distance(this.ExtrudedLine.CF1) : 0;
+        let MainLength = this.ExtrudedLine.Length; // this.ExtrudedLine.IsParallel ? this.ExtrudedLine.CF0.Distance(this.ExtrudedLine.CF1) : 0;
         let BottomLength = MainLength + this.ExtrudedLine.ExtrudeA + this.ExtrudedLine.ExtrudeB;
         let TopCF = CFrame.fromXYZ(MainLength, 0, 0);
 
@@ -284,7 +317,7 @@ export class ExtrusionLines {
 
         // console.log("FlattenedPoints:", FlattenedPoints);
 
-        let FocusCF = (this.ExtrudedLine.IsParallel ? this.ExtrudedLine.CF0.ToWorldSpace(CFrame.Angles(0, -Math.PI / 2, 0)) : this.ExtrudedLine.CF0).ToWorldSpace(RoofAngle); // EdgeCF; // HeadingCF.Rotation.TranslateAdd(Averaged);
+        let FocusCF = ((this.ExtrudedLine.IsParallel || true) ? this.ExtrudedLine.CF0.ToWorldSpace(CFrame.Angles(0, Math.PI, 0)) : this.ExtrudedLine.CF0).ToWorldSpace(RoofAngle); // EdgeCF; // HeadingCF.Rotation.TranslateAdd(Averaged);
 
 
         let Bounds = Vector3.Bounds(FlattenedPoints);
@@ -307,8 +340,14 @@ export class ExtrusionLines {
         let BBL = FocusCF.ToBabylon(); // I had to name this variable BBL. LOL
         this.BBL = BBL;
         // if (true) return;
+        // if (!this.ExtrudedLine.ENABLED) {
+        this.Polygon = BABYLON.MeshBuilder.CreatePolygon("POLY", this.PolygonSettings, null, BABYLON_EARCUT.earcut);
+        this.Polygon.material = this.MAT;
         this.Polygon.position.copyFrom(this.BBL[0]);
         this.Polygon.rotationQuaternion = this.BBL[1];
+        this.PanelSettings?.instance?.dispose();
+        return;
+        // };
 
         let PanelThickness = .0179;
         // shape.push(new BABYLON.Vector3(-X, 0, 0));
@@ -385,7 +424,8 @@ export class ExtrusionLines {
         this.PanelSettings.instance = BABYLON.MeshBuilder.ExtrudeShape(`PANEL`, this.PanelSettings, this.ActiveEditor.Scene).convertToFlatShadedMesh(); // this.ActiveEditor.Scene);
         Editor.meshesRef.current.push([this.PanelSettings.instance, this.PanelSettings, "PANEL"]);
 
-        if (this.ExtrudedLine.IsParallel) {
+        // if (this.ExtrudedLine.IsParallel) {
+        {
             this.TESTYSETTINGS?.instance?.dispose();
             this.TESTYSETTINGS = {
                 shape: [
@@ -408,32 +448,33 @@ export class ExtrusionLines {
             this.TESTYSETTINGS.instance = BABYLON.MeshBuilder.ExtrudeShape(`PANEL`, this.TESTYSETTINGS, this.ActiveEditor.Scene).convertToFlatShadedMesh(); // this.ActiveEditor.Scene);
             this.TESTYSETTINGS.instance.position = P_BBL[0];
             this.TESTYSETTINGS.instance.rotationQuaternion = P_BBL[1];
-        };
+        }
+        // };
 
-        // {
-        //     this.TESTYSETTINGSSIDE?.instance?.dispose();
-        //     this.TESTYSETTINGSSIDE = {
-        //         shape: [
-        //             new BABYLON.Vector3(-BottomLength / 2 + MainLength / 2, 0, 0),
-        //             new BABYLON.Vector3(-BottomLength / 2 + MainLength / 2, 2, 0),
-        //             new BABYLON.Vector3(BottomLength / 2 + MainLength / 2, 2, 0),
-        //             new BABYLON.Vector3(BottomLength / 2 + MainLength / 2, 0, 0),
-        //         ],
-        //         path: [
-        //             new BABYLON.Vector3(0, 2, 0),
-        //             new BABYLON.Vector3(0, -2, 4),
-        //         ],
+        {
+            //     this.TESTYSETTINGSSIDE?.instance?.dispose();
+            //     this.TESTYSETTINGSSIDE = {
+            //         shape: [
+            //             new BABYLON.Vector3(-BottomLength / 2 + MainLength / 2, 0, 0),
+            //             new BABYLON.Vector3(-BottomLength / 2 + MainLength / 2, 2, 0),
+            //             new BABYLON.Vector3(BottomLength / 2 + MainLength / 2, 2, 0),
+            //             new BABYLON.Vector3(BottomLength / 2 + MainLength / 2, 0, 0),
+            //         ],
+            //         path: [
+            //             new BABYLON.Vector3(0, 2, 0),
+            //             new BABYLON.Vector3(0, -2, 4),
+            //         ],
 
-        //         // capFunction: (shapePath: BABYLON.Vector3[]) => shapePath.map(v => new BABYLON.Vector3(v.x * 0, v.y * 1, v.z)),
-        //         cap: BABYLON.Mesh.CAP_ALL,
-        //         sideOrientation: BABYLON.Mesh.DOUBLESIDE, // DEFAULTSIDE,
-        //         updatable: true,
-        //     };
-        //     let P_BBL = FocusCF.ToWorldSpace(CFrame.fromXYZ(0, PanelThickness + 10, ExtrudeLength)).ToBabylon(); // FocusCF.ToWorldSpace(CFrame.fromXYZ(0, PanelThickness, 0)).ToBabylon();
-        //     this.TESTYSETTINGSSIDE.instance = BABYLON.MeshBuilder.ExtrudeShape(`PANEL`, this.TESTYSETTINGSSIDE, this.ActiveEditor.Scene).convertToFlatShadedMesh(); // this.ActiveEditor.Scene);
-        //     this.TESTYSETTINGSSIDE.instance.position = P_BBL[0];
-        //     this.TESTYSETTINGSSIDE.instance.rotationQuaternion = P_BBL[1];
-        // }
+            //         // capFunction: (shapePath: BABYLON.Vector3[]) => shapePath.map(v => new BABYLON.Vector3(v.x * 0, v.y * 1, v.z)),
+            //         cap: BABYLON.Mesh.CAP_ALL,
+            //         sideOrientation: BABYLON.Mesh.DOUBLESIDE, // DEFAULTSIDE,
+            //         updatable: true,
+            //     };
+            //     let P_BBL = FocusCF.ToWorldSpace(CFrame.fromXYZ(0, PanelThickness + 10, ExtrudeLength)).ToBabylon(); // FocusCF.ToWorldSpace(CFrame.fromXYZ(0, PanelThickness, 0)).ToBabylon();
+            //     this.TESTYSETTINGSSIDE.instance = BABYLON.MeshBuilder.ExtrudeShape(`PANEL`, this.TESTYSETTINGSSIDE, this.ActiveEditor.Scene).convertToFlatShadedMesh(); // this.ActiveEditor.Scene);
+            //     this.TESTYSETTINGSSIDE.instance.position = P_BBL[0];
+            //     this.TESTYSETTINGSSIDE.instance.rotationQuaternion = P_BBL[1];
+        }
 
         {
             // this.TESTYSETTINGSSIDE?.instance?.dispose();
@@ -521,6 +562,18 @@ export class ExtrusionLines {
         // BABYLON.MeshBuilder.ExtrudeShapeCustom("POLY",)
     }
 
+    GetHeightAtX(X: number) {
+        let MainLength = this.ExtrudedLine.Length;
+        let BottomLength = MainLength + this.ExtrudedLine.ExtrudeA + this.ExtrudedLine.ExtrudeB;
+        let ExtrudeLength = (this.ExtrudedLine.RISE ** 2 + this.ExtrudedLine.RUN ** 2) ** .5;
+        if (X <= this.ExtrudedLine.ExtrudeB) {
+            return X / this.ExtrudedLine.ExtrudeB * ExtrudeLength;
+        } else if (X <= this.ExtrudedLine.ExtrudeB + MainLength) {
+            return ExtrudeLength;
+        }
+        return (BottomLength - X) / this.ExtrudedLine.ExtrudeA * ExtrudeLength;
+    }
+
     Delete() {
         this.LineA?.dispose();
         this.LineB?.dispose();
@@ -583,9 +636,9 @@ export class ExtrudedLine {
     };
 
     FocusSketchLine: SketchLine;
-    FocusPoint0: string;
-    FocusPoint1: string;
-    IsParallel = true; // PERPENDICULAR | PARALLEL
+    FocusPoint0: "V0" | "V1";
+    FocusPoint1: "V0" | "V1";
+    // IsParallel = true; // PERPENDICULAR | PARALLEL
 
     // ExtrudeA = 0;
     // ExtrudeB = 0;
@@ -596,22 +649,31 @@ export class ExtrudedLine {
     LineConnectA!: ExtrudedLine;
     LineConnectB!: ExtrudedLine;
 
+    Length: number = 0;
+    Angle: number = 0;
+
     LineSettings: LineSettingsPeanut;
     Line: BABYLON.LinesMesh;
 
     SketchExtrusionLines: ExtrusionLines;
 
-    constructor(FocusSketchLine: SketchLine, FocusPoint0: string, FocusPoint1: string, IsParallel = true) {
+    constructor(FocusSketchLine: SketchLine, FocusPoint0: "V0" | "V1", FocusPoint1: "V0" | "V1", Angle = 0) { // IsParallel = true) {
         this.ActiveEditor = FocusSketchLine.ActiveEditor;
         this.FocusSketchLine = FocusSketchLine;
         this.FocusPoint0 = FocusPoint0;
         this.FocusPoint1 = FocusPoint1;
-        this.IsParallel = IsParallel;
+        // this.IsParallel = IsParallel;
+        this.Angle = Angle; // - 90;
 
         this.LineSettings = { points: [new BABYLON.Vector3(), new BABYLON.Vector3()], updatable: true };
-        this.Line = BABYLON.MeshBuilder.CreateLines("LINE", this.LineSettings, this.ActiveEditor.Scene);
-        this.LineSettings.instance = this.Line;
+        this.LineSettings.instance = this.Line = BABYLON.MeshBuilder.CreateLines("LINE", this.LineSettings, this.ActiveEditor.Scene);
         this.Line.color = new BABYLON.Color3(0, 1, 0);
+        this.Line.isVisible = false;
+        // this.Line.color = Angle == 0 ? new BABYLON.Color3(1, 0, 0) : // "0" //
+        //     Angle == 90 ? new BABYLON.Color3(0, 1, 0) : // "A" //
+        //         Angle == 180 ? new BABYLON.Color3(0, 0, 1) : // "1" //
+        //             Angle == 270 ? new BABYLON.Color3(1, 1, 1) : // "B" //
+        //                 new BABYLON.Color3(0, 0, 0);
 
         this.SketchExtrusionLines = new ExtrusionLines(this);
         // if (this.SketchExtrusionLines.LineB) this.SketchExtrusionLines.LineB.color = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
@@ -630,25 +692,28 @@ export class ExtrudedLine {
     Update() {
         if (!this.Line) return;
 
-        this.CF0 = CFrame.lookAt(this.FocusSketchLine[this.FocusPoint0], this.FocusSketchLine[this.FocusPoint1]);
-        this.CF1 = CFrame.lookAt(this.FocusSketchLine[this.FocusPoint1], this.FocusSketchLine[this.FocusPoint0]);
+        // this.CF0 = CFrame.lookAt(this.FocusSketchLine[this.FocusPoint0], this.FocusSketchLine[this.FocusPoint1]);
+        // this.CF1 = CFrame.lookAt(this.FocusSketchLine[this.FocusPoint1], this.FocusSketchLine[this.FocusPoint0]);
+        this.CF0 = CFrame.fromVector3(this.FocusSketchLine[this.FocusPoint0]).ToWorldSpace(CFrame.Angles(0, -this.FocusSketchLine.Angle + (this.Angle + 90) * Math.PI / 180, 0));
+        // this.CF1 = CFrame.fromVector3(this.FocusSketchLine[this.FocusPoint1]).ToWorldSpace(CFrame.Angles(0, this.FocusSketchLine.Angle + (this.Angle + 180 - 90) * Math.PI / 180, 0));
+        this.CF1 = this.CF0.ToWorldSpace(CFrame.fromXYZ(this.Length, 0, 0)); // .ToWorldSpace(CFrame.Angles(0, Math.PI, 0));
 
         let RUN = this.RUN;
         let RISE = this._RISE;
 
-        if (this.IsParallel) {
-            // this.B0 = CFrame.fromXYZ(this.ExtrudeA, -RISE, -RUN);
-            // this.A0 = CFrame.fromXYZ(-this.ExtrudeB, -RISE, RUN);
-            this.A0 = CFrame.fromXYZ(-RUN, -RISE, this.ExtrudeA);
-            this.B0 = CFrame.fromXYZ(RUN, -RISE, this.ExtrudeB);
-            this.A1 = this.CF0;
-            this.B1 = this.CF1;
-        } else {
-            this.A0 = CFrame.fromXYZ(this.ExtrudeA, -RISE, RUN);
-            this.B0 = CFrame.fromXYZ(-this.ExtrudeB, -RISE, RUN);
-            this.A1 = this.CF0;
-            this.B1 = this.CF0;
-        }
+        // if (this.IsParallel) {
+        this.A0 = CFrame.fromXYZ(-this.ExtrudeA, -RISE, -RUN);
+        this.B0 = CFrame.fromXYZ(this.ExtrudeB, -RISE, -RUN);
+        // this.A0 = CFrame.fromXYZ(-RUN, -RISE, this.ExtrudeA);
+        // this.B0 = CFrame.fromXYZ(RUN, -RISE, this.ExtrudeB);
+        this.A1 = this.CF0;
+        this.B1 = this.CF1;
+        // } else {
+        //     this.A0 = CFrame.fromXYZ(this.ExtrudeA, -RISE, RUN);
+        //     this.B0 = CFrame.fromXYZ(-this.ExtrudeB, -RISE, RUN);
+        //     this.A1 = this.CF0;
+        //     this.B1 = this.CF0;
+        // }
 
         let CF_A = this.A1.ToWorldSpace(this.A0);
         let CF_B = this.B1.ToWorldSpace(this.B0);
@@ -667,7 +732,7 @@ export class ExtrudedLine {
 }
 
 export class SketchLine {
-    [x: string]: Vector3 | any;
+    // [x: string]: Vector3 | any;
     ActiveEditor: Editor;
 
     static ActiveSketch?: SketchLine | null;
@@ -727,6 +792,8 @@ export class SketchLine {
     get Length() { return this._Length; };
     set Length(value: number) {
         this._Length = value;
+        if (this.Lines["A"] != null)
+            this.Lines["A"].Length = this.Lines["B"].Length = value;
         this.UpdateXY();
     };
 
@@ -737,13 +804,25 @@ export class SketchLine {
         this.UpdateXY();
     };
 
-    UpdateXY(Override?: "0" | "1") {
-        if ((Override ?? this.DrawFrom) == "0") {
-            this.X1 = this._X0 + Math.cos(this._Angle) * this._Length;
-            this.Y1 = this._Y0 + Math.sin(this._Angle) * this._Length;
-        } else {
-            this.X0 = this._X1 - Math.cos(this._Angle) * this._Length;
-            this.Y0 = this._Y1 - Math.sin(this._Angle) * this._Length;
+    UpdateXY(Override?: "0" | "C" | "1") {
+        switch (Override ?? this.DrawFrom) {
+            case "0":
+                this.X1 = this._X0 + Math.cos(this._Angle) * this._Length;
+                this.Y1 = this._Y0 + Math.sin(this._Angle) * this._Length;
+                break;
+            case "1":
+                this.X0 = this._X1 - Math.cos(this._Angle) * this._Length;
+                this.Y0 = this._Y1 - Math.sin(this._Angle) * this._Length;
+            case "C":
+                let XCenter = (this._X0 + this._X1) / 2;
+                let YCenter = (this._Y0 + this._Y1) / 2;
+                this.X0 = XCenter - Math.cos(this._Angle) * this._Length / 2;
+                this.Y0 = YCenter - Math.sin(this._Angle) * this._Length / 2;
+                this.X1 = XCenter + Math.cos(this._Angle) * this._Length / 2;
+                this.Y1 = YCenter + Math.sin(this._Angle) * this._Length / 2;
+                break;
+            default:
+                break;
         }
     }
 
@@ -765,7 +844,7 @@ export class SketchLine {
     V1 = new Vector3();
     _Pointer: CFrame;
 
-    DrawFrom: "0" | "1" = "0";
+    DrawFrom: "0" | "C" | "1" = "0";
 
     constructor(ActiveEditor: Editor, X: number, Y: number, Z: number) {
         this.ActiveEditor = ActiveEditor;
@@ -774,12 +853,14 @@ export class SketchLine {
         this.Y0 = Y; this.Y1 = Y;
         this.Z0 = Z; this.Z1 = Z;
         this._Pointer = CFrame.fromXYZ(this.X1, this.Z1, this.Y1);
-        this.CF0 = CFrame.lookAt(this.V0, this.V1);
-        this.CF1 = CFrame.lookAt(this.V1, this.V0);
+        // this.CF0 = CFrame.lookAt(this.V0, this.V1);
+        // this.CF1 = CFrame.lookAt(this.V1, this.V0);
+        this.CF0 = CFrame.fromVector3(this.V0).ToWorldSpace(CFrame.Angles(0, this.Angle, 0));
+        this.CF1 = CFrame.fromVector3(this.V1).ToWorldSpace(CFrame.Angles(0, this.Angle + Math.PI, 0));
         // this.LineSettings = { points: [new BABYLON.Vector3(), new BABYLON.Vector3(0, 1e-10, 0)], updatable: true };
-        this.Line = BABYLON.MeshBuilder.CreateLines("LINE", this.LineSettings, ActiveEditor.Scene);
-        this.LineSettings.instance = this.Line;
+        this.LineSettings.instance = this.Line = BABYLON.MeshBuilder.CreateLines("LINE", this.LineSettings, ActiveEditor.Scene);
         this.Line.color = new BABYLON.Color3(0, 0, 1);
+        // this.Line.isVisible = false;
     }
 
     /*
@@ -832,7 +913,7 @@ export class SketchLine {
         switch (this.DrawingMode) {
             case "EXTRUSION": {
                 let LocalPosition = (this.CF0.Distance(this._Pointer) < this.CF1.Distance(this._Pointer) ? this.CF0 : this.CF1).ToObjectSpace(this._Pointer);
-                let AbsX = Math.max(0, LocalPosition.Z); // Math.abs(this.LineSettings.points[1].x - X);
+                let AbsX = Math.max(0, -LocalPosition.Z); // Math.abs(this.LineSettings.points[1].x - X);
                 let AbsY = Math.abs(LocalPosition.X); // Math.abs(this.LineSettings.points[1].z - Y);
                 // let DEGG = Math.atan2(AbsX, AbsY) * 180 / Math.PI; // Dan Reynolds Egg
                 if (!Shift) /*if (DEGG <= 0) AbsX = 0; else*/ if (AbsX > AbsY) AbsY = AbsX; else AbsX = AbsY;
@@ -875,7 +956,8 @@ export class SketchLine {
 
         this.UpdateLines();
 
-        this.ActiveEditor.UI_Controls.LineLength.text = this.Format(((this.X0 - this.X1) ** 2 + (this.Y0 - this.Y1) ** 2 + (this.Z0 - this.Z1) ** 2) ** .5);
+        // this.ActiveEditor.UI_Controls.LineLength.text = this.Format(((this.X0 - this.X1) ** 2 + (this.Y0 - this.Y1) ** 2 + (this.Z0 - this.Z1) ** 2) ** .5);
+        this.ActiveEditor.UI_Controls.LineLength.text = this.Format(((this.X0 - this.X1) ** 2 + (this.Y0 - this.Y1) ** 2) ** .5);
         this.ActiveEditor.UI_Controls.Info1.text = this.Format(this.Z1);
 
         if (!this.HasLine) return;
@@ -915,14 +997,14 @@ export class SketchLine {
         // if (this.DrawingMode == "EXTRUSION") {
         if (!this.HasLine) return;
         let YYY = this.AnchorPoint * Math.max(this.Lines["0"].RISE, this.Lines["1"].RISE, this.Lines["A"].RISE, this.Lines["B"].RISE);
-        this.V0.Y = this.Z1 + YYY;
-        this.V1.Y = this.Z1 + YYY;
-        this.LineSettings.points[0].y = this.Z1 + YYY;
-        this.LineSettings.points[1].y = this.Z1 + YYY;
+        this.V0.Y = this.V1.Y = this.Z1 + YYY;
+        this.LineSettings.points[0].y = this.LineSettings.points[1].y = this.Z1 + YYY;
         this.ActiveEditor.UI_Controls.LiveDistanceData.Marker.position.copyFrom(this.LineSettings.points[0].add(this.LineSettings.points[1]).scale(.5));
         this.Line = BABYLON.MeshBuilder.CreateLines("LINE", this.LineSettings);
-        this.CF0 = CFrame.lookAt(this.V0, this.V1);
-        this.CF1 = CFrame.lookAt(this.V1, this.V0);
+        // this.CF0 = CFrame.lookAt(this.V0, this.V1);
+        // this.CF1 = CFrame.lookAt(this.V1, this.V0);
+        this.CF0 = CFrame.fromVector3(this.V0).ToWorldSpace(CFrame.Angles(0, this.Angle, 0));
+        this.CF1 = CFrame.fromVector3(this.V1).ToWorldSpace(CFrame.Angles(0, this.Angle + Math.PI, 0));
 
         this.Lines["0"].Update();
         this.Lines["1"].Update();
@@ -939,8 +1021,10 @@ export class SketchLine {
         }
     }
     Commit() {
-        this.CF0 = CFrame.lookAt(this.V0, this.V1);
-        this.CF1 = CFrame.lookAt(this.V1, this.V0);
+        // this.CF0 = CFrame.lookAt(this.V0, this.V1);
+        // this.CF1 = CFrame.lookAt(this.V1, this.V0);
+        this.CF0 = CFrame.fromVector3(this.V0).ToWorldSpace(CFrame.Angles(0, this.Angle, 0));
+        this.CF1 = CFrame.fromVector3(this.V1).ToWorldSpace(CFrame.Angles(0, this.Angle + Math.PI, 0));
         this.ActiveEditor.UI_Controls.LiveXData.Label.text = "";
         this.ActiveEditor.UI_Controls.LiveYData.Label.text = "";
         if (this.HasExtruded) {
@@ -1034,10 +1118,16 @@ export class SketchLine {
             if (this.HasExtruded) return;
             this.HasExtruded = true;
 
-            this.Lines["0"] = new ExtrudedLine(this, "V0", "V1", false); this.Lines["0"].PRIMARY = this.ActiveEditor.UI_Controls.PrimaryText0.text; // "RUN";
-            this.Lines["1"] = new ExtrudedLine(this, "V1", "V0", false); this.Lines["1"].PRIMARY = this.ActiveEditor.UI_Controls.PrimaryText1.text; // "RUN";
-            this.Lines["A"] = new ExtrudedLine(this, "V1", "V0", true); this.Lines["A"].PRIMARY = this.ActiveEditor.UI_Controls.PrimaryText2.text;
-            this.Lines["B"] = new ExtrudedLine(this, "V0", "V1", true); this.Lines["B"].PRIMARY = this.ActiveEditor.UI_Controls.PrimaryText3.text;
+            this.Lines["0"] = new ExtrudedLine(this, "V0", "V0", 0);
+            this.Lines["1"] = new ExtrudedLine(this, "V1", "V1", 180);
+            this.Lines["A"] = new ExtrudedLine(this, "V1", "V0", 90);
+            this.Lines["B"] = new ExtrudedLine(this, "V0", "V1", 270);
+            this.Lines["A"].Length = this.Lines["B"].Length = this.Length;
+
+            this.Lines["0"].PRIMARY = this.ActiveEditor.UI_Controls.PrimaryText0.text; // "RUN";
+            this.Lines["1"].PRIMARY = this.ActiveEditor.UI_Controls.PrimaryText1.text; // "RUN";
+            this.Lines["A"].PRIMARY = this.ActiveEditor.UI_Controls.PrimaryText2.text;
+            this.Lines["B"].PRIMARY = this.ActiveEditor.UI_Controls.PrimaryText3.text;
 
             this.Lines["0"].ID = "0";
             this.Lines["1"].ID = "1";
@@ -1056,12 +1146,10 @@ export class SketchLine {
             this.Lines["A"].LineConnectA = this.Lines["1"];
             this.Lines["A"].LineConnectB = this.Lines["0"];
 
-            // this.Lines["A"] = new ExtrudedLine(this, "V0", "V1", true);
-            // this.Lines["B"] = new ExtrudedLine(this, "V1", "V0", true);
-            this.Lines["0"].ENABLED = this.ActiveEditor.UI_Controls.Checkbox0.isChecked;
-            this.Lines["1"].ENABLED = this.ActiveEditor.UI_Controls.Checkbox1.isChecked;
-            this.Lines["A"].ENABLED = this.ActiveEditor.UI_Controls.Checkbox2.isChecked;
-            this.Lines["B"].ENABLED = this.ActiveEditor.UI_Controls.Checkbox3.isChecked;
+            // this.Lines["0"].ENABLED = this.ActiveEditor.UI_Controls.Checkbox0.isChecked;
+            // this.Lines["1"].ENABLED = this.ActiveEditor.UI_Controls.Checkbox1.isChecked;
+            // this.Lines["A"].ENABLED = this.ActiveEditor.UI_Controls.Checkbox2.isChecked;
+            // this.Lines["B"].ENABLED = this.ActiveEditor.UI_Controls.Checkbox3.isChecked;
         }
     }
     Delete() {
@@ -1430,6 +1518,24 @@ class SKETCH_RELATION {
                 RelationList.push(["1", Relation]);
             } else if (this.Sketch2.ID == SketchID && Relation.Type2 == Type) {
                 RelationList.push(["2", Relation]);
+            }
+        }
+        return RelationList;
+    }
+    ListOnlySide(Side: string) {
+        let RelationList = [];
+        for (let Relation of this.Relations) {
+            if (Relation.Side1 == Side && Relation.Side2 == Side) {
+                RelationList.push(Relation);
+            }
+        }
+        return RelationList;
+    }
+    ListOnlyType(Type: string) {
+        let RelationList = [];
+        for (let Relation of this.Relations) {
+            if (Relation.Type1 == Type && Relation.Type2 == Type) {
+                RelationList.push(Relation);
             }
         }
         return RelationList;

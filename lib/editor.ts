@@ -14,7 +14,7 @@ import { SketchLine } from "./drawings";
 
 import TestingConfig from "./EditorUI.json";
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
-import { Test } from "./backend";
+import { Test, DebuggingClass } from "./backend";
 
 type BABYLON_LineOptions = {
     points: BABYLON.Vector3[];
@@ -112,6 +112,7 @@ type EditorControls = {
 
 export class Editor {
     static ActiveEditor: Editor;
+    static MapDebugging: DebuggingClass;
 
     Engine: BABYLON.Engine;
     Scene: BABYLON.Scene;
@@ -144,7 +145,7 @@ export class Editor {
         text.text = Text;
         this.RoofUI.addControl(text);
         text.linkWithMesh(marker); // text follows invisible mesh
-        text.color = "Black";
+        text.color = "white"; // "Black";
         return marker;
     }
 
@@ -170,6 +171,8 @@ export class Editor {
         this.Scene = Scene;
         this.Camera = Camera;
         this.RoofUI = RoofUI;
+        console.log("WINDOWWWWWWWWWWWWWWWWWWWWWWW", window);
+        Editor.MapDebugging = new DebuggingClass();
 
         let DesignGrid = this.DesignGrid = BABYLON.Mesh.CreateGround("ground", 10000, 10000, 10, Scene);
         var gridMaterial = new GridMaterial("gridMaterial", Scene);
@@ -310,23 +313,23 @@ export class Editor {
 
 
             // console.log(zoom, 1500 / zoom)
-            // let Scale = 1 / Camera.radius * SketchLine.DrawingScale / ratio * 1450; // zoom; // * .9366666; // 25; // * .9;
-            // FlatMapElement.style.scale = Scale.toString();
-            // // console.log(Camera.orthoTop, Scale);
-            // // May still not be perfect, but honestly, idrk anymore.
-            // FlatMapElement.style.left = -(FlatMapElement.clientWidth - RenderWidth) / 2 + "px";
-            // FlatMapElement.style.top = -(FlatMapElement.clientHeight - RenderHeight) / 2 + "px";
+            let Scale = 1 / Camera.radius * SketchLine.DrawingScale / ratio * 1450; // zoom; // * .9366666; // 25; // * .9;
+            Editor.MapDebugging.FlatMapElement.style.scale = Scale.toString();
+            // console.log(Camera.orthoTop, Scale);
+            // May still not be perfect, but honestly, idrk anymore.
+            Editor.MapDebugging.FlatMapElement.style.left = -(Editor.MapDebugging.FlatMapElement.clientWidth - RenderWidth) / 2 + "px";
+            Editor.MapDebugging.FlatMapElement.style.top = -(Editor.MapDebugging.FlatMapElement.clientHeight - RenderHeight) / 2 + "px";
         };
 
         Scene.onBeforeRenderObservable.add(() => {
-            // FlatMapElement.style.rotate = Camera.alpha + "rad";
+            Editor.MapDebugging.FlatMapElement.style.rotate = Camera.alpha + "rad";
             // FlatMapElement.style.transform // Need to look into using skew.
             // console.log(Camera.alpha);
 
-            let Scale = 1500 / Camera.radius * .921;
+            let Scale = 1500 / Camera.radius * .921 * .8;
 
             let CheapCF = CFrame.Angles(0, -Camera.alpha, 0).ToWorldSpace(CFrame.fromXYZ(-Camera.target.z * Scale, 0, -Camera.target.x * Scale));
-            // FlatMapElement.style.translate = `${CheapCF.x}px ${CheapCF.z}px`;
+            Editor.MapDebugging.FlatMapElement.style.translate = `${CheapCF.x}px ${CheapCF.z}px`;
             if (!FirstRotation) DesignGrid.rotation.y = -Camera.alpha;
         });
 
@@ -412,11 +415,11 @@ export class Editor {
                     case "p":
                         Camera.mode = Camera.mode == BABYLON.Camera.ORTHOGRAPHIC_CAMERA ? BABYLON.Camera.PERSPECTIVE_CAMERA : BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
                         if (Camera.mode == BABYLON.Camera.ORTHOGRAPHIC_CAMERA) {
-                            SwitchMap(false);
+                            // Editor.MapDebugging.SwitchMap(false);
                             Camera.lowerBetaLimit = 0;
                             Camera.upperBetaLimit = 0;
                         } else {
-                            SwitchMap(true);
+                            // Editor.MapDebugging.SwitchMap(true);
                             Camera.lowerBetaLimit = 0; // -Math.PI / 2;
                             Camera.upperBetaLimit = Math.PI / 2;
                         }
@@ -444,13 +447,15 @@ export class Editor {
 
 
                     case "o":
-                        await Test(37.443185078072716, -122.13801955359011);
-                        // await Test(37.444938331695944, -122.13916635930947);
-                        // await Test(37.44412278382237, -122.13891846157102);
-                        // await Test(36.278676208726246, -86.53094040983781);
+                        await Test(37.443185078072716, -122.13801955359011); // ANGLED HOUSE //
+                        // await Test(37.444938331695944, -122.13916635930947); // THE LIBRARY //
+                        // await Test(37.44412278382237, -122.13891846157102); // GIANT BUILDING BELOW THE LIBRARY //
+                        // await Test(36.278676208726246, -86.53094040983781); // STRANGE HOUSE IN NASHVILLE //
                         break;
 
+                    case "i":
 
+                        break;
 
 
                     case "e":

@@ -14,6 +14,8 @@ export class Vector3 {
     _Z = 0;
 
     get XY() { return new Vector3(this._X, this._Y); };
+    get XZ() { return new Vector3(this._X, 0, this._Z); };
+    get XZY() { return new Vector3(this._X, this._Z, this._Y); };
 
     set x(value: number) { this._X = value; };
     set y(value: number) { this._Y = value; };
@@ -199,7 +201,17 @@ export function segmentIntersection2D(p1: Vector3, p2: Vector3, p3: Vector3, p4:
         ((x1 * y2 - y1 * x2) * (y3 - y4) -
             (y1 - y2) * (x3 * y4 - y3 * x4)) / denom;
 
-    return { point: new Vector3(px, py), t1: (px - x1) / (x2 - x1), t2: (px - x3) / (x4 - x3), p1: p1, p2: p2, p3: p3, p4: p4 };
+    // let t1 = (new Vector3(px, 0, py).TranslateSub(p1)).ScaleByVector(p2.TranslateSub(p1));
+    // let t1 = 
+
+    return {
+        point: new Vector3(px, py),
+        t1: (((px - x1) ** 2 + (py - y1) ** 2) ** .5) / (((x2 - x1) ** 2 + (y2 - y1) ** 2) ** .5) * Math.min(x1 <= px && px <= x2 || x2 <= px && px <= x1 ? 1 : -1, y1 <= py && py <= y2 || y2 <= py && py <= y1 ? 1 : -1),
+        t2: (((px - x3) ** 2 + (py - y3) ** 2) ** .5) / (((x4 - x3) ** 2 + (y4 - y3) ** 2) ** .5) * Math.min(x3 <= px && px <= x4 || x4 <= px && px <= x3 ? 1 : -1, y3 <= py && py <= y4 || y4 <= py && py <= y3 ? 1 : -1),
+        p1: p1, p2: p2, p3: p3, p4: p4
+    };
+    // return { point: new Vector3(px, py), t1: (point-p1)/(p2-p1), t2: (px - x3) / (x4 - x3), p1: p1, p2: p2, p3: p3, p4: p4 };
+    // return { point: new Vector3(px, py), t1: (px - x1) / (x2 - x1), t2: (px - x3) / (x4 - x3), p1: p1, p2: p2, p3: p3, p4: p4 };
 }
 
 function segmentIntersection3D(p1: Vector3, p2: Vector3, p3: Vector3, p4: Vector3, epsilon = 1e-6) {

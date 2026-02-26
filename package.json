@@ -9,11 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@babylonjs/addons": "^8.45.5",
+    "@babylonjs/addons": "^8.50.2",
     "@babylonjs/core": "^8.45.5",
     "@babylonjs/gui": "^8.45.5",
     "@babylonjs/loaders": "^8.45.5",
     "@babylonjs/materials": "^8.45.5",
+    "@googlemaps/js-api-loader": "^2.0.2",
     "@radix-ui/react-dialog": "^1.0.5",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-popover": "^1.1.15",

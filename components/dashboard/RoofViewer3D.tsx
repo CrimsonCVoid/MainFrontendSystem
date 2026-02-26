@@ -233,6 +233,8 @@ export default function RoofViewer3D({
       Engine.setHardwareScalingLevel(1 / Math.min(window.devicePixelRatio || 1, 2));
       engineRef.current = Engine;
 
+      Editor.canvasRef = canvasRef;
+
       const Scene = new BABYLON.Scene(Engine);
       Scene.clearColor = BABYLON.Color4.FromInts(25, 25, 30, 0); // BABYLON.Color4.FromInts(230, 230, 235, 0);
       // Scene.clearColor = new BABYLON.Color4(1, 1, 1, 1);
@@ -453,8 +455,10 @@ export default function RoofViewer3D({
 
 
 
-
+      Editor.window = window;
+      console.log("EDITOR WINDOW", window);
       let ActiveEditor = Editor.ActiveEditor = new Editor(Engine, Scene, Camera, RoofUI, window);
+      Editor.MapDebugging.CreateGoogleDebugMesh();
       Editor.meshesRef = meshesRef;
 
 
@@ -638,6 +642,7 @@ export default function RoofViewer3D({
           {/* Canvas */}
           <div ref={wrapRef} className="relative bg-gradient-to-br from-gray-100 via-gray-50 to-white dark:from-gray-900 dark:via-gray-950 dark:to-black" style={{ height: hideControls ? '100%' : '400px' }}>
             <canvas ref={canvasRef} className="block w-full h-full" />
+            <div id="flatmap" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, height: "2000px", width: "2000px", scale: 1 }}></div>
 
             {/* View Selector - Hidden when hideControls is true */}
             {!hideControls && (
