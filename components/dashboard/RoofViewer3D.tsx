@@ -550,7 +550,7 @@ export default function RoofViewer3D({
       panelMaterialRef.current.baseColor = BABYLON.Color3.FromHexString(selectedColor);
       for (let Data of meshesRef.current) {
         Data[0].material = panelMaterialRef.current; // .baseColor = BABYLON.Color3.FromHexString(selectedColor);
-        Data[0] = BABYLON.MeshBuilder.CreateBox(Data[2], Data[1]);
+        Data[0] = BABYLON.MeshBuilder.CreateBox(Data[2], Data[0].instance);
         // Data[0].material
       }
     }

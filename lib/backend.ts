@@ -595,83 +595,30 @@ export async function Test(Lat: number | string, Lon: number | string) {
 
     console.log("ALL RELATIONS");
     for (let SketchRelation of SketchLine.AllRelations) {
-        let Sketch1 = SketchRelation.Sketch1
-        let Sketch2 = SketchRelation.Sketch2
-        console.log(Sketch1.ID, Sketch2.ID)
+        let Sketch1 = SketchRelation.Sketch1;
+        let Sketch2 = SketchRelation.Sketch2;
         let Intersections = SketchRelation.ListOnlyType("INTERSECT");
         for (let Relation of Intersections) {
             if (Relation.Type1 != "INTERSECT" || Relation.Type2 != "INTERSECT") continue;
             let Line1 = Sketch1.Lines[Relation.Side1];
             let Line2 = Sketch2.Lines[Relation.Side2];
-            console.log(Relation.Side1, Relation.Side2, Relation.Data);
-
-
-            let Length1 = Line1.Length;
-            let Length2 = Line2.Length;
-
-            let RelativeData1 = Line1.CF0.ToWorldSpace(CFrame.fromXYZ(Length1 / 2, 0, 0)).ToObjectSpace(CFrame.fromVector3(Relation.Data.point.XZY));
-            let RelativeData2 = Line2.CF0.ToWorldSpace(CFrame.fromXYZ(Length2 / 2, 0, 0)).ToObjectSpace(CFrame.fromVector3(Relation.Data.point.XZY));
-
-            console.log("RD", RelativeData1, RelativeData2);
-
-            // BABYLON.MeshBuilder.CreateLines("e", { points: [CFrame.fromVector3(Relation.Data.point.XZY), Relation.Data.point.ToBabylonXZY()] }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(0, 1, 0);
-
-            // Calculate the points of intersection between faces. //
 
             let Line1Top = Sketch1.Z1 + (Sketch1.AnchorPoint) * Line1.RISE;
             let Line2Top = Sketch2.Z1 + (Sketch2.AnchorPoint) * Line2.RISE;
             let Line1Bottom = Line1Top - Line1.RISE;
             let Line2Bottom = Line2Top - Line2.RISE;
 
-            let Line1Angle = Line1.Angle * Math.PI / 180 + Sketch1.Angle;
-            let Line2Angle = Line2.Angle * Math.PI / 180 + Sketch2.Angle;
-
             let LowestBottom = Math.min(Line1Bottom, Line2Bottom);
             let HighestBottom = Math.max(Line1Bottom, Line2Bottom);
-            let LowestTop = Math.min(Line1Top, Line2Top);
-            let HighestTop = Math.max(Line1Top, Line2Top);
 
             let Data1 = Line1.CF0.Rotation.TranslateAdd(Relation.Data.point.XZY); Data1.Y = Line1Bottom;
             let Data2 = Line2.CF0.Rotation.TranslateAdd(Relation.Data.point.XZY); Data2.Y = Line2Bottom;
 
-            // BABYLON.MeshBuilder.CreateLines("e", {
-            //     points: [
-            //         Data1.ToWorldSpace(CFrame.fromXYZ(0, HighestTop, Line1.RUN)).Position.ToBabylon(),
-            //         Relation.Data.point.XZY.TranslateAdd(new Vector3(0, HighestTop, 0)).ToBabylon(),
-            //         Data2.ToWorldSpace(CFrame.fromXYZ(0, HighestTop, Line2.RUN)).Position.ToBabylon(),
-            //     ]
-            // }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(0, 1, 0);
-
-            // Line1.SketchExtrusionLines.GetHeightAtX()
-
-            let Bottom_Diff = HighestBottom - LowestBottom;
             let L1_Q = Math.atan2(Line1.RISE, Line1.RUN);
             let L2_Q = Math.atan2(Line2.RISE, Line2.RUN);
 
-            let Extrude1 = Line1Bottom < Line2Bottom ? 0 : Bottom_Diff / L1_Q;
-            let Extrude2 = Line1Bottom > Line2Bottom ? 0 : Bottom_Diff / L2_Q;
-
-            console.log(HighestBottom, LowestBottom, HighestTop, LowestTop);
-
-            BABYLON.MeshBuilder.CreateLines("e", {
-                points: [
-                    Relation.Data.point.XZY.TranslateAdd(new Vector3(0, HighestBottom, 0)).ToBabylon(),
-                    Line1.CF0.Position.ToBabylon(),
-                    Line1.CF0.ToWorldSpace(CFrame.fromXYZ(0, 0, 10)).Position.ToBabylon(),
-                    Line1.CF0.ToWorldSpace(CFrame.fromXYZ(10, 0, 0)).Position.ToBabylon(),
-                    // Data2.ToWorldSpace(CFrame.fromXYZ(Extrude2, Line2Bottom, 0)).Position.ToBabylon(),
-                ]
-            }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(1, 0, 0);
-
-            BABYLON.MeshBuilder.CreateLines("e", {
-                points: [
-                    Relation.Data.point.XZY.TranslateAdd(new Vector3(0, HighestBottom, 0)).ToBabylon(),
-                    Line2.CF0.Position.ToBabylon(),
-                    Line2.CF0.ToWorldSpace(CFrame.fromXYZ(0, 0, 10)).Position.ToBabylon(),
-                    Line2.CF0.ToWorldSpace(CFrame.fromXYZ(10, 0, 0)).Position.ToBabylon(),
-                    // Data2.ToWorldSpace(CFrame.fromXYZ(Extrude2, Line2Bottom, 0)).Position.ToBabylon(),
-                ]
-            }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(0, 1, 0);
+            let Extrude1 = Line1Bottom < Line2Bottom ? 0 : (HighestBottom - LowestBottom) / L1_Q;
+            let Extrude2 = Line1Bottom > Line2Bottom ? 0 : (HighestBottom - LowestBottom) / L2_Q;
 
             let ActualConvergencePoint = Extrude1 == 0 ? Data2.ToWorldSpace(CFrame.fromXYZ(Extrude2, 0, 0)) : Data1.ToWorldSpace(CFrame.fromXYZ(Extrude1, 0, 0));
             // Have to get via CFrame object spaces.
@@ -686,41 +633,41 @@ export async function Test(Lat: number | string, Lon: number | string) {
                 Line2.SketchExtrusionLines.LineBSettings.points[1], // 2
                 Line2.SketchExtrusionLines.LineBSettings.points[0], // 3
             ])) {
-                if (Extrude1 == 0) Extrude2 = -Extrude2;
-                else Extrude1 = -Extrude1;
-                ActualConvergencePoint = Extrude1 == 0 ? Data2.ToWorldSpace(CFrame.fromXYZ(Extrude2, 0, 0)) : Data1.ToWorldSpace(CFrame.fromXYZ(Extrude1, 0, 0));
+                ActualConvergencePoint = Extrude1 == 0 ? Data2.ToWorldSpace(CFrame.fromXYZ(-Extrude2, 0, 0)) : Data1.ToWorldSpace(CFrame.fromXYZ(-Extrude1, 0, 0));
             }
+            let Direction = Line1.CF0.LookVector.Scale(L2_Q).TranslateAdd(Line2.CF0.LookVector.Scale(L1_Q));
 
-            BABYLON.MeshBuilder.CreateLines("e", {
-                points: [
-                    // ActualConvergencePoint.Position.TranslateAdd(Data1.ToWorldSpace(CFrame.fromXYZ(-10, 10, 0)).Position).TranslateAdd(Data2.ToWorldSpace(CFrame.fromXYZ(10, 0, 0)).Position).ToBabylon(),
-                    // ActualConvergencePoint.Position.TranslateAdd(Line1.CF0.LookVector.Scale(-100).TranslateAdd(new Vector3(0, 100, 0))).ToBabylon(),
-                    ActualConvergencePoint.Position.TranslateAdd(Line1.CF0.LookVector.Scale(-100).TranslateAdd(Line2.CF0.LookVector.Scale(-100).TranslateAdd(new Vector3(0, 100, 0)))).ToBabylon(),
-                    // ActualConvergencePoint.Position.TranslateAdd(Data2.ToWorldSpace(CFrame.fromXYZ(-10, 10, 0)).Position).ToBabylon(),
-                    ActualConvergencePoint.Position.ToBabylon(),
-                    // Relation.Data.point.XZY.TranslateAdd(new Vector3(Math.cos(Line1Angle) * 10, HighestBottom + 1, Math.sin(Line1Angle) * 10)).ToBabylon(),
-                    // Relation.Data.point.XZY.TranslateAdd(new Vector3(0, HighestBottom + 1, 0)).ToBabylon(),
-                    // Relation.Data.point.XZY.TranslateAdd(new Vector3(Math.cos(Line2Angle) * 10, HighestBottom + 1, Math.sin(Line2Angle) * 10)).ToBabylon(),
+            let OTHER1A = segmentIntersection2D(Line1.SketchExtrusionLines.LineASettings.points[0], Line1.SketchExtrusionLines.LineASettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
+            let OTHER1B = segmentIntersection2D(Line1.SketchExtrusionLines.LineBSettings.points[0], Line1.SketchExtrusionLines.LineBSettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
+            let OTHER2A = segmentIntersection2D(Line2.SketchExtrusionLines.LineASettings.points[0], Line2.SketchExtrusionLines.LineASettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
+            let OTHER2B = segmentIntersection2D(Line2.SketchExtrusionLines.LineBSettings.points[0], Line2.SketchExtrusionLines.LineBSettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
 
-                    // Data1.ToWorldSpace(CFrame.fromXYZ(Extrude1, 0, 0)).Position.ToBabylon(),
-                    Relation.Data.point.XZY.TranslateAdd(new Vector3(0, HighestBottom, 0)).ToBabylon(),
-                    // Data2.ToWorldSpace(CFrame.fromXYZ(Extrude2, 0, 0)).Position.ToBabylon(),
-
-                    // Data1.ToWorldSpace(CFrame.fromXYZ(0, Line1Bottom, Extrude1)).Position.ToBabylon(),
-                    // Relation.Data.point.XZY.TranslateAdd(new Vector3(0, LowestBottom, 0)).ToBabylon(),
-                    // Data2.ToWorldSpace(CFrame.fromXYZ(0, Line2Bottom, Extrude2)).Position.ToBabylon(),
-                ]
-            }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(0, 1, 0);
-
-            function angleBetween(a, b) {
-                let diff = Math.abs(a - b) % 360;
-                return diff > 180 ? 360 - diff : diff;
+            let AddZonings = [];
+            if (OTHER1A && 0 <= OTHER1A.t1 && OTHER1A.t1 <= 1) AddZonings.push(OTHER1A.point.XZY);
+            if (OTHER1B && 0 <= OTHER1B.t1 && OTHER1B.t1 <= 1) AddZonings.push(OTHER1B.point.XZY);
+            if (OTHER2A && 0 <= OTHER2A.t1 && OTHER2A.t1 <= 1) AddZonings.push(OTHER2A.point.XZY);
+            if (OTHER2B && 0 <= OTHER2B.t1 && OTHER2B.t1 <= 1) AddZonings.push(OTHER2B.point.XZY);
+            // console.log(AddZonings);
+            for (let ZoningPoint of AddZonings) {
+                let Local = Line1.CF0.ToObjectSpace(CFrame.fromVector3(ZoningPoint));
+                let Height = Line1.SketchExtrusionLines.GetHeightAtZ(Local.Z) + Line1Top;
+                Line1.SketchExtrusionLines.Zonings.push([Line1.CF0.ToObjectSpace(CFrame.fromVector3(ActualConvergencePoint.Position)).Position, Line1.CF0.ToObjectSpace(CFrame.fromVector3(ZoningPoint.TranslateAdd(new Vector3(0, Height, 0)))).Position]);
+                Line2.SketchExtrusionLines.Zonings.push([Line2.CF0.ToObjectSpace(CFrame.fromVector3(ActualConvergencePoint.Position)).Position, Line2.CF0.ToObjectSpace(CFrame.fromVector3(ZoningPoint.TranslateAdd(new Vector3(0, Height, 0)))).Position]);
+                BABYLON.MeshBuilder.CreateLines("e", {
+                    points: [
+                        ZoningPoint.TranslateAdd(new Vector3(0, Height, 0)).ToBabylon(),
+                        ActualConvergencePoint.Position.ToBabylon(),
+                    ]
+                }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(0, 1, 0);
             }
-
-            console.log("ANGLE", angleBetween(Line1Angle * 180 / Math.PI, Line2Angle * 180 / Math.PI));
+            console.log(Line1.SketchExtrusionLines.Zonings, Line2.SketchExtrusionLines.Zonings);
         }
     }
     console.log("END RELATIONS");
+    for (let SketchRelation of SketchLine.AllRelations) {
+        for (let Line of Object.values(SketchRelation.Sketch1.Lines)) Line.SketchExtrusionLines.UpdateForZonings();
+        for (let Line of Object.values(SketchRelation.Sketch2.Lines)) Line.SketchExtrusionLines.UpdateForZonings();
+    }
 
     // console.log("AVERAGE PITCH", PITCH / COUNT, Math.tan(PITCH / COUNT * Math.PI / 180) * 12);
 
