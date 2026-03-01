@@ -379,30 +379,30 @@ export class ExtrusionLines {
 
 
         // if (this.ExtrudedLine.IsParallel) {
-        {
-            this.TESTYSETTINGS?.instance?.dispose();
-            this.TESTYSETTINGS = {
-                shape: [
-                    new BABYLON.Vector3(0, 0, 0),
-                    new BABYLON.Vector3(-MainLength, 0, 0),
-                ],
-                path: [
-                    new BABYLON.Vector3(0, 1, 0),
-                    new BABYLON.Vector3(0, 1 - Math.sin(ANGLE) * 2, 2 * Math.cos(ANGLE)), // Math.cos(ANGLE) * 4),
-                    // new BABYLON.Vector3(0, Math.sin(ANGLE) * 4 - 2, 0),
-                    // new BABYLON.Vector3(0, Math.sin(ANGLE) * 4 - 4, Math.cos(ANGLE) * 4), // Math.cos(ANGLE) * 4),
-                ],
+        // {
+        //     this.TESTYSETTINGS?.instance?.dispose();
+        //     this.TESTYSETTINGS = {
+        //         shape: [
+        //             new BABYLON.Vector3(0, 0, 0),
+        //             new BABYLON.Vector3(-MainLength, 0, 0),
+        //         ],
+        //         path: [
+        //             new BABYLON.Vector3(0, 1, 0),
+        //             new BABYLON.Vector3(0, 1 - Math.sin(ANGLE) * 2, 2 * Math.cos(ANGLE)), // Math.cos(ANGLE) * 4),
+        //             // new BABYLON.Vector3(0, Math.sin(ANGLE) * 4 - 2, 0),
+        //             // new BABYLON.Vector3(0, Math.sin(ANGLE) * 4 - 4, Math.cos(ANGLE) * 4), // Math.cos(ANGLE) * 4),
+        //         ],
 
-                // capFunction: (shapePath: BABYLON.Vector3[]) => shapePath.map(v => new BABYLON.Vector3(v.x * 0, v.y * 1, v.z)),
-                cap: BABYLON.Mesh.CAP_ALL,
-                sideOrientation: BABYLON.Mesh.DOUBLESIDE, // DEFAULTSIDE,
-                updatable: true,
-            };
-            let P_BBL = this.ExtrudedLine.CF0.ToWorldSpace(CFrame.Angles(0, -Math.PI / 2, 0)).ToBabylon(); // FocusCF.ToWorldSpace(CFrame.fromXYZ(0, PanelThickness, 0)).ToBabylon();
-            this.TESTYSETTINGS.instance = BABYLON.MeshBuilder.ExtrudeShape(`PANEL`, this.TESTYSETTINGS, this.ActiveEditor.Scene).convertToFlatShadedMesh(); // this.ActiveEditor.Scene);
-            this.TESTYSETTINGS.instance.position = P_BBL[0];
-            this.TESTYSETTINGS.instance.rotationQuaternion = P_BBL[1];
-        }
+        //         // capFunction: (shapePath: BABYLON.Vector3[]) => shapePath.map(v => new BABYLON.Vector3(v.x * 0, v.y * 1, v.z)),
+        //         cap: BABYLON.Mesh.CAP_ALL,
+        //         sideOrientation: BABYLON.Mesh.DOUBLESIDE, // DEFAULTSIDE,
+        //         updatable: true,
+        //     };
+        //     let P_BBL = this.ExtrudedLine.CF0.ToWorldSpace(CFrame.Angles(0, -Math.PI / 2, 0)).ToBabylon(); // FocusCF.ToWorldSpace(CFrame.fromXYZ(0, PanelThickness, 0)).ToBabylon();
+        //     this.TESTYSETTINGS.instance = BABYLON.MeshBuilder.ExtrudeShape(`PANEL`, this.TESTYSETTINGS, this.ActiveEditor.Scene).convertToFlatShadedMesh(); // this.ActiveEditor.Scene);
+        //     this.TESTYSETTINGS.instance.position = P_BBL[0];
+        //     this.TESTYSETTINGS.instance.rotationQuaternion = P_BBL[1];
+        // }
         // };
 
         {
@@ -508,6 +508,7 @@ export class ExtrusionLines {
     }
 
     GetHeightAtX(X: number) {
+        // return this.GetBottomAtX(X);
         let MainLength = this.ExtrudedLine.Length;
         let BottomLength = MainLength + this.ExtrudedLine.ExtrudeA + this.ExtrudedLine.ExtrudeB;
         let ExtrudeLength = (this.ExtrudedLine.RISE ** 2 + this.ExtrudedLine.RUN ** 2) ** .5;
@@ -515,19 +516,19 @@ export class ExtrusionLines {
         if (X <= this.ExtrudedLine.ExtrudeB) {
             Height = X / this.ExtrudedLine.ExtrudeB * ExtrudeLength;
             for (let ZoningPoint of this.Zonings) {
-                let Actual0X = -ZoningPoint[0].X + this.ExtrudedLine.ExtrudeB + MainLength;
                 let Actual1X = -ZoningPoint[1].X + this.ExtrudedLine.ExtrudeB + MainLength;
                 if (Actual1X > X) continue;
-                // Height = (this.ExtrudedLine.RISE + ZoningPoint[1].Y) / this.ExtrudedLine.RUN * ExtrudeLength;
-                // let ZoneHeight = this.GetHeightAtZ(ZoningPoint[1].Z); // + this.ExtrudedLine.GetTopY();
-                // (this.ExtrudedLine.RISE + ZoningPoint[1].Y)
-                // Height = Math.max(Height, (ZoningPoint[1].Y) / this.ExtrudedLine.RUN * ExtrudeLength);
-                // Height = (ExtrudeLength + ZoningPoint[1].Y) // Math.max(Height, Actual1X / this.ExtrudedLine.ExtrudeB * ExtrudeLength); // * (((this.ExtrudedLine.RISE + ZoningPoint[1].Y) ** 2 + this.ExtrudedLine.RUN ** 2) ** .5); // this.ExtrudedLine.RISE / (-ZoningPoint[1].Y) * ExtrudeLength / this.ExtrudedLine.RUN; //Math.max(Height, (Actual1X - (Actual0X - Actual1X)) / this.ExtrudedLine.ExtrudeB * ExtrudeLength);
+                Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
             }
         } else if (X <= this.ExtrudedLine.ExtrudeB + MainLength) {
             Height = ExtrudeLength;
         } else {
             Height = (BottomLength - X) / this.ExtrudedLine.ExtrudeA * ExtrudeLength;
+            for (let ZoningPoint of this.Zonings) {
+                let Actual1X = -ZoningPoint[1].X + this.ExtrudedLine.ExtrudeB + MainLength;
+                if (Actual1X < X) continue;
+                Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
+            }
         }
         // for (let ZoningPoint of this.Zonings) {
         //     let Actual0X = -ZoningPoint[0].X + this.ExtrudedLine.ExtrudeB + MainLength;
@@ -536,6 +537,50 @@ export class ExtrusionLines {
         //     if (Actual1X - 1 <= X && X <= Actual1X + 1) Height = ExtrudeLength * 2;
         // }
         return Height;
+    }
+
+    GetBottomAtX(X: number) {
+        let MainLength = this.ExtrudedLine.Length;
+        let BottomLength = MainLength + this.ExtrudedLine.ExtrudeA + this.ExtrudedLine.ExtrudeB;
+        let ExtrudeLength = (this.ExtrudedLine.RISE ** 2 + this.ExtrudedLine.RUN ** 2) ** .5;
+        let Height = 0;
+        // if (X <= this.ExtrudedLine.ExtrudeB) {
+        //     // Height = X / this.ExtrudedLine.ExtrudeB * ExtrudeLength;
+        //     for (let ZoningPoint of this.Zonings) {
+        //         let Actual1X = -ZoningPoint[0].X + this.ExtrudedLine.ExtrudeB + MainLength;
+        //         if (Actual1X < X) continue;
+        //         Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5));
+        //     }
+        // } else if (X <= this.ExtrudedLine.ExtrudeB + MainLength) {
+        //     // Height = ExtrudeLength;
+        // } else {
+        //     // Height = (BottomLength - X) / this.ExtrudedLine.ExtrudeA * ExtrudeLength;
+        //     for (let ZoningPoint of this.Zonings) {
+        //         let Actual1X = -ZoningPoint[0].X + this.ExtrudedLine.ExtrudeB + MainLength;
+        //         if (Actual1X > X) continue;
+        //         Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5));
+        //     }
+        // }
+        for (let ZoningPoint of this.Zonings) {
+            let Actual0X = -ZoningPoint[0].X + this.ExtrudedLine.ExtrudeB + MainLength;
+            let Actual1X = -ZoningPoint[1].X + this.ExtrudedLine.ExtrudeB + MainLength;
+            // if (Actual0X > X) continue;
+            let EL2 = ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5)
+            let EL1 = ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5)
+            if (Actual0X > Actual1X) { // && Actual1X < X && X < Actual0X) {
+                Height = Math.max(Height, (Actual0X - X) / (Actual0X - Actual1X) * (EL2 - EL1) - (EL2 - ExtrudeLength)); // Math.max(Height, ExtrudeLength - ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5));
+            }
+            if (Actual0X < Actual1X) { // && Actual0X < X && X < Actual1X) {
+                Height = Math.max(Height, (X - Actual0X) / (Actual1X - Actual0X) * (EL2 - EL1) - (EL2 - ExtrudeLength)); // Math.max(Height, ExtrudeLength - ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5));
+            }
+        }
+        // for (let ZoningPoint of this.Zonings) {
+        //     let Actual0X = -ZoningPoint[0].X + this.ExtrudedLine.ExtrudeB + MainLength;
+        //     let Actual1X = -ZoningPoint[1].X + this.ExtrudedLine.ExtrudeB + MainLength;
+        //     if (Actual0X - 1 <= X && X <= Actual0X + 1) Height = ExtrudeLength * 2;
+        //     if (Actual1X - 1 <= X && X <= Actual1X + 1) Height = ExtrudeLength * 2;
+        // }
+        return Height; //  ExtrudeLength - Height;
     }
 
     GetHeightAtZ(Z: number) {
@@ -669,22 +714,11 @@ export class ExtrudedLine {
         let RUN = this.RUN;
         let RISE = this._RISE;
 
-        // if (this.IsParallel) {
         this.A0 = CFrame.fromXYZ(-this.ExtrudeA, -RISE, -RUN);
         this.B0 = CFrame.fromXYZ(this.ExtrudeB, -RISE, -RUN);
-        // this.A0 = CFrame.fromXYZ(-RUN, -RISE, this.ExtrudeA);
-        // this.B0 = CFrame.fromXYZ(RUN, -RISE, this.ExtrudeB);
-        this.A1 = this.CF0;
-        this.B1 = this.CF1;
-        // } else {
-        //     this.A0 = CFrame.fromXYZ(this.ExtrudeA, -RISE, RUN);
-        //     this.B0 = CFrame.fromXYZ(-this.ExtrudeB, -RISE, RUN);
-        //     this.A1 = this.CF0;
-        //     this.B1 = this.CF0;
-        // }
 
-        let CF_A = this.A1.ToWorldSpace(this.A0);
-        let CF_B = this.B1.ToWorldSpace(this.B0);
+        let CF_A = this.CF0.ToWorldSpace(this.A0);
+        let CF_B = this.CF1.ToWorldSpace(this.B0);
         this.LineSettings.points[0].set(CF_A.X, CF_A.Y, CF_A.Z);
         this.LineSettings.points[1].set(CF_B.X, CF_B.Y, CF_B.Z);
 

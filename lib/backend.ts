@@ -3,6 +3,7 @@ import { Editor } from "./editor";
 import { CFrame, segmentIntersection2D, Vector3 } from "./positioning";
 import * as BABYLON from "@babylonjs/core";
 import * as BABYLON_ADDONS from "@babylonjs/addons";
+import { PDF_Exporter } from "./pdf-export";
 
 var ENV_KEY = "AIzaSyDUfrliF4ydB8G4JbQudiC4t8L39pG_E74"; // API KEY
 
@@ -480,6 +481,8 @@ export async function Test(Lat: number | string, Lon: number | string) {
 
     console.log("BOUNDS BY ROOF", BoundsByRoof, BoundsByRoof.map((value, index) => value[1].TranslateSub(value[0])));
 
+    let DrawSketches: SketchLine[] = [];
+
     for (let SketchGroupID in CombineIntoSketches) {
         let SketchGroup = CombineIntoSketches[SketchGroupID];
         let AveragePitch = 0;
@@ -591,6 +594,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
         Sketch.UpdateLines();
         Sketch.Commit();
         console.log("E?");
+        DrawSketches.push(Sketch);
     }
 
     console.log("ALL RELATIONS");
@@ -735,6 +739,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
         Sketch.UpdateLines();
         Sketch.Commit();
         console.log("E?");
+        DrawSketches.push(Sketch);
     }
 
     // console.log(content);
@@ -744,6 +749,83 @@ export async function Test(Lat: number | string, Lon: number | string) {
     // Sketch.Angle
     // Sketch.Length
     // Sketch.UpdateLines();
+    // if (true) return;
+    let PanelWidth = 24;
+    let NewPDF = await PDF_Exporter.Create();
+    for (let Sketch of DrawSketches) {
+        for (let Line of Object.values(Sketch.Lines)) {
+            let MainLength = Line.Length;
+            let BottomLength = MainLength + Line.ExtrudeA + Line.ExtrudeB;
+            let HardPoints = [Line.ExtrudeB];
+            if (MainLength != 0) HardPoints.push(Line.ExtrudeB + MainLength);
+            for (let ZoningPoint of Line.SketchExtrusionLines.Zonings) {
+                let Actual0X = -ZoningPoint[0].X + Line.ExtrudeB; // + MainLength;
+                let Actual1X = -ZoningPoint[1].X + Line.ExtrudeB; // + MainLength;
+                HardPoints.push(BottomLength - Actual0X, BottomLength - Actual1X);
+            }
+            // NewPDF.DrawLineFromV3(Line.LineSettings.points[0], Line.LineSettings.points[1], { r: 0, g: 1, b: 0 });
+            // NewPDF.DrawLineFromV3(Line.SketchExtrusionLines.LineASettings.points[0], Line.SketchExtrusionLines.LineASettings.points[1], { r: 0, g: 1, b: 1 });
+            // NewPDF.DrawLineFromV3(Line.SketchExtrusionLines.LineBSettings.points[0], Line.SketchExtrusionLines.LineBSettings.points[1], { r: 0, g: 1, b: 1 });
+            for (let X = 0; X < BottomLength;) { // Seems like I need to reverse.
+                if (X == BottomLength) break;
+                let PrevTop = Line.RUN * Line.SketchExtrusionLines.GetHeightAtX(BottomLength - X) / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
+                let PrevBottom = Line.RUN * Line.SketchExtrusionLines.GetBottomAtX(BottomLength - X) / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
+                let PrevTestTop = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(X, 0, PrevTop));
+                let PrevTestBottom = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(X, 0, PrevBottom));
+                // if (X < Line.ExtrudeB && Line.ExtrudeB < X + PanelWidth) X = Line.ExtrudeB;
+                let PrevX = X;
+                X += PanelWidth;
+                for (let HardX of HardPoints) {
+                    if (PrevX <= HardX && HardX <= X) {
+                        let Top = Line.RUN * Line.SketchExtrusionLines.GetHeightAtX(BottomLength - HardX) / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
+                        let Bottom = Line.RUN * Line.SketchExtrusionLines.GetBottomAtX(BottomLength - HardX) / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
+                        if (Bottom <= Top) {
+                            let TestTop = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(HardX, 0, Top));
+                            let TestBottom = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(HardX, 0, Bottom));
+                            NewPDF.DrawLineFromV3(PrevTestTop, TestTop, { r: 0, g: 1, b: 1 });
+                            // NewPDF.DrawLineFromV3(TestBottom, TestTop);
+                            NewPDF.DrawLineFromV3(PrevTestBottom, TestBottom, { r: 0, g: 1, b: 0 });
+                            PrevTestTop = TestTop;
+                            PrevTestBottom = TestBottom;
+                        }
+
+                        break;
+                    }
+                }
+                // if (PrevX <= Line.ExtrudeB && Line.ExtrudeB <= X) {
+                //     PrevTop = Line.RUN * Line.SketchExtrusionLines.GetHeightAtX(BottomLength - Line.ExtrudeB) / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
+                //     PrevBottom = Line.RUN * Line.SketchExtrusionLines.GetBottomAtX(BottomLength - Line.ExtrudeB) / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
+                //     PrevTestTop = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(Line.ExtrudeB, 0, PrevTop));
+                //     PrevTestBottom = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(Line.ExtrudeB, 0, PrevBottom));
+                //     NewPDF.DrawLineFromV3(PrevTestTop, PrevTestBottom, { r: 1, g: 0, b: 0 });
+                // } else if (PrevX <= Line.ExtrudeB + Line.Length && Line.ExtrudeB + Line.Length <= X) {
+                //     PrevTop = Line.RUN * Line.SketchExtrusionLines.GetHeightAtX(BottomLength - Line.ExtrudeB - Line.Length) / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
+                //     PrevBottom = Line.RUN * Line.SketchExtrusionLines.GetBottomAtX(BottomLength - Line.ExtrudeB - Line.Length) / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
+                //     PrevTestTop = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(Line.ExtrudeB + Line.Length, 0, PrevTop));
+                //     PrevTestBottom = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(Line.ExtrudeB + Line.Length, 0, PrevBottom));
+                //     NewPDF.DrawLineFromV3(PrevTestTop, PrevTestBottom, { r: 1, g: 0, b: 0 });
+                // } else if (PrevX <= BottomLength && BottomLength <= X) {
+                //     // PrevTop = Line.RUN * Line.SketchExtrusionLines.GetHeightAtX(0) / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
+                //     // PrevBottom = Line.RUN * Line.SketchExtrusionLines.GetBottomAtX(0) / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
+                //     // PrevTestTop = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(BottomLength, 0, PrevTop));
+                //     // PrevTestBottom = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(BottomLength, 0, PrevBottom));
+                //     // NewPDF.DrawLineFromV3(PrevTestTop, PrevTestBottom, { r: 1, g: 0, b: 0 });
+                // }
+                if (X > BottomLength) X = BottomLength;
+                let Top = Line.RUN * Line.SketchExtrusionLines.GetHeightAtX(BottomLength - X) / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
+                let Bottom = Line.RUN * Line.SketchExtrusionLines.GetBottomAtX(BottomLength - X) / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
+                // if (Bottom <= Top) continue;
+                let TestBottom = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(X, 0, Bottom));
+                let TestTop = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(X, 0, Top));
+                if (Bottom <= Top) NewPDF.DrawLineFromV3(PrevTestTop, TestTop, { r: 0, g: 1, b: 1 });
+                if (Bottom <= Top) NewPDF.DrawLineFromV3(TestBottom, TestTop);
+                if (Bottom <= Top) NewPDF.DrawLineFromV3(PrevTestBottom, TestBottom, { r: 0, g: 1, b: 0 });
+            }
+        }
+        // NewPDF.DrawLine();
+    }
+    NewPDF.Download();
+    console.log("PDF saved?");
 }
 
 
