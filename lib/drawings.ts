@@ -507,7 +507,7 @@ export class ExtrusionLines {
         // BABYLON.MeshBuilder.ExtrudeShapeCustom("POLY",)
     }
 
-    GetHeightAtX(X: number) {
+    GetHeightAtX(X: number, Raw = false) {
         // return this.GetBottomAtX(X);
         let MainLength = this.ExtrudedLine.Length;
         let BottomLength = MainLength + this.ExtrudedLine.ExtrudeA + this.ExtrudedLine.ExtrudeB;
@@ -515,20 +515,22 @@ export class ExtrusionLines {
         let Height = 0;
         if (X <= this.ExtrudedLine.ExtrudeB) {
             Height = X / this.ExtrudedLine.ExtrudeB * ExtrudeLength;
-            for (let ZoningPoint of this.Zonings) {
-                let Actual1X = -ZoningPoint[1].X + this.ExtrudedLine.ExtrudeB + MainLength;
-                if (Actual1X > X) continue;
-                Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
-            }
+            if (!Raw)
+                for (let ZoningPoint of this.Zonings) {
+                    let Actual1X = -ZoningPoint[1].X + this.ExtrudedLine.ExtrudeB + MainLength;
+                    if (Actual1X > X) continue;
+                    Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
+                }
         } else if (X <= this.ExtrudedLine.ExtrudeB + MainLength) {
             Height = ExtrudeLength;
         } else {
             Height = (BottomLength - X) / this.ExtrudedLine.ExtrudeA * ExtrudeLength;
-            for (let ZoningPoint of this.Zonings) {
-                let Actual1X = -ZoningPoint[1].X + this.ExtrudedLine.ExtrudeB + MainLength;
-                if (Actual1X < X) continue;
-                Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
-            }
+            if (!Raw)
+                for (let ZoningPoint of this.Zonings) {
+                    let Actual1X = -ZoningPoint[1].X + this.ExtrudedLine.ExtrudeB + MainLength;
+                    if (Actual1X < X) continue;
+                    Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
+                }
         }
         // for (let ZoningPoint of this.Zonings) {
         //     let Actual0X = -ZoningPoint[0].X + this.ExtrudedLine.ExtrudeB + MainLength;

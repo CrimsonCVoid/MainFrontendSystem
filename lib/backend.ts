@@ -110,6 +110,12 @@ function RelationsCombine(List: any[], ID: any) {
     }
 }
 
+function InchesToFT_IN_FORMAT(X: number) {
+    let Inches = Math.ceil(X);
+    let Feet = Math.floor(Inches / 12);
+    return Feet + "'-" + (Inches - Feet * 12) + "\"";
+}
+
 export async function Test(Lat: number | string, Lon: number | string) {
     let URL = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${Lat}&location.longitude=${Lon}&key=${ENV_KEY}`;
     const response = await fetch(URL);
@@ -753,11 +759,38 @@ export async function Test(Lat: number | string, Lon: number | string) {
     let PanelWidth = 16; // 24;
     let NewPDF = await PDF_Exporter.Create();
     NewPDF.NextPage();
+    NewPDF.NextPage();
     NewPDF.PageIndex = 0;
+
+    let DrawTheseInOrder = {
+        Panels: NewPDF.DrawingsInOrder.EstablishType("Panels", 0, [0], { r: 0, g: 0, b: 0, a: .5 }),
+        Cyans: NewPDF.DrawingsInOrder.EstablishType("Cyans", 1, [0, 1, 2], { r: 0, g: 1, b: 1, a: 1 }),
+        InterceptRidges: NewPDF.DrawingsInOrder.EstablishType("InterceptRidges", 2, [0, 1, 2], { r: 1, g: 0, b: 0, a: 1 }),
+        Intercepts: NewPDF.DrawingsInOrder.EstablishType("Intercepts", 3, [0, 1, 2], { r: 1, g: .5, b: 0, a: 1 }),
+        Ridges: NewPDF.DrawingsInOrder.EstablishType("Ridges", 4, [0, 1, 2], { r: 0, g: 0, b: 1, a: 1 }),
+        Eaves: NewPDF.DrawingsInOrder.EstablishType("Eaves", 5, [0, 1, 2], { r: 0, g: 1, b: 0, a: 1 }),
+        SolarPanels: NewPDF.DrawingsInOrder.EstablishType("SolarPanels", 6, [2], { r: .5, g: .5, b: 1, a: 1 }),
+        PanelTexts: NewPDF.DrawingsInOrder.EstablishType("PanelTexts", 7, [0], { r: 0, g: 0, b: 0, a: .5 }),
+        OTHER: NewPDF.DrawingsInOrder.EstablishType("OTHER", 8, [0], { r: 1, g: 1, b: 0, a: 1 }),
+    }
+
+    // let DrawTheseInOrder: {} = {
+    //     Eaves: [],
+    //     Cyans: [],
+    //     Ridges: [],
+    //     Intercepts: [],
+    //     InterceptRidges: [],
+    //     Panels: [],
+    //     PanelTexts: [],
+    //     OTHER: [],
+    //     SolarPanels: [],
+    // };
+
     for (let SketchIndex in DrawSketches) {
         let Sketch = DrawSketches[SketchIndex];
         let SketchColor = { r: Math.random(), g: Math.random(), b: Math.random() };
-        for (let Line of Object.values(Sketch.Lines)) {
+        for (let LineID in Sketch.Lines) {
+            let Line = Sketch.Lines[LineID];
             let MainLength = Line.Length;
             let BottomLength = MainLength + Line.ExtrudeA + Line.ExtrudeB;
             let HardPoints = [0, Line.ExtrudeB, BottomLength];
@@ -790,6 +823,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
             let LazyPolyLines: {
                 X: number,
                 Top: number, TopCF: CFrame,
+                RawTop: number, RawTopCF: CFrame,
                 Bottom: number, BottomCF: CFrame,
                 BottomOffset: number, BottomOffsetCF: CFrame,
                 BottomInclusive: number, BottomInclusiveCF: CFrame,
@@ -803,6 +837,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
             for (let Index = 0; Index < HardPoints.length; Index++) {
                 let HardX = HardPoints[Index]; // + TinyOffset; // - .00001;
                 let TopHypo = Line.SketchExtrusionLines.GetHeightAtX(BottomLength - HardX);
+                let RawTopHypo = Line.SketchExtrusionLines.GetHeightAtX(BottomLength - HardX, true);
                 let LengthFromBottom = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - HardX, false, false);
                 let LengthFromBottomOffset = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - HardX, false, true);
                 let LengthFromBottomInclusive = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - HardX, true, false);
@@ -817,6 +852,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
                 LazyPolyLines.push({
                     X: HardX,
                     Top: TopHypo, TopCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * TopHypo / LineHypo)),
+                    RawTop: RawTopHypo, RawTopCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * RawTopHypo / LineHypo)),
                     Bottom: LengthFromBottom, BottomCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * LengthFromBottom / LineHypo)),
                     BottomOffset: LengthFromBottomOffset, BottomOffsetCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * LengthFromBottomOffset / LineHypo)),
                     BottomInclusive: LengthFromBottomInclusive, BottomInclusiveCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * LengthFromBottomInclusive / LineHypo)),
@@ -829,7 +865,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
 
             LazyPolyLines.sort((a, b) => b.X - a.X);
             // if (+SketchIndex == 1)
-            console.log("IT'S SO HARD", LazyPolyLines.map(x => [x.Bottom, x.BottomOffset, x.BottomInclusive, x.BottomInclusiveOffset]), SketchColor);
+            // console.log("IT'S SO HARD", LazyPolyLines.map(x => [x.Bottom, x.BottomOffset, x.BottomInclusive, x.BottomInclusiveOffset]), SketchColor);
 
             for (let X = 0; X < BottomLength;) {
                 if (X == BottomLength) break;
@@ -838,68 +874,35 @@ export async function Test(Lat: number | string, Lon: number | string) {
                 let PrevBottomHypo = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - X);
                 let PrevTop = Line.RUN * PrevTopHypo / LineHypo;
                 let PrevBottom = Line.RUN * PrevBottomHypo / LineHypo;
-                let PrevTestTop = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(X, 0, PrevTop));
-                let PrevTestBottom = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(X, 0, PrevBottom));
+                let PrevTestTop = LineCF.ToWorldSpace(CFrame.fromXYZ(X, 0, PrevTop));
+                let PrevTestBottom = LineCF.ToWorldSpace(CFrame.fromXYZ(X, 0, PrevBottom));
                 // if (X < Line.ExtrudeB && Line.ExtrudeB < X + PanelWidth) X = Line.ExtrudeB;
-                let PanelLength = PrevTopHypo - PrevBottomHypo;
                 let PrevX = X;
                 let OverallTopHypo = PrevTopHypo;
                 let OverallBottomHypo = PrevBottomHypo;
-                let HighestBottomHypo = PrevBottomHypo;
                 X += PanelWidth;
-                let AvgCF = PrevTestBottom.Position.TranslateAdd(PrevTestTop.Position).Scale(.5);
-                for (let HardX of HardPoints) {
-                    if (PrevX <= HardX && HardX <= X) {
-                        let TopHypo = Line.SketchExtrusionLines.GetHeightAtX(BottomLength - HardX);
-                        let BottomHypo = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - HardX);
-                        let Top = Line.RUN * TopHypo / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
-                        let Bottom = Line.RUN * BottomHypo / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
-                        if (Bottom <= Top) {
-                            OverallTopHypo = Math.max(OverallTopHypo, TopHypo);
-                            OverallBottomHypo = Math.min(OverallBottomHypo, BottomHypo);
-                            HighestBottomHypo = Math.max(HighestBottomHypo, BottomHypo);
-
-                            let TestTop = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(HardX, 0, Top));
-                            let TestBottom = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(HardX, 0, Bottom));
-                            // let TestBottom = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(HardX, 0, Math.min(Bottom, PrevBottom)));
-                            NewPDF.DrawLineFromV3(PrevTestTop, TestTop, { r: 0, g: 1, b: 1 });
-                            // NewPDF.DrawLineFromV3(TestBottom, TestTop, { r: 1, g: 0, b: 0 });
-                            NewPDF.DrawLineFromV3(PrevTestBottom, TestBottom, HighestBottomHypo == 0 ? { r: 0, g: 1, b: 0 } : { r: 1, g: .5, b: 0 });
-                            NewPDF.PageIndex = 1;
-                            NewPDF.DrawLineFromV3(PrevTestTop, TestTop, { r: 0, g: 1, b: 1 });
-                            NewPDF.DrawLineFromV3(PrevTestBottom, TestBottom, HighestBottomHypo == 0 ? { r: 0, g: 1, b: 0 } : { r: 1, g: .5, b: 0 });
-                            NewPDF.PageIndex = 0;
-                            PrevTestTop = TestTop;
-                            PrevTestBottom = TestBottom;
-                        }
-                        break;
+                let AvgCF = PrevTestBottom.Position.Average(PrevTestTop.Position);
+                for (let ThisLine of LazyPolyLines) {
+                    if (PrevX <= ThisLine.X && ThisLine.X <= X) {
+                        OverallTopHypo = Math.max(OverallTopHypo, ThisLine.Top);
+                        OverallBottomHypo = Math.min(OverallBottomHypo, ThisLine.Bottom);
                     }
                 }
-                if (X > BottomLength) X = BottomLength;
+                // if (X > BottomLength) X = BottomLength;
                 let TopHypo = Line.SketchExtrusionLines.GetHeightAtX(BottomLength - X); OverallTopHypo = Math.max(OverallTopHypo, TopHypo);
-                let BottomHypo = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - X); OverallBottomHypo = Math.min(OverallBottomHypo, BottomHypo); HighestBottomHypo = Math.max(HighestBottomHypo, BottomHypo);
-                let Top = Line.RUN * TopHypo / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
-                let Bottom = Line.RUN * BottomHypo / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
+                let BottomHypo = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - X); OverallBottomHypo = Math.min(OverallBottomHypo, BottomHypo);
                 // if (Bottom <= Top) continue;
-                let TestBottom = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(X, 0, Bottom));
-                let TestTop = Line.CF0.ToWorldSpace(Line.A0).ToWorldSpace(CFrame.fromXYZ(X, 0, Top));
-                if (Bottom <= Top) {
-                    NewPDF.DrawLineFromV3(PrevTestTop, TestTop, { r: 0, g: 1, b: 1 });
-                    NewPDF.DrawLineFromV3(TestBottom, TestTop);
-                    NewPDF.DrawLineFromV3(PrevTestBottom, TestBottom, HighestBottomHypo == 0 ? { r: 0, g: 1, b: 0 } : { r: 1, g: .5, b: 0 });
-                    NewPDF.PageIndex = 1;
-                    NewPDF.DrawLineFromV3(PrevTestTop, TestTop, { r: 0, g: 1, b: 1 });
-                    NewPDF.DrawLineFromV3(PrevTestBottom, TestBottom, HighestBottomHypo == 0 ? { r: 0, g: 1, b: 0 } : { r: 1, g: .5, b: 0 });
-                    NewPDF.PageIndex = 0;
+                let TestBottom = LineCF.ToWorldSpace(CFrame.fromXYZ(X, 0, Line.RUN * BottomHypo / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5)));
+                let TestTop = LineCF.ToWorldSpace(CFrame.fromXYZ(X, 0, Line.RUN * TopHypo / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5)));
+                if (BottomHypo <= TopHypo) {
+                    DrawTheseInOrder.Panels.AddDraw(SketchIndex, LineID, undefined, TestBottom, TestTop);
                 }
-                PanelLength = OverallTopHypo - OverallBottomHypo;
+                let PanelLength = OverallTopHypo - OverallBottomHypo;
                 AvgCF = AvgCF.Average(TestBottom.Position.Average(TestTop.Position));
                 ALLPOSITIONSAREDOOMEDHERE.push(AvgCF);
                 // if (PanelLength > 0) NewPDF.AddText(Math.round(OverallTopHypo) + "-" + Math.round(OverallBottomHypo), AvgCF.X, AvgCF.Z, Sketch.Angle * 180 / Math.PI + Line.Angle);
                 // if (PanelLength > 0) NewPDF.AddText(PanelLength.toFixed(), AvgCF.X, AvgCF.Z, Sketch.Angle * 180 / Math.PI + Line.Angle);
-                let Inches = Math.ceil(PanelLength);
-                let Feet = Math.floor(Inches / 12);
-                if (PanelLength > 0) NewPDF.AddText(Feet + "'-" + (Inches - Feet * 12) + "\"", AvgCF.X, AvgCF.Z, LineAngle);
+                if (PanelLength > 0) DrawTheseInOrder.PanelTexts.AddDraw(SketchIndex, LineID, { String: InchesToFT_IN_FORMAT(PanelLength), Rotate: LineAngle }, AvgCF);
             }
 
 
@@ -915,117 +918,252 @@ export async function Test(Lat: number | string, Lon: number | string) {
                 // NewPDF.DrawLineFromV3(NextLine.BottomInclusiveOffsetCF, NextLine.TopCF, SketchColor, 1);
 
                 if (Math.round(ThisLine.Bottom * 100) / 100 == Math.round(NextLine.Bottom * 100) / 100) {
-                    NewPDF.DrawLineFromV3(ThisLine.BottomCF, NextLine.BottomCF, { r: 0, g: 1, b: 0 }, 1);
-                    NewPDF.PageIndex = 1;
-                    NewPDF.DrawLineFromV3(ThisLine.BottomCF, NextLine.BottomCF, { r: 0, g: 1, b: 0 }, 1);
-                    NewPDF.PageIndex = 0;
+                    DrawTheseInOrder.Eaves.AddDraw(SketchIndex, LineID, undefined, ThisLine.BottomCF, NextLine.BottomCF);
                 } else if (Math.round((ThisLine.Top - ThisLine.BottomInclusiveOffset) * 100) / 100 >= 0 && Math.round((NextLine.Top - NextLine.BottomInclusiveOffset) * 100) / 100 >= 0) { //if (ThisLine.BottomInclusive != ThisLine. && Math.max(ThisLine.BottomInclusiveOffset, NextLine.BottomInclusiveOffset) != 0) {
-                    NewPDF.DrawLineFromV3(ThisLine.BottomInclusiveOffsetCF, NextLine.BottomInclusiveOffsetCF, { r: 1, g: .5, b: 0 }, 1);
-                    NewPDF.PageIndex = 1;
-                    NewPDF.DrawLineFromV3(ThisLine.BottomInclusiveOffsetCF, NextLine.BottomInclusiveOffsetCF, { r: 1, g: .5, b: 0 }, 1);
-                    NewPDF.PageIndex = 0;
+                    DrawTheseInOrder.Intercepts.AddDraw(SketchIndex, LineID, undefined, ThisLine.BottomInclusiveOffsetCF, NextLine.BottomInclusiveOffsetCF);
                 }
 
                 // if (ThisLine)
-                if (ThisLine.Top - ThisLine.BottomInclusiveOffset >= 0 && NextLine.Top - NextLine.BottomInclusiveOffset >= 0) {
-                    NewPDF.DrawLineFromV3(ThisLine.TopCF, NextLine.TopCF, { r: 0, g: 1, b: 1 }, 1);
-                    NewPDF.PageIndex = 1;
-                    NewPDF.DrawLineFromV3(ThisLine.TopCF, NextLine.TopCF, { r: 0, g: 1, b: 1 }, 1);
-                    NewPDF.PageIndex = 0;
+                if (Math.round(ThisLine.Top * 100) / 100 == Math.round(NextLine.Top * 100) / 100) {
+                    if (Math.round(ThisLine.Top * 100) / 100 == Math.round(LineHypo * 100) / 100)
+                        DrawTheseInOrder.Ridges.AddDraw(SketchIndex, LineID, undefined, ThisLine.TopCF, NextLine.TopCF);
+                    else
+                        DrawTheseInOrder.InterceptRidges.AddDraw(SketchIndex, LineID, undefined, ThisLine.TopCF, NextLine.TopCF);
+                } else if (ThisLine.Top - ThisLine.BottomInclusiveOffset >= 0 && NextLine.Top - NextLine.BottomInclusiveOffset >= 0) {
+                    DrawTheseInOrder.Cyans.AddDraw(SketchIndex, LineID, undefined, ThisLine.TopCF, NextLine.TopCF);
                 }
             }
 
-            for (let Index = 0; Index < HardPoints.length - 1; Index++) {
-                // if (+Index >= HardPoints.length) break;
-                let HardX = HardPoints[Index];
-                let NextX = HardPoints[Index + 1];
+            // DrawTheseLinesInOrder.Ridges.push([Line.SketchExtrusionLines.LineASettings.points[0], Line.SketchExtrusionLines.LineBSettings.points[0], SketchIndex, LineID]);
 
-                let LineCF = Line.CF0.ToWorldSpace(Line.A0);
-                // NewPDF.DrawLineFromV3(PrevTestBottom, NextTestBottom, { r: 0, g: 0, b: 0 }, 1);
-                if (true) continue;
-
-                let PrevTopHypo = Line.SketchExtrusionLines.GetHeightAtX(BottomLength - HardX);
-                let PrevBottomHypo = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - HardX);
-                let PrevTestTop = LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * PrevTopHypo / LineHypo));
-                let PrevTestBottom = LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * PrevBottomHypo / LineHypo));
-                let PrevHypo = PrevTopHypo - PrevBottomHypo;
-
-                for (let ZoningPoint of Line.SketchExtrusionLines.Zonings) {
-                    let Actual0X = Line.ExtrudeA + ZoningPoint[0].X;
-                    // let Actual1X = Line.ExtrudeA + ZoningPoint[1].X;
-                    // HardPoints.push(Actual0X, Actual1X);
-                    if (HardX <= Actual0X && Actual0X <= NextX) {
-                        // NextX = 
-                        let NextTestBottom = LineCF.ToWorldSpace(CFrame.fromXYZ(Actual0X, 0, Line.RUN * PrevBottomHypo / LineHypo));
-                        NewPDF.DrawLineFromV3(PrevTestBottom, NextTestBottom, { r: 1, g: 1, b: 0 }, 1);
-                        PrevTestBottom = NextTestBottom;
-                        PrevTopHypo = Line.SketchExtrusionLines.GetHeightAtX(BottomLength - HardX);
-                        PrevTestTop = LineCF.ToWorldSpace(CFrame.fromXYZ(Actual0X, 0, Line.RUN * PrevTopHypo / LineHypo));
-                        break;
-                    }
-                }
-
-                let NextTopHypo = Line.SketchExtrusionLines.GetHeightAtX(BottomLength - NextX);
-                let NextBottomHypo = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - NextX);
-                let NextTestTop = LineCF.ToWorldSpace(CFrame.fromXYZ(NextX, 0, Line.RUN * NextTopHypo / LineHypo));
-                let NextTestBottom = LineCF.ToWorldSpace(CFrame.fromXYZ(NextX, 0, Line.RUN * NextBottomHypo / LineHypo));
-
-                // let PrevTestBottom2 = LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * Math.min(NextBottomHypo, PrevBottomHypo) / LineHypo));
-                // let NextTestBottom2 = LineCF.ToWorldSpace(CFrame.fromXYZ(NextX, 0, Line.RUN * Math.min(NextBottomHypo, PrevBottomHypo) / LineHypo));
-
-                let NextHypo = NextTopHypo - NextBottomHypo;
-                // if (PrevTopHypo > PrevBottomHypo) NewPDF.DrawLineFromV3(PrevTestBottom, PrevTestTop);
-                // if (PrevTopHypo > PrevBottomHypo) NewPDF.DrawLineFromV3(PrevTestBottom, PrevTestTop);
-                // if (PrevHypo >= 0) NewPDF.DrawLineFromV3(PrevTestBottom, NextTestBottom2, { r: 0, g: 0, b: 0 }, 1);
-                // if (PrevHypo >= 0) NewPDF.DrawLineFromV3(NextTestTop, PrevTestTop, { r: 0, g: 1, b: 1 }, 1);
-                // if (PrevHypo >= 0) NewPDF.DrawLineFromV3(PrevTestBottom, PrevTestTop, { r: 0, g: 1, b: 1 }, 1);
-                // if (PrevHypo >= 0) NewPDF.DrawLineFromV3(NextTestBottom, NextTestBottom2, { r: 1, g: 0, b: 0 }, 1);
-
-                // if (Math.floor(PrevBottomHypo) == 0) { // Math.floor(NextBottomHypo)) {
-                //     NewPDF.DrawLineFromV3(PrevTestBottom, NextTestBottom2, { r: 0, g: 0, b: 0 }, 1);
-                //     // NewPDF.AddText("Q", NextTestBottom2.X, NextTestBottom2.Z, LineAngle, 8, 0, 1);
-                // } else if (Math.floor(NextBottomHypo) == 0) {
-                //     NewPDF.DrawLineFromV3(PrevTestBottom2, NextTestBottom, { r: 0, g: 0, b: 0 }, 1);
-                //     // NewPDF.AddText("P", NextTestBottom2.X, NextTestBottom2.Z, LineAngle, 8, 0, 1);
-                // }
-                // else if (PrevBottomHypo != NextBottomHypo)
-                // if ((PrevTopHypo - PrevBottomHypo) >= 0 && (NextTopHypo - NextBottomHypo) >= 0) NewPDF.DrawLineFromV3(PrevTestBottom, NextTestBottom, { r: 0, g: 0, b: 0 }, 1);
-                if ((PrevTopHypo - PrevBottomHypo) >= 0) NewPDF.DrawLineFromV3(PrevTestBottom, PrevTestTop, { r: 0, g: 0, b: 0 }, 1);
-
-                // if (PrevBottomHypo < 1) NewPDF.AddText("E", PrevTestBottom.X, PrevTestBottom.Z, LineAngle, 8, 0, 1);
-                // if (NextBottomHypo < 1) NewPDF.AddText("E", NextTestBottom.X, NextTestBottom.Z, LineAngle, 8, 0, 1);
-                // if (PrevBottomHypo == NextBottomHypo) NewPDF.AddText("E", PrevTestBottom.X, PrevTestBottom.Z, LineAngle, 8, 0, 1);
-                // if (PrevBottomHypo == NextBottomHypo) NewPDF.AddText("E", NextTestBottom.X, NextTestBottom.Z, LineAngle, 8, 0, 1);
-
-                // NewPDF.DrawLineFromV3(PrevTestBottom, PrevTestTop, { r: 0, g: 1, b: 1 }, .5);
-                // NewPDF.DrawLineFromV3(NextTestBottom, NextTestTop, { r: 0, g: 1, b: 1 }, .5);
-
-                // NewPDF.AddText("E", PrevTestBottom.X, PrevTestBottom.Z, LineAngle, 8, 0, 1);
-                // NewPDF.AddText("A", NextTestBottom.X, NextTestBottom.Z, LineAngle, 8, 0, 1);
-            }
-            NewPDF.DrawLineFromV3(Line.SketchExtrusionLines.LineASettings.points[0], Line.SketchExtrusionLines.LineBSettings.points[0], { r: 0, g: 0, b: 1 }, 1);
             NewPDF.PageIndex = 1;
-            NewPDF.DrawLineFromV3(Line.SketchExtrusionLines.LineASettings.points[0], Line.SketchExtrusionLines.LineBSettings.points[0], { r: 0, g: 0, b: 1 }, 1);
             let RidgeCalc = Line.CF0.Distance(Line.CF1.Position);
             if (RidgeCalc != 0) {
                 let CenterRidge = Line.CF0.Position.Average(Line.CF1.Position);
-                let Inches = Math.ceil(RidgeCalc);
-                let Feet = Math.floor(Inches / 12);
-                NewPDF.AddText("(RC)-" + Feet + "'-" + (Inches - Feet * 12) + "\"", CenterRidge.X, CenterRidge.Z, LineAngle + 90, 6, 6, 1); // + Math.PI / 4);
+                NewPDF.AddTextAtV3("(RC)-" + InchesToFT_IN_FORMAT(RidgeCalc), CenterRidge, LineAngle + 90, 6, 6, 1); // + Math.PI / 4);
             }
             let AvgPos = Vector3.AverageAll(ALLPOSITIONSAREDOOMEDHERE);
-            NewPDF.AddText("+" + Math.round(Line.PITCH), AvgPos.X, AvgPos.Z, 0, 16, 0, 1);
+            NewPDF.AddTextAtV3("+" + Math.round(Line.PITCH), AvgPos, -90, 16, 0, 1);
             // NewPDF.AddText("(HC)-", Line.SketchExtrusionLines.LineASettings.points[0], Line.SketchExtrusionLines.LineBSettings.points[0])
             NewPDF.PageIndex = 0;
         }
         // NewPDF.DrawLine();
     }
+
+    for (let RoofID in ConvertedRoofs) {
+        let Info = ConvertedRoofs[RoofID];
+        let Roof = Info.Raw;
+        let Panels = Info.Panels;
+        let ROOF_ROT = Roof.azimuthDegrees * Math.PI / 180;
+        for (let PanelID of Panels) {
+            let Panel = Data.solarPotential.solarPanels[PanelID];
+            let CenterLAT = Panel.center.latitude * Math.PI / 180, CenterLON = Panel.center.longitude * Math.PI / 180;
+            let dCenter_LAT = CenterLAT - Data.CenteredLAT0, dCenter_LON = CenterLON - Data.CenteredLON0;
+
+            let ROT = (Panel.orientation == "PORTRAIT" ? Math.PI / 2 : 0) + ROOF_ROT;
+
+            let PanelCF = CFrame.fromXYZ(-R * dCenter_LAT * InchesInMeter, Roof.planeHeightAtCenterMeters * InchesInMeter, R * dCenter_LON * Data.CosCenteredLAT0 * InchesInMeter).ToWorldSpace(CFrame.Angles(0, ROT, 0));
+            let FL = PanelCF.ToWorldSpace(CFrame.fromXYZ(-WIDTH, 0, -HEIGHT));
+            let FR = PanelCF.ToWorldSpace(CFrame.fromXYZ(WIDTH, 0, -HEIGHT));
+            let BL = PanelCF.ToWorldSpace(CFrame.fromXYZ(-WIDTH, 0, HEIGHT));
+            let BR = PanelCF.ToWorldSpace(CFrame.fromXYZ(WIDTH, 0, HEIGHT));
+            DrawTheseInOrder.SolarPanels.AddDraw(RoofID, PanelID, undefined, FL, FR, BR, BL);
+        }
+    }
+
+    const geometry = await importLibrary("geometry");
+    // setOptions({ key: "AIzaSyDUfrliF4ydB8G4JbQudiC4t8L39pG_E74" });
+    {
+        //&exactQualityRequired=true
+        let center = Data.center;
+        let ne = Data.boundingBox.ne;
+        let sw = Data.boundingBox.sw;
+        let diameter = geometry.spherical.computeDistanceBetween(
+            new google.maps.LatLng(ne.latitude, ne.longitude),
+            new google.maps.LatLng(sw.latitude, sw.longitude),
+        );
+        let radius = Math.ceil(diameter / 2);
+        let ImgURL = `https://solar.googleapis.com/v1/dataLayers:get?location.latitude=${center.latitude}&location.longitude=${center.longitude}&radiusMeters=${radius}&view=FULL_LAYERS&requiredQuality=HIGH&exactQualityRequired=true&pixelSizeMeters=0.1&key=${ENV_KEY}`;
+        let ImgResponse = await fetch(ImgURL);
+        let ImgData = await ImgResponse.json() as DataLayersResponse;
+        if (ImgResponse.status != 200) {
+            // console.error('findClosestBuilding\n', content);
+            throw ImgData;
+        }
+        const mask = await downloadGeoTIFF(ImgData.rgbUrl, ENV_KEY);
+        let RGB_Index = await NewPDF.AddImage(mask.PNG);
+        NewPDF.DrawImage(RGB_Index);
+        NewPDF.PageIndex = 2;
+        NewPDF.DrawImage(RGB_Index);
+        NewPDF.PageIndex = 0;
+    }
+
+    NewPDF.ExecuteOrder66();
+
+    // for (let Panel of DrawTheseInOrder.Panels) NewPDF.DrawLineFromV3(Panel[0], Panel[1], { r: 0, g: 0, b: 0 }, .5);
+    // for (let SketchID in DrawSketches) {
+    //     for (let Cyan of DrawTheseInOrder.Cyans) NewPDF.DrawLineFromV3(Cyan[0], Cyan[1], { r: 0, g: 1, b: 1 }, 1);
+    //     for (let InterceptRidge of DrawTheseInOrder.InterceptRidges) NewPDF.DrawLineFromV3(InterceptRidge[0], InterceptRidge[1], { r: 1, g: 0, b: 0 }, 1);
+    //     for (let Intercept of DrawTheseInOrder.Intercepts) NewPDF.DrawLineFromV3(Intercept[0], Intercept[1], { r: 1, g: .5, b: 0 }, 1);
+    //     for (let Ridge of DrawTheseInOrder.Ridges) NewPDF.DrawLineFromV3(Ridge[0], Ridge[1], { r: 0, g: 0, b: 1 }, 1);
+    //     for (let Eave of DrawTheseInOrder.Eaves) NewPDF.DrawLineFromV3(Eave[0], Eave[1], { r: 0, g: 1, b: 0 }, 1);
+    // }
+    // for (let i = 0; i <= 2; i++) {
+    //     NewPDF.PageIndex = i;
+    //     for (let Cyan of DrawTheseInOrder.Cyans) NewPDF.DrawLineFromV3(Cyan[0], Cyan[1], { r: 0, g: 1, b: 1 }, 1);
+    //     for (let InterceptRidge of DrawTheseInOrder.InterceptRidges) NewPDF.DrawLineFromV3(InterceptRidge[0], InterceptRidge[1], { r: 1, g: 0, b: 0 }, 1);
+    //     for (let Intercept of DrawTheseInOrder.Intercepts) NewPDF.DrawLineFromV3(Intercept[0], Intercept[1], { r: 1, g: .5, b: 0 }, 1);
+    //     for (let Ridge of DrawTheseInOrder.Ridges) NewPDF.DrawLineFromV3(Ridge[0], Ridge[1], { r: 0, g: 0, b: 1 }, 1);
+    //     for (let Eave of DrawTheseInOrder.Eaves) NewPDF.DrawLineFromV3(Eave[0], Eave[1], { r: 0, g: 1, b: 0 }, 1);
+    // }
+    // for (let SolarPanel of DrawTheseInOrder.SolarPanels) {
+    //     NewPDF.DrawLineFromV3(SolarPanel[0], SolarPanel[1], { r: .5, g: .5, b: 1 }, 1);
+    //     NewPDF.DrawLineFromV3(SolarPanel[1], SolarPanel[2], { r: .5, g: .5, b: 1 }, 1);
+    //     NewPDF.DrawLineFromV3(SolarPanel[2], SolarPanel[3], { r: .5, g: .5, b: 1 }, 1);
+    //     NewPDF.DrawLineFromV3(SolarPanel[3], SolarPanel[0], { r: .5, g: .5, b: 1 }, 1);
+    // }
+    // NewPDF.PageIndex = 0;
+    // for (let PanelText of DrawTheseInOrder.PanelTexts) NewPDF.AddTextAtV3(PanelText[0], PanelText[1], PanelText[2], Math.min(PanelWidth / 3, 8), 0, .5);
+
     NewPDF.Download();
     console.log("PDF saved?");
 }
 
+interface DataLayersResponse {
+    imageryDate: Date;
+    imageryProcessedDate: Date;
+    dsmUrl: string;
+    rgbUrl: string;
+    maskUrl: string;
+    annualFluxUrl: string;
+    monthlyFluxUrl: string;
+    hourlyShadeUrls: string[];
+    imageryQuality: 'HIGH' | 'MEDIUM' | 'BASE';
+}
+
+// interface Bounds {
+//   north: number;
+//   south: number;
+//   east: number;
+//   west: number;
+// }
+
+interface GeoTiff {
+    width: number;
+    height: number;
+    rasters: Array<number>[];
+    //   bounds: Bounds;
+}
+
+import * as geotiff from 'geotiff';
+// import * as geokeysToProj4 from 'geotiff-geokeys-to-proj4';
+// import proj4 from 'proj4';
 
 
+async function downloadGeoTIFF(url: string, apiKey: string): Promise<GeoTiff> {
+    console.log(`Downloading data layer: ${url}`);
+
+    // Include your Google Cloud API key in the Data Layers URL.
+    const solarUrl = url.includes('solar.googleapis.com') ? url + `&key=${apiKey}` : url;
+    console.log("URL", solarUrl);
+    const response = await fetch(solarUrl);
+    if (response.status != 200) {
+        const error = await response.json();
+        console.error(`downloadGeoTIFF failed: ${url}\n`, error);
+        throw error;
+    }
+
+    // Get the GeoTIFF rasters, which are the pixel values for each band.
+    const arrayBuffer = await response.arrayBuffer();
+    const tiff = await geotiff.fromArrayBuffer(arrayBuffer);
+    const image = await tiff.getImage();
+    const rasters = await image.readRasters();
+
+
+
+
+
+    const width = image.getWidth(); // rasters.width; // image.getWidth()
+    const height = image.getHeight(); // rasters.height; // image.getHeight()
+
+    // Read as RGB (interleaved)
+    // const rgb = await image.readRGB(); // Uint8Array length = width*height*3
+
+    // Convert RGB to RGBA by adding alpha channel
+    const rgba = new Uint8ClampedArray(width * height * 4);
+    console.log("LENGTH OF RGB???", width, height, rasters.length, rasters)
+    for (let i = 0, j = 0; i < width * height; i++, j += 4) {
+        rgba[j] = rasters[0][i];       // R
+        rgba[j + 1] = rasters[1][i]; // G
+        rgba[j + 2] = rasters[2][i]; // B
+        rgba[j + 3] = 255;      // A (opaque)
+    }
+    console.log("RGBA", rgba);
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+
+    const imageData = new ImageData(rgba, width, height)
+    ctx.putImageData(imageData, 0, 0)
+
+    // Convert canvas to PNG bytes
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
+
+    // const url = URL.createObjectURL(blob);
+    // const a = document.createElement("a");
+    // a.href = url;
+    // a.download = "eeee.png"; //filename ?? `Estimate_${data.projectName.replace(/\s+/g, "_")}.pdf`;
+    // document.body.appendChild(a);
+    // a.click();
+    // document.body.removeChild(a);
+    // URL.revokeObjectURL(url);
+
+    const pngBytes = new Uint8Array(await blob.arrayBuffer())
+
+
+
+
+    // const PNG_Bytes = await geotiffToPngBytes(arrayBuffer);
+
+    // Reproject the bounding box into lat/lon coordinates.
+    //   const box = image.getBoundingBox();
+    //   const geoKeys = image.getGeoKeys();
+    //   const projObj = geokeysToProj4.toProj4(geoKeys);
+    //   const projection = proj4(projObj.proj4, 'WGS84');
+    //   const sw = projection.forward({
+    //     x: box[0] * projObj.coordinatesConversionParameters.x,
+    //     y: box[1] * projObj.coordinatesConversionParameters.y,
+    //   });
+    //   const ne = projection.forward({
+    //     x: box[2] * projObj.coordinatesConversionParameters.x,
+    //     y: box[3] * projObj.coordinatesConversionParameters.y,
+    //   });
+
+    return {
+        // Width and height of the data layer image in pixels.
+        // Used to know the row and column since Javascript
+        // stores the values as flat arrays.
+        width: width, // rasters.width,
+        height: height, // rasters.height,
+        // PNG_Bytes: PNG_Bytes,
+        // Each raster reprents the pixel values of each band.
+        // We convert them from `geotiff.TypedArray`s into plain
+        // Javascript arrays to make them easier to process.
+        rasters: [...Array(rasters.length).keys()].map((i) =>
+            Array.from(rasters[i] as geotiff.TypedArray),
+        ),
+        PNG: pngBytes,
+        // The bounding box as a lat/lon rectangle.
+        // bounds: {
+        //   north: ne.y,
+        //   south: sw.y,
+        //   east: ne.x,
+        //   west: sw.x,
+        // },
+    };
+}
 
 
 
