@@ -532,12 +532,6 @@ export class ExtrusionLines {
                     Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
                 }
         }
-        // for (let ZoningPoint of this.Zonings) {
-        //     let Actual0X = -ZoningPoint[0].X + this.ExtrudedLine.ExtrudeB + MainLength;
-        //     let Actual1X = -ZoningPoint[1].X + this.ExtrudedLine.ExtrudeB + MainLength;
-        //     if (Actual0X - 1 <= X && X <= Actual0X + 1) Height = ExtrudeLength * 2;
-        //     if (Actual1X - 1 <= X && X <= Actual1X + 1) Height = ExtrudeLength * 2;
-        // }
         return Height;
     }
 
@@ -551,27 +545,8 @@ export class ExtrusionLines {
 
     GetBottomAtX(X: number, Inclusive = false, ApplyOffset = true) {
         let MainLength = this.ExtrudedLine.Length;
-        let BottomLength = MainLength + this.ExtrudedLine.ExtrudeA + this.ExtrudedLine.ExtrudeB;
         let ExtrudeLength = (this.ExtrudedLine.RISE ** 2 + this.ExtrudedLine.RUN ** 2) ** .5;
         let Height = 0;
-        // if (X <= this.ExtrudedLine.ExtrudeB) {
-        //     // Height = X / this.ExtrudedLine.ExtrudeB * ExtrudeLength;
-        //     for (let ZoningPoint of this.Zonings) {
-        //         let Actual1X = -ZoningPoint[0].X + this.ExtrudedLine.ExtrudeB + MainLength;
-        //         if (Actual1X < X) continue;
-        //         Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5));
-        //     }
-        // } else if (X <= this.ExtrudedLine.ExtrudeB + MainLength) {
-        //     // Height = ExtrudeLength;
-        // } else {
-        //     // Height = (BottomLength - X) / this.ExtrudedLine.ExtrudeA * ExtrudeLength;
-        //     for (let ZoningPoint of this.Zonings) {
-        //         let Actual1X = -ZoningPoint[0].X + this.ExtrudedLine.ExtrudeB + MainLength;
-        //         if (Actual1X > X) continue;
-        //         Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5));
-        //     }
-        // }
-
         for (let ZoningPoint of this.Zonings) {
             let Actual0X = -ZoningPoint[0].X + this.ExtrudedLine.ExtrudeB + MainLength;
             let Actual1X = -ZoningPoint[1].X + this.ExtrudedLine.ExtrudeB + MainLength;
@@ -585,13 +560,7 @@ export class ExtrusionLines {
                 Height = Math.max(Height, (X - Actual0X) / (Actual1X - Actual0X) * (EL2 - EL1) - (ApplyOffset ? 1 : 0) * (EL2 - ExtrudeLength)); // Math.max(Height, ExtrudeLength - ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5));
             }
         }
-        // for (let ZoningPoint of this.Zonings) {
-        //     let Actual0X = -ZoningPoint[0].X + this.ExtrudedLine.ExtrudeB + MainLength;
-        //     let Actual1X = -ZoningPoint[1].X + this.ExtrudedLine.ExtrudeB + MainLength;
-        //     if (Actual0X - 1 <= X && X <= Actual0X + 1) Height = ExtrudeLength * 2;
-        //     if (Actual1X - 1 <= X && X <= Actual1X + 1) Height = ExtrudeLength * 2;
-        // }
-        return Height; //  ExtrudeLength - Height;
+        return Height;
     }
 
     GetHeightAtZ(Z: number) {
@@ -709,9 +678,6 @@ export class ExtrudedLine {
 
     A0!: CFrame;
     B0!: CFrame;
-
-    A1!: CFrame;
-    B1!: CFrame;
 
     Update() {
         if (!this.Line) return;

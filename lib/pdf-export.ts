@@ -55,9 +55,12 @@ export class PDF_Exporter {
     AddText(Text: string, X: number, Y: number, Rotate: number = 0, TextSize: number = 6, AddHeight: number = 0, Opacity = 1) {
         let Width = -this.CurrentFont.widthOfTextAtSize(Text, TextSize) / 2;
         let Height = AddHeight - this.CurrentFont.heightAtSize(TextSize) / 2;
+        let TrueX = X + Width * Math.cos(Rotate * Math.PI / 180) - Height * Math.sin(Rotate * Math.PI / 180);
+        let TrueY = Y + Width * Math.sin(Rotate * Math.PI / 180) + Height * Math.cos(Rotate * Math.PI / 180);
+        if (TrueX != TrueX || TrueY != TrueY) return;
         this.Pages[this.PageIndex].drawText(Text, {
-            x: X + Width * Math.cos(Rotate * Math.PI / 180) - Height * Math.sin(Rotate * Math.PI / 180),
-            y: Y + Width * Math.sin(Rotate * Math.PI / 180) + Height * Math.cos(Rotate * Math.PI / 180),
+            x: TrueX,
+            y: TrueY,
             size: TextSize,
             rotate: degrees(Rotate),
             font: this.CurrentFont,
@@ -104,40 +107,44 @@ export class PDF_Exporter {
 
     ExecuteOrder66() {
         this.DrawingsInOrder.DrawTypes.sort((a, b) => a.Order - b.Order);
-        for (let DrawingType of this.DrawingsInOrder.DrawTypes) {
-            for (let Drawing of DrawingType.Draws) {
-                if (Drawing.Points.length > 1)
-                    for (let Layer of DrawingType.Layers) {
-                        this.PageIndex = Layer;
-                        for (let PointIndex = 0; PointIndex < Drawing.Points.length; PointIndex++)
-                            if (PointIndex == 1 && PointIndex == Drawing.Points.length - 1)
-                                this.DrawLineFromV3(Drawing.Points[PointIndex], Drawing.Points[(PointIndex + 1) % Drawing.Points.length], DrawingType.Color);
-                    }
-                if (Drawing.Points.length > 0 && Drawing.Text) {
-                    let AveragePosition = { x: 0, z: 0 };
-                    Drawing.Points.forEach(value => { AveragePosition.x += value.x; AveragePosition.z += value.z });
-                    AveragePosition.x /= Drawing.Points.length; AveragePosition.z /= Drawing.Points.length;
-                    for (let Layer of DrawingType.Layers) {
-                        this.PageIndex = Layer;
-                        this.AddTextAtV3(Drawing.Text.String, AveragePosition, Drawing.Text.Rotate ?? 0, Drawing.Text.Size ?? 8, Drawing.Text.HeightOffset ?? 0, .5);
-                    }
-                }
-            }
-        }
+        for (let DrawingType of this.DrawingsInOrder.DrawTypes)
+            for (let Drawing of DrawingType.Draws)
+                Drawing.Execute(this);
     }
 }
 
 class Draw {
+    DrawingType: DrawType;
     Points: { x: number, z: number }[] = [];
-    Text?: { String: string, Size?: number, HeightOffset?: number, Rotate?: number };
+    Text?: string; // : { String: string, Rotate?: number }; // Size?: number, HeightOffset?: number };
     // TextSize: number = 8;
     // TextHeightOffset: number = 0;
-    // TextRotate: number = 0;
-    SketchID: number = -1;
-    LineID: number = -1;
-    constructor(SketchID: string, LineID: string) {
-        this.SketchID = +SketchID;
-        this.LineID = +LineID;
+    TextRotate: number = 0;
+    SketchID: string = "";
+    LineID: string = "";
+    constructor(DrawingType: DrawType, SketchID: string, LineID: string, Points: { x: number, z: number }[]) {
+        this.DrawingType = DrawingType;
+        this.SketchID = SketchID;
+        this.LineID = LineID;
+        this.Points = Points;
+    }
+    Draw(ThisPDF: PDF_Exporter) {
+        if (this.Points.length == 0) return;
+        if (this.Points.length > 1)
+            for (let PointIndex = 0; PointIndex < this.Points.length; PointIndex++)
+                if (!(PointIndex == 1 && PointIndex == this.Points.length - 1))
+                    ThisPDF.DrawLineFromV3(this.Points[PointIndex], this.Points[(PointIndex + 1) % this.Points.length], this.DrawingType.Color);
+        if (!this.Text) return;
+        let AveragePosition = { x: 0, z: 0 };
+        this.Points.forEach(value => { AveragePosition.x += value.x; AveragePosition.z += value.z });
+        AveragePosition.x /= this.Points.length; AveragePosition.z /= this.Points.length;
+        ThisPDF.AddTextAtV3(this.Text, AveragePosition, this.TextRotate ?? 0, this.DrawingType.TextSize ?? 8, this.DrawingType.TextHeightOffset ?? 0, .5);
+    }
+    Execute(ThisPDF: PDF_Exporter) {
+        for (let Layer of this.DrawingType.Layers) {
+            ThisPDF.PageIndex = Layer;
+            this.Draw(ThisPDF);
+        }
     }
 }
 
@@ -146,6 +153,8 @@ class DrawType {
     Type: string = "UNKNOWN";
     Layers: number[] = [];
     Color: { r: number, g: number, b: number, a: number } = { r: 0, g: 0, b: 0, a: 1 };
+    TextSize: number = 8;
+    TextHeightOffset: number = 0;
     Draws: Draw[] = [];
     constructor(Type: string, Order: number, Layers: number[], Color?: { r: number, g: number, b: number, a: number }) {
         this.Type = Type;
@@ -153,15 +162,15 @@ class DrawType {
         this.Layers = Layers;
         if (Color) this.Color = Color;
     }
-    // AddLine(SketchID: number, LineID: number, ...Points: {x:number, z:number}[]) {
-    //     let NewLine = new Draw(SketchID, LineID);
-    //     NewLine.Points = Points;
-    //     this.Draws.push(NewLine);
-    // }
-    AddDraw(SketchID: string, LineID: string, Text?: { String: string, Size?: number, HeightOffset?: number, Rotate?: number }, ...Points: { x: number, z: number }[]) {
-        let NewLine = new Draw(SketchID, LineID);
+    AddLine(SketchID: string, LineID: string, ...Points: { x: number, z: number }[]) {
+        let NewLine = new Draw(this, SketchID, LineID, Points);
         NewLine.Points = Points;
+        this.Draws.push(NewLine);
+    }
+    AddDraw(SketchID: string, LineID: string, Text?: string, TextRotate?: number, ...Points: { x: number, z: number }[]) {
+        let NewLine = new Draw(this, SketchID, LineID, Points);
         NewLine.Text = Text;
+        NewLine.TextRotate = TextRotate ?? 0;
         this.Draws.push(NewLine);
     }
 }
