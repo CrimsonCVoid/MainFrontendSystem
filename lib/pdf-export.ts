@@ -117,7 +117,8 @@ class Draw {
     DrawingType: DrawType;
     Points: { x: number, z: number }[] = [];
     Text?: string; // : { String: string, Rotate?: number }; // Size?: number, HeightOffset?: number };
-    // TextSize: number = 8;
+    TextSize?: number;
+    TextWidth?: number;
     // TextHeightOffset: number = 0;
     TextRotate: number = 0;
     SketchID: string = "";
@@ -138,7 +139,11 @@ class Draw {
         let AveragePosition = { x: 0, z: 0 };
         this.Points.forEach(value => { AveragePosition.x += value.x; AveragePosition.z += value.z });
         AveragePosition.x /= this.Points.length; AveragePosition.z /= this.Points.length;
-        ThisPDF.AddTextAtV3(this.Text, AveragePosition, this.TextRotate ?? 0, this.DrawingType.TextSize ?? 8, this.DrawingType.TextHeightOffset ?? 0, .5);
+        let ActualTextSize = this.DrawingType.TextSize ?? this.TextSize ?? 8;
+        if (this.TextWidth)
+            while (ActualTextSize > 1 && ThisPDF.CurrentFont.widthOfTextAtSize(this.Text, ActualTextSize) > this.TextWidth)
+                ActualTextSize -= 0.5;
+        ThisPDF.AddTextAtV3(this.Text, AveragePosition, this.TextRotate ?? 0, ActualTextSize, this.DrawingType.TextHeightOffset ?? 0, .5);
     }
     Execute(ThisPDF: PDF_Exporter) {
         for (let Layer of this.DrawingType.Layers) {
@@ -166,12 +171,19 @@ class DrawType {
         let NewLine = new Draw(this, SketchID, LineID, Points);
         NewLine.Points = Points;
         this.Draws.push(NewLine);
+        return NewLine;
     }
     AddDraw(SketchID: string, LineID: string, Text?: string, TextRotate?: number, ...Points: { x: number, z: number }[]) {
         let NewLine = new Draw(this, SketchID, LineID, Points);
         NewLine.Text = Text;
         NewLine.TextRotate = TextRotate ?? 0;
         this.Draws.push(NewLine);
+        return NewLine;
+    }
+    SetTextSize(Size: number, HeightOffset?: number) {
+        this.TextSize = Size;
+        if (HeightOffset) this.TextHeightOffset = HeightOffset;
+        return this;
     }
 }
 

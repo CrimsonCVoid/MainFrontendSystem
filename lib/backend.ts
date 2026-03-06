@@ -765,25 +765,32 @@ export async function Test(Lat: number | string, Lon: number | string) {
     let NewPDF = await PDF_Exporter.Create();
     NewPDF.NextPage();
     NewPDF.NextPage();
+    NewPDF.NextPage();
     NewPDF.PageIndex = 0;
 
+    let RoofOutlineLayers = [0, 1, 2, 3];
+
     let DrawTheseInOrder = {
-        Panels: NewPDF.DrawingsInOrder.EstablishType("Panels", 0, [0], { r: 0, g: 0, b: 0, a: .5 }),
-        Hips: NewPDF.DrawingsInOrder.EstablishType("Hips", 1, [0, 1, 2], { r: 0, g: 1, b: 1, a: 1 }),
-        InterceptRidges: NewPDF.DrawingsInOrder.EstablishType("InterceptRidges", 2, [0, 1, 2], { r: 1, g: 0, b: 0, a: 1 }),
-        Intercepts: NewPDF.DrawingsInOrder.EstablishType("Intercepts", 3, [0, 1, 2], { r: 1, g: .5, b: 0, a: 1 }),
-        Ridges: NewPDF.DrawingsInOrder.EstablishType("Ridges", 4, [0, 1, 2], { r: 0, g: 0, b: 1, a: 1 }),
-        Eaves: NewPDF.DrawingsInOrder.EstablishType("Eaves", 5, [0, 1, 2], { r: 0, g: 1, b: 0, a: 1 }),
-        SolarPanels: NewPDF.DrawingsInOrder.EstablishType("SolarPanels", 6, [2], { r: .5, g: .5, b: 1, a: 1 }),
-        PanelTexts: NewPDF.DrawingsInOrder.EstablishType("PanelTexts", 7, [0], { r: 0, g: 0, b: 0, a: .5 }),
+        Panels: NewPDF.DrawingsInOrder.EstablishType("Panels", 0, [0, 1], { r: 0, g: 0, b: 0, a: .5 }),
+        Hips: NewPDF.DrawingsInOrder.EstablishType("Hips", 1, RoofOutlineLayers, { r: 0, g: 1, b: 1, a: 1 }),
+        InterceptRidges: NewPDF.DrawingsInOrder.EstablishType("InterceptRidges", 2, RoofOutlineLayers, { r: 1, g: 0, b: 0, a: 1 }),
+        Valleys: NewPDF.DrawingsInOrder.EstablishType("Valleys", 3, RoofOutlineLayers, { r: 1, g: .5, b: 0, a: 1 }),
+        Ridges: NewPDF.DrawingsInOrder.EstablishType("Ridges", 4, RoofOutlineLayers, { r: 0, g: 0, b: 1, a: 1 }),
+        Eaves: NewPDF.DrawingsInOrder.EstablishType("Eaves", 5, RoofOutlineLayers, { r: 0, g: 1, b: 0, a: 1 }),
+        SolarPanels: NewPDF.DrawingsInOrder.EstablishType("SolarPanels", 6, [], { r: .5, g: .5, b: 1, a: 1 }),
+        PanelTexts: NewPDF.DrawingsInOrder.EstablishType("PanelTexts", 7, [1], { r: 0, g: 0, b: 0, a: .5 }).SetTextSize(6),
+        PitchTexts: NewPDF.DrawingsInOrder.EstablishType("PitchTexts", 7, [3], { r: 0, g: 0, b: 0, a: .5 }).SetTextSize(10),
+        PlaneIDTexts: NewPDF.DrawingsInOrder.EstablishType("PlaneIDTexts", 7, [3], { r: 0, g: 0, b: 0, a: .5 }).SetTextSize(10, 10),
+        MeasurementTexts: NewPDF.DrawingsInOrder.EstablishType("MeasurementTexts", 7, [2], { r: 0, g: 0, b: 0, a: .5 }).SetTextSize(6, 4),
         OTHER: NewPDF.DrawingsInOrder.EstablishType("OTHER", 8, [0], { r: 1, g: 1, b: 0, a: 1 }),
     }
+    // NewPDF.AddTextAtV3("+" + Math.round(Line.PITCH), AVG, -90 + Sketch.Angle * 180 / Math.PI + Line.Angle, 16, 0, 1);
 
     let ShorthandTypes = {
         Eaves: "ED",
         Hips: "HC",
         Ridges: "RC",
-        Intercepts: "IC",
+        Valleys: "VF",
         InterceptRidges: "IR",
         // Panels: "XX",
         // PanelTexts: "XX",
@@ -795,7 +802,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
     //     Eaves: [],
     //     Hips: [],
     //     Ridges: [],
-    //     Intercepts: [],
+    //     Valleys: [],
     //     InterceptRidges: [],
     //     Panels: [],
     //     PanelTexts: [],
@@ -804,6 +811,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
     // };
 
     let ActualPanelMeasurements = 0;
+    let ActualPanelCount = 0;
 
     for (let SketchIndex in DrawSketches) {
         let Sketch = DrawSketches[SketchIndex];
@@ -921,13 +929,14 @@ export async function Test(Lat: number | string, Lon: number | string) {
                 let PanelLength = OverallTopHypo - OverallBottomHypo;
                 if (BottomHypo <= TopHypo) {
                     ActualPanelMeasurements += PanelLength;
+                    ActualPanelCount++;
                     DrawTheseInOrder.Panels.AddLine(SketchIndex, LineID, TestBottom, TestTop);
                 }
                 AvgCF = AvgCF.Average(TestBottom.Position.Average(TestTop.Position));
                 ALLPOSITIONSAREDOOMEDHERE.push(AvgCF);
                 // if (PanelLength > 0) NewPDF.AddText(Math.round(OverallTopHypo) + "-" + Math.round(OverallBottomHypo), AvgCF.X, AvgCF.Z, Sketch.Angle * 180 / Math.PI + Line.Angle);
                 // if (PanelLength > 0) NewPDF.AddText(PanelLength.toFixed(), AvgCF.X, AvgCF.Z, Sketch.Angle * 180 / Math.PI + Line.Angle);
-                if (PanelLength > 0) DrawTheseInOrder.PanelTexts.AddDraw(SketchIndex, LineID, InchesToFT_IN_FORMAT(PanelLength), LineAngle, AvgCF);
+                if (PanelLength > 0) DrawTheseInOrder.PanelTexts.AddDraw(SketchIndex, LineID, InchesToFT_IN_FORMAT(PanelLength), LineAngle, AvgCF).TextWidth = Line.RUN * PanelLength / 3 / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
             }
 
 
@@ -942,12 +951,13 @@ export async function Test(Lat: number | string, Lon: number | string) {
                 // NewPDF.DrawLineFromV3(ThisLine.BottomInclusiveOffsetCF, ThisLine.TopCF, SketchColor, 1);
                 // NewPDF.DrawLineFromV3(NextLine.BottomInclusiveOffsetCF, NextLine.TopCF, SketchColor, 1);
 
-                let ValidGeometry = Approx(ThisLine.Top) >= Approx(ThisLine.BottomInclusiveOffset) - .1 && Approx(NextLine.Top) >= Approx(NextLine.BottomInclusiveOffset) - .1;
+                let Slack = .1;
+                let ValidGeometry = Approx(ThisLine.Top) >= Approx(ThisLine.BottomInclusiveOffset) - Slack && Approx(NextLine.Top) >= Approx(NextLine.BottomInclusiveOffset) - Slack;
 
                 if (Approx(ThisLine.Bottom) == Approx(NextLine.Bottom)) {
                     DrawTheseInOrder.Eaves.AddLine(SketchIndex, LineID, ThisLine.BottomCF, NextLine.BottomCF);
                 } else if (ValidGeometry) { //if (ThisLine.BottomInclusive != ThisLine. && Math.max(ThisLine.BottomInclusiveOffset, NextLine.BottomInclusiveOffset) != 0) {
-                    DrawTheseInOrder.Intercepts.AddLine(SketchIndex, LineID, ThisLine.BottomInclusiveOffsetCF, NextLine.BottomInclusiveOffsetCF);
+                    DrawTheseInOrder.Valleys.AddLine(SketchIndex, LineID, ThisLine.BottomInclusiveOffsetCF, NextLine.BottomInclusiveOffsetCF);
                 }
 
                 // if (Approx(ThisLine.Top) == Approx(LineHypo) && Approx(ThisLine.Top) != Approx(NextLine.Top)) {
@@ -956,10 +966,11 @@ export async function Test(Lat: number | string, Lon: number | string) {
 
                 // if (ThisLine)
                 if (Approx(ThisLine.Top) == Approx(NextLine.Top)) {
-                    if (Approx(ThisLine.Top) == Approx(LineHypo))
-                        DrawTheseInOrder.Ridges.AddLine(SketchIndex, LineID, ThisLine.TopCF, NextLine.TopCF);
-                    else
-                        DrawTheseInOrder.InterceptRidges.AddLine(SketchIndex, LineID, ThisLine.TopCF, NextLine.TopCF);
+                    DrawTheseInOrder.Ridges.AddLine(SketchIndex, LineID, ThisLine.TopCF, NextLine.TopCF);
+                    // if (Approx(ThisLine.Top) == Approx(LineHypo))
+                    //     DrawTheseInOrder.Ridges.AddLine(SketchIndex, LineID, ThisLine.TopCF, NextLine.TopCF);
+                    // else
+                    //     DrawTheseInOrder.InterceptRidges.AddLine(SketchIndex, LineID, ThisLine.TopCF, NextLine.TopCF);
                 } else if (ValidGeometry) { //if (ThisLine.BottomInclusive != ThisLine. && Math.max(ThisLine.BottomInclusiveOffset, NextLine.BottomInclusiveOffset) != 0) {
                     DrawTheseInOrder.Hips.AddLine(SketchIndex, LineID, ThisLine.TopCF, NextLine.TopCF);
                 } else {
@@ -1008,24 +1019,24 @@ export async function Test(Lat: number | string, Lon: number | string) {
         }
     }
 
-    for (let SketchID in DrawSketches) {
-        NewPDF.NextPage();
-        for (let DrawingType of NewPDF.DrawingsInOrder.DrawTypes) {
-            if (DrawingType.Type == "SolarPanels") continue;
-            for (let Drawing of DrawingType.Draws)
-                if (Drawing.SketchID == SketchID)
-                    Drawing.Draw(NewPDF);
-        }
-        for (let LineID in DrawSketches[SketchID].Lines) {
-            NewPDF.NextPage();
-            for (let DrawingType of NewPDF.DrawingsInOrder.DrawTypes) {
-                if (DrawingType.Type == "SolarPanels") continue;
-                for (let Drawing of DrawingType.Draws)
-                    if (Drawing.SketchID == SketchID && Drawing.LineID == LineID)
-                        Drawing.Draw(NewPDF);
-            }
-        }
-    }
+    // for (let SketchID in DrawSketches) {
+    //     NewPDF.NextPage();
+    //     for (let DrawingType of NewPDF.DrawingsInOrder.DrawTypes) {
+    //         if (DrawingType.Type == "SolarPanels") continue;
+    //         for (let Drawing of DrawingType.Draws)
+    //             if (Drawing.SketchID == SketchID)
+    //                 Drawing.Draw(NewPDF);
+    //     }
+    //     for (let LineID in DrawSketches[SketchID].Lines) {
+    //         NewPDF.NextPage();
+    //         for (let DrawingType of NewPDF.DrawingsInOrder.DrawTypes) {
+    //             if (DrawingType.Type == "SolarPanels") continue;
+    //             for (let Drawing of DrawingType.Draws)
+    //                 if (Drawing.SketchID == SketchID && Drawing.LineID == LineID)
+    //                     Drawing.Draw(NewPDF);
+    //         }
+    //     }
+    // }
 
     const geometry = await importLibrary("geometry");
     // setOptions({ key: "AIzaSyDUfrliF4ydB8G4JbQudiC4t8L39pG_E74" });
@@ -1055,9 +1066,25 @@ export async function Test(Lat: number | string, Lon: number | string) {
         NewPDF.PageIndex = 0;
     }
 
-    NewPDF.ExecuteOrder66();
+    let AlphabeticalizedIdenitifers: any = []; // Record<string, string>
+    let NumericalIdenitifers = [];
+    function numberToLetters0(num: number) {
+        let result = "";
+        while (num >= 0) {
+            const remainder = num % 26;
+            result = String.fromCharCode(65 + remainder) + result;
+            num = Math.floor(num / 26) - 1;
+        }
+        return result;
+    }
+    for (let SketchID in DrawSketches) {
+        for (let LineID in DrawSketches[SketchID].Lines) {
+            NumericalIdenitifers.push(`${SketchID}-${LineID}`);
+            AlphabeticalizedIdenitifers[`${SketchID}-${LineID}`] = numberToLetters0(NumericalIdenitifers.length - 1);
+            AlphabeticalizedIdenitifers[numberToLetters0(NumericalIdenitifers.length - 1)] = `${SketchID}-${LineID}`;
+        }
+    }
 
-    NewPDF.PageIndex = 1;
     for (let SketchID in DrawSketches) {
         let Sketch = DrawSketches[SketchID];
         for (let LineID in Sketch.Lines) {
@@ -1072,16 +1099,19 @@ export async function Test(Lat: number | string, Lon: number | string) {
             }
             let BOUNDS = Line.CF0.Vector3Bounds(POINTS);
             let AVG = Line.CF0.ToWorldSpace(CFrame.fromVector3(BOUNDS[0])).Position.Average(Line.CF0.ToWorldSpace(CFrame.fromVector3(BOUNDS[1])).Position);
-            NewPDF.AddTextAtV3("+" + Math.round(Line.PITCH), AVG, -90 + Sketch.Angle * 180 / Math.PI + Line.Angle, 16, 0, 1);
+            DrawTheseInOrder.PitchTexts.AddDraw(SketchID, LineID, `${Math.round(Line.PITCH)}/12`, -90 + Sketch.Angle * 180 / Math.PI + Line.Angle, AVG);
+            DrawTheseInOrder.PlaneIDTexts.AddDraw(SketchID, LineID, `"${AlphabeticalizedIdenitifers[`${SketchID}-${LineID}`]}"`, -90 + Sketch.Angle * 180 / Math.PI + Line.Angle, AVG);
+
+            // NewPDF.AddTextAtV3("+" + Math.round(Line.PITCH), AVG, -90 + Sketch.Angle * 180 / Math.PI + Line.Angle, 16, 0, 1);
         }
     }
-    NewPDF.PageIndex = 0;
 
-    let SimplifiedLines = {};
+    let SimplifiedLines: [] = [];
 
     for (let DrawingType of NewPDF.DrawingsInOrder.DrawTypes) {
         if (DrawingType.Type == "Panels") continue;
-        let Lines: any[][] = SimplifiedLines[DrawingType.Type] = [];
+        let Simp: [] = SimplifiedLines[DrawingType.Type] = [];
+        let Lines: any[][] = [];
         for (let DrawingIndex in DrawingType.Draws) {
             let Drawing = DrawingType.Draws[DrawingIndex];
             if (Drawing.Points.length != 2) continue;
@@ -1110,38 +1140,14 @@ export async function Test(Lat: number | string, Lon: number | string) {
                 continue;
             }
             Lines.push([Drawing]);
-
-
-            // let SimilarCount = 1;
-            // for (let OtherDrawingIndex in DrawingType.Draws) {
-            //     let OtherDrawing = DrawingType.Draws[OtherDrawingIndex];
-            //     if (OtherDrawing.Points.length != 2 || DrawingIndex == OtherDrawingIndex) continue;
-            //     let OtherPoint0 = OtherDrawing.Points[0], OtherPoint1 = OtherDrawing.Points[1];
-            //     let Dist00 = ((OtherPoint0.x - Point0.x) ** 2 + ((OtherPoint0.y ?? 0) - (Point0.y ?? 0)) ** 2 + (OtherPoint0.z - Point0.z) ** 2) ** .5;
-            //     let Dist01 = ((OtherPoint1.x - Point0.x) ** 2 + ((OtherPoint1.y ?? 0) - (Point0.y ?? 0)) ** 2 + (OtherPoint1.z - Point0.z) ** 2) ** .5;
-            //     let Dist10 = ((OtherPoint0.x - Point1.x) ** 2 + ((OtherPoint0.y ?? 0) - (Point1.y ?? 0)) ** 2 + (OtherPoint0.z - Point1.z) ** 2) ** .5;
-            //     let Dist11 = ((OtherPoint1.x - Point1.x) ** 2 + ((OtherPoint1.y ?? 0) - (Point1.y ?? 0)) ** 2 + (OtherPoint1.z - Point1.z) ** 2) ** .5;
-            //     let MinDistFrom0 = Math.min(Dist00, Dist01), MinDistFrom1 = Math.min(Dist10, Dist11);
-            //     let MaxDistFrom0 = Math.max(Dist00, Dist01), MaxDistFrom1 = Math.max(Dist10, Dist11);
-            //     if (MinDistFrom0 <= 1 && MinDistFrom1 <= 1) {
-            //         SimilarCount++;
-            //     }
-            // }
-            // TotalDistance += AddDistance / SimilarCount;
         }
         for (let DrawingList of Lines) {
             let TotalDistance = 0;
             let POINTS = [];
-            let AveragePositionX = 0;
-            let AveragePositionZ = 0;
             let LineRotation = 0;
             for (let Drawing of DrawingList) {
-                // let Sketch = DrawSketches[Drawing.SketchID] as SketchLine;
-                // LineRotation += Sketch.Angle * 180 / Math.PI + Sketch.Lines[Drawing.LineID].Angle;
                 let Point0 = Drawing.Points[0], Point1 = Drawing.Points[1];
                 POINTS.push(Point0, Point1);
-                AveragePositionX += Point0.x + Point1.x;
-                AveragePositionZ += Point0.z + Point1.z;
                 console.log("Y", Point0.y ?? 0, Point1.y ?? 0);
                 TotalDistance += ((Point1.x - Point0.x) ** 2 + ((Point1.y ?? 0) - (Point0.y ?? 0)) ** 2 + (Point1.z - Point0.z) ** 2) ** .5;
                 LineRotation += Math.atan2(-(Point1.z - Point0.z), -(Point1.x - Point0.x)) * 180 / Math.PI;
@@ -1150,13 +1156,81 @@ export async function Test(Lat: number | string, Lon: number | string) {
             let AVG = BOUNDS[0].Average(BOUNDS[1]);
             NewPDF.PageIndex = 1;
             LineRotation /= DrawingList.length;
-
-            let Rotation = LineRotation; // Math.atan2(-(BOUNDS[1].x - BOUNDS[0].x), -(BOUNDS[1].z - BOUNDS[0].z)) * 180 / Math.PI;
-            // Rotation = Math.atan2(-(BOUNDS[1].z - BOUNDS[0].z), -(BOUNDS[1].x - BOUNDS[0].x)) * 180 / Math.PI;
-            NewPDF.AddTextAtV3("(" + (ShorthandTypes[DrawingType.Type] ?? DrawingType.Type) + ")-" + InchesToFT_IN_FORMAT(TotalDistance), { x: AVG.x, z: AVG.z }, Rotation, 6, 4)
+            Simp.push({ Lines, AVG, LineRotation, TotalDistance });
         }
-        console.log(DrawingType.Type, Lines);
     }
+    let MeasurementCounts = [];
+    let Measurements = [];
+    for (let DrawingType in SimplifiedLines) {
+        let Ignore = [];
+        let Simp = SimplifiedLines[DrawingType];
+        Measurements[DrawingType] = 0;
+        MeasurementCounts[DrawingType] = 0;
+        for (let DataIndex in Simp) {
+            let DrawingData = Simp[DataIndex];
+            if (Ignore.includes(DataIndex)) continue;
+            Ignore.push(DataIndex);
+            let Positions = [DrawingData.AVG];
+            let AverageDistance = DrawingData.TotalDistance;
+            if (DrawingData.Lines.length == 0) continue;
+            let RefLine = DrawingData.Lines[0];
+            // let FirstPoint = DrawingData.Lines[0].Points[0];
+            // let LastPoint = DrawingData.Lines[DrawingData.Lines.length - 1].Points[1];
+            let Similar = 1;
+            for (let DataIndex2 in Simp) {
+                let DrawingData2 = Simp[DataIndex2];
+                // if (DrawingData == DrawingData2) continue;
+                if (Ignore.includes(DataIndex2)) continue;
+                if (DrawingData.AVG.DistanceFromPointXZ(DrawingData2.AVG) > 2) continue;
+                // if ( || DrawingData.Lines[0].Points[0]) { // } || DrawingData.TotalDistance - 2 <= DrawingData2.TotalDistance && DrawingData2.TotalDistance <= DrawingData.TotalDistance + 2) {
+                // let FirstPoint2 = DrawingData2.Lines[0].Points[0];
+                // let LastPoint2 = DrawingData2.Lines[DrawingData2.Lines.length-1].Points[1];
+                // let FirstDistFromFirst2 = ((FirstPoint.x - FirstPoint2.x) ** 2 + ((FirstPoint.y ?? 0) - (FirstPoint2.y ?? 0)) ** 2 + (FirstPoint.z - FirstPoint2.z) ** 2) ** .5;
+                // let FirstDistFromLast2 = ((FirstPoint.x - LastPoint2.x) ** 2 + ((FirstPoint.y ?? 0) - (LastPoint2.y ?? 0)) ** 2 + (FirstPoint.z - LastPoint2.z) ** 2) ** .5;
+                // let LastDistFromFirst2 = ((LastPoint.x - FirstPoint2.x) ** 2 + ((LastPoint.y ?? 0) - (FirstPoint2.y ?? 0)) ** 2 + (LastPoint.z - FirstPoint2.z) ** 2) ** .5;
+                // let LastDistFromLast2 = ((LastPoint.x - LastPoint2.x) ** 2 + ((LastPoint.y ?? 0) - (LastPoint2.y ?? 0)) ** 2 + (LastPoint.z - LastPoint2.z) ** 2) ** .5;
+                // let FirstDist = Math.min(FirstDistFromFirst2, FirstDistFromLast2);
+                // let LastDist = Math.min(LastDistFromFirst2, LastDistFromLast2);
+                // if (FirstDist >)
+                Similar++;
+                AverageDistance += DrawingData2.TotalDistance;
+                Positions.push(DrawingData2.AVG);
+                Ignore.push(DataIndex2);
+            }
+            AverageDistance /= Similar;
+            let AveragePosition = Vector3.AverageAll(Positions);
+            // NewPDF.AddTextAtV3(InchesToFT_IN_FORMAT(AverageDistance), AveragePosition, DrawingData.LineRotation, 6, 4);
+
+            DrawTheseInOrder.MeasurementTexts.AddDraw(RefLine.SketchID, RefLine.LineID, "[" + (ShorthandTypes[DrawingType] ?? DrawingType) + "] " + InchesToFT_IN_FORMAT(AverageDistance), DrawingData.LineRotation, AveragePosition);
+            Measurements[DrawingType] += AverageDistance;
+            MeasurementCounts[DrawingType]++;
+        }
+    }
+
+    NewPDF.ExecuteOrder66();
+    NewPDF.PageIndex = 0;
+
+    NewPDF.AddText("1825 Mark Twain St", 300, 700, 0, 25, 50, 1);
+    NewPDF.AddText("Palo Alto, CA 94303", 300, 700, 0, 25, 25, 1);
+    NewPDF.AddText("Top-down Sketch w/Panels", 300, 100, 0, 25, -25, 1);
+    // NewPDF.AddText("Example Placeholders", 300, 100, 0, 25, -50, 1);
+    NewPDF.DrawLine(0, 700, 600, 700, { r: 0, g: 0, b: 0, a: 1 });
+    NewPDF.DrawLine(0, 100, 600, 100, { r: 0, g: 0, b: 0, a: 1 });
+
+    NewPDF.PageIndex = 1;
+    NewPDF.DrawLine(0, 100, 600, 100, { r: 0, g: 0, b: 0, a: 1 });
+    NewPDF.AddText(`PANEL WIDTH: ${PanelWidth}"`, 300, 100, 0, 10, -10, 1);
+    NewPDF.AddText(`PANEL LF: ${InchesToFT_IN_FORMAT(ActualPanelMeasurements)}`, 300, 100, 0, 10, -20, 1);
+    NewPDF.AddText(`PANELS (x${ActualPanelCount}): ${Math.round(ActualPanelMeasurements * PanelWidth / 144 * 100) / 100} SF`, 300, 100, 0, 10, -30, 1);
+
+    NewPDF.PageIndex = 2;
+    NewPDF.DrawLine(0, 100, 600, 100, { r: 0, g: 0, b: 0, a: 1 });
+    NewPDF.AddText(`[${ShorthandTypes.Eaves}] EAVES (x${MeasurementCounts["Eaves"]}): ${InchesToFT_IN_FORMAT(Measurements["Eaves"])}`, 300, 100, 0, 10, -10, 1);
+    NewPDF.AddText(`[${ShorthandTypes.Ridges}] RIDGES (x${MeasurementCounts["Ridges"]}): ${InchesToFT_IN_FORMAT(Measurements["Ridges"])}`, 300, 100, 0, 10, -20, 1);
+    NewPDF.AddText(`[${ShorthandTypes.Hips}] HIPS (x${MeasurementCounts["Hips"]}): ${InchesToFT_IN_FORMAT(Measurements["Hips"])}`, 300, 100, 0, 10, -30, 1);
+    NewPDF.AddText(`[${ShorthandTypes.Valleys}] VALLEYS (x${MeasurementCounts["Valleys"]}): ${InchesToFT_IN_FORMAT(Measurements["Valleys"])}`, 300, 100, 0, 10, -40, 1);
+
+    console.log("Actual Measurements", Measurements);
 
     console.log("Actual Panel Length", ActualPanelMeasurements);
     console.log("Actual Panel Area", ActualPanelMeasurements * PanelWidth);
