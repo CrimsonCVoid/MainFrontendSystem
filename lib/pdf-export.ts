@@ -41,6 +41,7 @@ export class PDF_Exporter {
     }
 
     DrawLine(X0: number, Y0: number, X1: number, Y1: number, RGB = { r: 0, g: 0, b: 0, a: 1 }) {
+        if (X0 != X0 || X1 != X1 || Y0 != Y0 || Y1 != Y1) return;
         this.Pages[this.PageIndex].drawLine({
             start: { x: X0, y: Y0 },
             end: { x: X1, y: Y1 },

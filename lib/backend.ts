@@ -117,7 +117,7 @@ function InchesToFT_IN_FORMAT(X: number) {
 }
 
 export async function Test(Lat: number | string, Lon: number | string) {
-    // Lat = 40.26076924275762, Lon = -74.7981296370152
+    Lat = 40.26076924275762, Lon = -74.7981296370152
     let URL = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${Lat}&location.longitude=${Lon}&key=${ENV_KEY}`;
     const response = await fetch(URL);
     const Data = await response.json() as GSolarData;
@@ -307,15 +307,15 @@ export async function Test(Lat: number | string, Lon: number | string) {
             Please.push(RoofCF.ToObjectSpace(BR).Position);
             Please.push(RoofCF.ToObjectSpace(BL).Position);
 
-            // BABYLON.MeshBuilder.CreateLines("e", {
-            //     points: [
-            //         FL.Position.ToBabylon(),
-            //         FR.Position.ToBabylon(),
-            //         BR.Position.ToBabylon(),
-            //         BL.Position.ToBabylon(),
-            //         FL.Position.ToBabylon(),
-            //     ]
-            // }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(1, 1, 1);
+            BABYLON.MeshBuilder.CreateLines("e", {
+                points: [
+                    FL.Position.ToBabylon(),
+                    FR.Position.ToBabylon(),
+                    BR.Position.ToBabylon(),
+                    BL.Position.ToBabylon(),
+                    FL.Position.ToBabylon(),
+                ]
+            }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(1, 1, 1);
         };
 
         let InterList = [];
@@ -368,7 +368,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
     // }
 
     // Could use significant boundary intersections to handle this automagically.
-    let CombineIntoSketches = [["4", "8", "5", "10"], ["0", "2", "1", "3"], ["7", "6", "9"]]; // ExtrusionSort.copyWithin(0, 0, ExtrusionSort.length);
+    let CombineIntoSketches = [["0", "2", "1", "3"]]; // [["4", "8", "5", "10"], ["0", "2", "1", "3"], ["7", "6", "9"]]; // ExtrusionSort.copyWithin(0, 0, ExtrusionSort.length);
 
     // for (let RoofID in ConvertedRoofs) {
     //     let Info = ConvertedRoofs[RoofID];
@@ -398,7 +398,6 @@ export async function Test(Lat: number | string, Lon: number | string) {
     //         // CombineIntoSketches.push(Info);
     //     }
     // }
-
     let BoundsByRoof = [];
 
     for (let GroupID in CombineIntoSketches) {
@@ -468,22 +467,22 @@ export async function Test(Lat: number | string, Lon: number | string) {
             // return DifferenceA.x - DifferenceB.x + DifferenceA.z - DifferenceB.z;
             // return (DifferenceA.x + DifferenceA.z) - (DifferenceB.x + DifferenceB.z); // DifferenceB.Magnitude - DifferenceA.Magnitude;
         });
-        // let FocusRoofBounds = BoundsByRoof[Group[0]];
-        // let FocusRoof: CustomBackendType = ConvertedRoofs[Group[0]];
-        // let CheapCF = CFrame.fromVector3(FocusRoof.Center.XZY).ToWorldSpace(CFrame.Angles(0, FocusRoof.Raw.azimuthDegrees * Math.PI / 180, 0)); // .ToWorldSpace(CFrame.fromXYZ(Info.Size.x / 2, 0, 0));
-        // let FL = CheapCF.ToWorldSpace(CFrame.fromXYZ(FocusRoofBounds[1].x, FocusRoofBounds[0].y, FocusRoofBounds[1].z));
-        // let FR = CheapCF.ToWorldSpace(CFrame.fromXYZ(FocusRoofBounds[1].x, FocusRoofBounds[0].y, FocusRoofBounds[0].z));
-        // let BR = CheapCF.ToWorldSpace(CFrame.fromXYZ(FocusRoofBounds[0].x, FocusRoofBounds[0].y, FocusRoofBounds[0].z));
-        // let BL = CheapCF.ToWorldSpace(CFrame.fromXYZ(FocusRoofBounds[0].x, FocusRoofBounds[0].y, FocusRoofBounds[1].z));
-        // BABYLON.MeshBuilder.CreateLines("e", {
-        //     points: [
-        //         FL.Position.ToBabylon(),
-        //         FR.Position.ToBabylon(),
-        //         BR.Position.ToBabylon(),
-        //         BL.Position.ToBabylon(),
-        //         FL.Position.ToBabylon(),
-        //     ]
-        // }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(1, 0, 0);
+        let FocusRoofBounds = BoundsByRoof[Group[0]];
+        let FocusRoof: CustomBackendType = ConvertedRoofs[Group[0]];
+        let CheapCF = CFrame.fromVector3(FocusRoof.Center.XZY).ToWorldSpace(CFrame.Angles(0, FocusRoof.Raw.azimuthDegrees * Math.PI / 180, 0)); // .ToWorldSpace(CFrame.fromXYZ(Info.Size.x / 2, 0, 0));
+        let FL = CheapCF.ToWorldSpace(CFrame.fromXYZ(FocusRoofBounds[1].x, FocusRoofBounds[0].y, FocusRoofBounds[1].z));
+        let FR = CheapCF.ToWorldSpace(CFrame.fromXYZ(FocusRoofBounds[1].x, FocusRoofBounds[0].y, FocusRoofBounds[0].z));
+        let BR = CheapCF.ToWorldSpace(CFrame.fromXYZ(FocusRoofBounds[0].x, FocusRoofBounds[0].y, FocusRoofBounds[0].z));
+        let BL = CheapCF.ToWorldSpace(CFrame.fromXYZ(FocusRoofBounds[0].x, FocusRoofBounds[0].y, FocusRoofBounds[1].z));
+        BABYLON.MeshBuilder.CreateLines("e", {
+            points: [
+                FL.Position.ToBabylon(),
+                FR.Position.ToBabylon(),
+                BR.Position.ToBabylon(),
+                BL.Position.ToBabylon(),
+                FL.Position.ToBabylon(),
+            ]
+        }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(1, 0, 0);
         console.log("GROUP", GroupID, Group.map((RoofID: any) => {
             let Difference = BoundsByRoof[RoofID][1].TranslateSub(BoundsByRoof[RoofID][0]);
             return [RoofID, Difference.x + Difference.z, Difference.Magnitude, Difference];
@@ -608,81 +607,81 @@ export async function Test(Lat: number | string, Lon: number | string) {
         DrawSketches.push(Sketch);
     }
 
-    console.log("ALL RELATIONS");
-    for (let SketchRelation of SketchLine.AllRelations) {
-        let Sketch1 = SketchRelation.Sketch1;
-        let Sketch2 = SketchRelation.Sketch2;
-        let Intersections = SketchRelation.ListOnlyType("INTERSECT");
-        for (let Relation of Intersections) {
-            if (Relation.Type1 != "INTERSECT" || Relation.Type2 != "INTERSECT") continue;
-            let Line1 = Sketch1.Lines[Relation.Side1];
-            let Line2 = Sketch2.Lines[Relation.Side2];
+    // console.log("ALL RELATIONS");
+    // for (let SketchRelation of SketchLine.AllRelations) {
+    //     let Sketch1 = SketchRelation.Sketch1;
+    //     let Sketch2 = SketchRelation.Sketch2;
+    //     let Intersections = SketchRelation.ListOnlyType("INTERSECT");
+    //     for (let Relation of Intersections) {
+    //         if (Relation.Type1 != "INTERSECT" || Relation.Type2 != "INTERSECT") continue;
+    //         let Line1 = Sketch1.Lines[Relation.Side1];
+    //         let Line2 = Sketch2.Lines[Relation.Side2];
 
-            let Line1Top = Sketch1.Z1 + (Sketch1.AnchorPoint) * Line1.RISE;
-            let Line2Top = Sketch2.Z1 + (Sketch2.AnchorPoint) * Line2.RISE;
-            let Line1Bottom = Line1Top - Line1.RISE;
-            let Line2Bottom = Line2Top - Line2.RISE;
+    //         let Line1Top = Sketch1.Z1 + (Sketch1.AnchorPoint) * Line1.RISE;
+    //         let Line2Top = Sketch2.Z1 + (Sketch2.AnchorPoint) * Line2.RISE;
+    //         let Line1Bottom = Line1Top - Line1.RISE;
+    //         let Line2Bottom = Line2Top - Line2.RISE;
 
-            let LowestBottom = Math.min(Line1Bottom, Line2Bottom);
-            let HighestBottom = Math.max(Line1Bottom, Line2Bottom);
+    //         let LowestBottom = Math.min(Line1Bottom, Line2Bottom);
+    //         let HighestBottom = Math.max(Line1Bottom, Line2Bottom);
 
-            let Data1 = Line1.CF0.Rotation.TranslateAdd(Relation.Data.point.XZY); Data1.Y = Line1Bottom;
-            let Data2 = Line2.CF0.Rotation.TranslateAdd(Relation.Data.point.XZY); Data2.Y = Line2Bottom;
+    //         let Data1 = Line1.CF0.Rotation.TranslateAdd(Relation.Data.point.XZY); Data1.Y = Line1Bottom;
+    //         let Data2 = Line2.CF0.Rotation.TranslateAdd(Relation.Data.point.XZY); Data2.Y = Line2Bottom;
 
-            let L1_Q = Math.atan2(Line1.RISE, Line1.RUN);
-            let L2_Q = Math.atan2(Line2.RISE, Line2.RUN);
+    //         let L1_Q = Math.atan2(Line1.RISE, Line1.RUN);
+    //         let L2_Q = Math.atan2(Line2.RISE, Line2.RUN);
 
-            let Extrude1 = Line1Bottom < Line2Bottom ? 0 : (HighestBottom - LowestBottom) / L1_Q;
-            let Extrude2 = Line1Bottom > Line2Bottom ? 0 : (HighestBottom - LowestBottom) / L2_Q;
+    //         let Extrude1 = Line1Bottom < Line2Bottom ? 0 : (HighestBottom - LowestBottom) / L1_Q;
+    //         let Extrude2 = Line1Bottom > Line2Bottom ? 0 : (HighestBottom - LowestBottom) / L2_Q;
 
-            let ActualConvergencePoint = Extrude1 == 0 ? Data2.ToWorldSpace(CFrame.fromXYZ(Extrude2, 0, 0)) : Data1.ToWorldSpace(CFrame.fromXYZ(Extrude1, 0, 0));
-            // Have to get via CFrame object spaces.
-            if (Extrude1 == 0 ? !ActualConvergencePoint.Position.PointInPolygon([
-                Line1.SketchExtrusionLines.LineASettings.points[0], // 0
-                Line1.SketchExtrusionLines.LineASettings.points[1], // 1
-                Line1.SketchExtrusionLines.LineBSettings.points[1], // 2
-                Line1.SketchExtrusionLines.LineBSettings.points[0], // 3
-            ]) : !ActualConvergencePoint.Position.PointInPolygon([
-                Line2.SketchExtrusionLines.LineASettings.points[0], // 0
-                Line2.SketchExtrusionLines.LineASettings.points[1], // 1
-                Line2.SketchExtrusionLines.LineBSettings.points[1], // 2
-                Line2.SketchExtrusionLines.LineBSettings.points[0], // 3
-            ])) {
-                ActualConvergencePoint = Extrude1 == 0 ? Data2.ToWorldSpace(CFrame.fromXYZ(-Extrude2, 0, 0)) : Data1.ToWorldSpace(CFrame.fromXYZ(-Extrude1, 0, 0));
-            }
-            let Direction = Line1.CF0.LookVector.Scale(L2_Q).TranslateAdd(Line2.CF0.LookVector.Scale(L1_Q));
+    //         let ActualConvergencePoint = Extrude1 == 0 ? Data2.ToWorldSpace(CFrame.fromXYZ(Extrude2, 0, 0)) : Data1.ToWorldSpace(CFrame.fromXYZ(Extrude1, 0, 0));
+    //         // Have to get via CFrame object spaces.
+    //         if (Extrude1 == 0 ? !ActualConvergencePoint.Position.PointInPolygon([
+    //             Line1.SketchExtrusionLines.LineASettings.points[0], // 0
+    //             Line1.SketchExtrusionLines.LineASettings.points[1], // 1
+    //             Line1.SketchExtrusionLines.LineBSettings.points[1], // 2
+    //             Line1.SketchExtrusionLines.LineBSettings.points[0], // 3
+    //         ]) : !ActualConvergencePoint.Position.PointInPolygon([
+    //             Line2.SketchExtrusionLines.LineASettings.points[0], // 0
+    //             Line2.SketchExtrusionLines.LineASettings.points[1], // 1
+    //             Line2.SketchExtrusionLines.LineBSettings.points[1], // 2
+    //             Line2.SketchExtrusionLines.LineBSettings.points[0], // 3
+    //         ])) {
+    //             ActualConvergencePoint = Extrude1 == 0 ? Data2.ToWorldSpace(CFrame.fromXYZ(-Extrude2, 0, 0)) : Data1.ToWorldSpace(CFrame.fromXYZ(-Extrude1, 0, 0));
+    //         }
+    //         let Direction = Line1.CF0.LookVector.Scale(L2_Q).TranslateAdd(Line2.CF0.LookVector.Scale(L1_Q));
 
-            let OTHER1A = segmentIntersection2D(Line1.SketchExtrusionLines.LineASettings.points[0], Line1.SketchExtrusionLines.LineASettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
-            let OTHER1B = segmentIntersection2D(Line1.SketchExtrusionLines.LineBSettings.points[0], Line1.SketchExtrusionLines.LineBSettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
-            let OTHER2A = segmentIntersection2D(Line2.SketchExtrusionLines.LineASettings.points[0], Line2.SketchExtrusionLines.LineASettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
-            let OTHER2B = segmentIntersection2D(Line2.SketchExtrusionLines.LineBSettings.points[0], Line2.SketchExtrusionLines.LineBSettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
+    //         let OTHER1A = segmentIntersection2D(Line1.SketchExtrusionLines.LineASettings.points[0], Line1.SketchExtrusionLines.LineASettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
+    //         let OTHER1B = segmentIntersection2D(Line1.SketchExtrusionLines.LineBSettings.points[0], Line1.SketchExtrusionLines.LineBSettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
+    //         let OTHER2A = segmentIntersection2D(Line2.SketchExtrusionLines.LineASettings.points[0], Line2.SketchExtrusionLines.LineASettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
+    //         let OTHER2B = segmentIntersection2D(Line2.SketchExtrusionLines.LineBSettings.points[0], Line2.SketchExtrusionLines.LineBSettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
 
-            let AddZonings = [];
-            if (OTHER1A && 0 <= OTHER1A.t1 && OTHER1A.t1 <= 1) AddZonings.push(OTHER1A.point.XZY);
-            if (OTHER1B && 0 <= OTHER1B.t1 && OTHER1B.t1 <= 1) AddZonings.push(OTHER1B.point.XZY);
-            if (OTHER2A && 0 <= OTHER2A.t1 && OTHER2A.t1 <= 1) AddZonings.push(OTHER2A.point.XZY);
-            if (OTHER2B && 0 <= OTHER2B.t1 && OTHER2B.t1 <= 1) AddZonings.push(OTHER2B.point.XZY);
-            // console.log(AddZonings);
-            for (let ZoningPoint of AddZonings) {
-                let Local = Line1.CF0.ToObjectSpace(CFrame.fromVector3(ZoningPoint));
-                let Height = Line1.SketchExtrusionLines.GetHeightAtZ(Local.Z) + Line1Top;
-                Line1.SketchExtrusionLines.Zonings.push([Line1.CF0.ToObjectSpace(CFrame.fromVector3(ActualConvergencePoint.Position)).Position, Line1.CF0.ToObjectSpace(CFrame.fromVector3(ZoningPoint.TranslateAdd(new Vector3(0, Height, 0)))).Position]);
-                Line2.SketchExtrusionLines.Zonings.push([Line2.CF0.ToObjectSpace(CFrame.fromVector3(ActualConvergencePoint.Position)).Position, Line2.CF0.ToObjectSpace(CFrame.fromVector3(ZoningPoint.TranslateAdd(new Vector3(0, Height, 0)))).Position]);
-                BABYLON.MeshBuilder.CreateLines("e", {
-                    points: [
-                        ZoningPoint.TranslateAdd(new Vector3(0, Height, 0)).ToBabylon(),
-                        ActualConvergencePoint.Position.ToBabylon(),
-                    ]
-                }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(0, 1, 0);
-            }
-            console.log(Line1.SketchExtrusionLines.Zonings, Line2.SketchExtrusionLines.Zonings);
-        }
-    }
-    console.log("END RELATIONS");
-    for (let SketchRelation of SketchLine.AllRelations) {
-        for (let Line of Object.values(SketchRelation.Sketch1.Lines)) Line.SketchExtrusionLines.UpdateForZonings();
-        for (let Line of Object.values(SketchRelation.Sketch2.Lines)) Line.SketchExtrusionLines.UpdateForZonings();
-    }
+    //         let AddZonings = [];
+    //         if (OTHER1A && 0 <= OTHER1A.t1 && OTHER1A.t1 <= 1) AddZonings.push(OTHER1A.point.XZY);
+    //         if (OTHER1B && 0 <= OTHER1B.t1 && OTHER1B.t1 <= 1) AddZonings.push(OTHER1B.point.XZY);
+    //         if (OTHER2A && 0 <= OTHER2A.t1 && OTHER2A.t1 <= 1) AddZonings.push(OTHER2A.point.XZY);
+    //         if (OTHER2B && 0 <= OTHER2B.t1 && OTHER2B.t1 <= 1) AddZonings.push(OTHER2B.point.XZY);
+    //         // console.log(AddZonings);
+    //         for (let ZoningPoint of AddZonings) {
+    //             let Local = Line1.CF0.ToObjectSpace(CFrame.fromVector3(ZoningPoint));
+    //             let Height = Line1.SketchExtrusionLines.GetHeightAtZ(Local.Z) + Line1Top;
+    //             Line1.SketchExtrusionLines.Zonings.push([Line1.CF0.ToObjectSpace(CFrame.fromVector3(ActualConvergencePoint.Position)).Position, Line1.CF0.ToObjectSpace(CFrame.fromVector3(ZoningPoint.TranslateAdd(new Vector3(0, Height, 0)))).Position]);
+    //             Line2.SketchExtrusionLines.Zonings.push([Line2.CF0.ToObjectSpace(CFrame.fromVector3(ActualConvergencePoint.Position)).Position, Line2.CF0.ToObjectSpace(CFrame.fromVector3(ZoningPoint.TranslateAdd(new Vector3(0, Height, 0)))).Position]);
+    //             BABYLON.MeshBuilder.CreateLines("e", {
+    //                 points: [
+    //                     ZoningPoint.TranslateAdd(new Vector3(0, Height, 0)).ToBabylon(),
+    //                     ActualConvergencePoint.Position.ToBabylon(),
+    //                 ]
+    //             }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(0, 1, 0);
+    //         }
+    //         console.log(Line1.SketchExtrusionLines.Zonings, Line2.SketchExtrusionLines.Zonings);
+    //     }
+    // }
+    // console.log("END RELATIONS");
+    // for (let SketchRelation of SketchLine.AllRelations) {
+    //     for (let Line of Object.values(SketchRelation.Sketch1.Lines)) Line.SketchExtrusionLines.UpdateForZonings();
+    //     for (let Line of Object.values(SketchRelation.Sketch2.Lines)) Line.SketchExtrusionLines.UpdateForZonings();
+    // }
 
     // console.log("AVERAGE PITCH", PITCH / COUNT, Math.tan(PITCH / COUNT * Math.PI / 180) * 12);
 
@@ -696,27 +695,37 @@ export async function Test(Lat: number | string, Lon: number | string) {
         // Roof.stats
         let Roof = Info.Raw;
         let Length = ((Info.NE.x - Info.SW.x) ** 2 + (Info.NE.y - Info.SW.y) ** 2) ** .5;
-        let Angle = Roof.azimuthDegrees * Math.PI / 180;
-        let Sketch = new SketchLine(Editor.ActiveEditor, Info.CT.x - Info.dx * 100, Info.CT.y - Info.dy * 100, 0); // Info.NE.y); // Math.round(p.y));
+        let Angle = -(Roof.azimuthDegrees + 90) * Math.PI / 180;
+        let Sketch = new SketchLine(Editor.ActiveEditor, Info.CT.x, Info.CT.y, 0); // Info.NE.y); // Math.round(p.y));
         Sketch.Start();
         Sketch.Angle = Angle;
         Sketch.Length = Length;
+
         let RUN = Math.max(0, MinimumExtrusion, Info?.Size.x ?? (Length / 2));
-        let CheapCF = CFrame.Angles(0, -Angle, 0).ToWorldSpace(CFrame.fromXYZ(0, 0, RUN / 2));
+        let CheapCF = CFrame.Angles(0, Angle, 0).ToWorldSpace(CFrame.fromXYZ(RUN / 2, 0, -Length));
         // console.log(CheapCF);
         Sketch.X0 = Info.P0.x + CheapCF.Z;
         Sketch.Y0 = Info.P0.y + CheapCF.X;
         Sketch.X1 = Info.P1.x + CheapCF.Z;
         Sketch.Y1 = Info.P1.y + CheapCF.X;
         Sketch.Z1 = Info.CT.z - AverageGlobalHeight;
+        // BABYLON.MeshBuilder.CreateLines("e", { points: [Info.Center.XY.ToBabylonXZY(), CheapCF.Position.ToBabylon()] }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(1, 0, 0);
+        // BABYLON.MeshBuilder.CreateLines("e", { points: [new BABYLON.Vector3(Sketch.X0, 0, Sketch.Y0), new BABYLON.Vector3(Sketch.X1, 0, Sketch.Y1)] }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(1, 0, 0);
+        BABYLON.MeshBuilder.CreateLines("e", { points: [Info.P0.ToBabylonXZY(), Info.P1.ToBabylonXZY()] }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(1, 0, 0);
+        Sketch.UpdateXY();
         Sketch.AnchorPoint = .5;
         Sketch.Commit();
         Sketch.Lines["0"].ENABLED = false;
         Sketch.Lines["1"].ENABLED = false;
-        // Sketch.Lines["A"].ENABLED = false;
-        Sketch.Lines["B"].ENABLED = false;
-        // Sketch.Lines["B"].RISE = 10;
-        // Sketch.Lines["B"].RUN = 10;
+        Sketch.Lines["A"].ENABLED = false;
+        // Sketch.Lines["B"].ENABLED = false;
+
+        console.log("CREATE ROOFFFFF", RoofID);
+
+        // Sketch.Lines["0"].Length = Length;
+        // Sketch.Lines["1"].Length = Length;
+        Sketch.Lines["A"].Length = Length;
+        Sketch.Lines["B"].Length = Length;
 
         Sketch.Lines["A"].PRIMARY = "D";
         Sketch.Lines["0"].PRIMARY = "D";
@@ -733,10 +742,10 @@ export async function Test(Lat: number | string, Lon: number | string) {
         Sketch.Lines["A"].RISE = RUN * Math.tan(Roof.pitchDegrees * Math.PI / 180);
         Sketch.Lines["B"].RISE = RUN * Math.tan(Roof.pitchDegrees * Math.PI / 180);
 
-        Sketch.Lines["0"].RUN = 10;
-        Sketch.Lines["1"].RUN = 10;
+        Sketch.Lines["0"].RUN = RUN;
+        Sketch.Lines["1"].RUN = RUN;
         Sketch.Lines["A"].RUN = RUN; // 10;
-        Sketch.Lines["B"].RUN = 10;
+        Sketch.Lines["B"].RUN = RUN;
 
         // Editor.ActiveEditor.LabelMarker(new Vector3(Info.CT.x, Info.CT.y, 0), `PITCH: ${Roof.pitchDegrees.toFixed(2)}°\nAZIMUTH: ${((Roof.azimuthDegrees + 45) % 90 - 45).toFixed(2)}°\nAREA: ${Roof.stats.areaMeters2.toFixed(2)} m²`);
 
@@ -749,9 +758,12 @@ export async function Test(Lat: number | string, Lon: number | string) {
 
         Sketch.UpdateLines();
         Sketch.Commit();
+        // Sketch.Commit();
         console.log("E?");
         DrawSketches.push(Sketch);
     }
+
+    // if (true) return;
 
     // console.log(content);
 
@@ -777,7 +789,9 @@ export async function Test(Lat: number | string, Lon: number | string) {
         Valleys: NewPDF.DrawingsInOrder.EstablishType("Valleys", 3, RoofOutlineLayers, { r: 1, g: .5, b: 0, a: 1 }),
         Ridges: NewPDF.DrawingsInOrder.EstablishType("Ridges", 4, RoofOutlineLayers, { r: 0, g: 0, b: 1, a: 1 }),
         Eaves: NewPDF.DrawingsInOrder.EstablishType("Eaves", 5, RoofOutlineLayers, { r: 0, g: 1, b: 0, a: 1 }),
-        SolarPanels: NewPDF.DrawingsInOrder.EstablishType("SolarPanels", 6, [], { r: .5, g: .5, b: 1, a: 1 }),
+        Gables: NewPDF.DrawingsInOrder.EstablishType("Gables", 5, RoofOutlineLayers, { r: 1, g: 1, b: 0, a: 1 }),
+        HighSides: NewPDF.DrawingsInOrder.EstablishType("HighSides", 5, RoofOutlineLayers, { r: 1, g: 0, b: 0, a: 1 }),
+        SolarPanels: NewPDF.DrawingsInOrder.EstablishType("SolarPanels", 6, [3], { r: .5, g: .5, b: 1, a: 1 }),
         PanelTexts: NewPDF.DrawingsInOrder.EstablishType("PanelTexts", 7, [1], { r: 0, g: 0, b: 0, a: .5 }).SetTextSize(6),
         PitchTexts: NewPDF.DrawingsInOrder.EstablishType("PitchTexts", 7, [3], { r: 0, g: 0, b: 0, a: .5 }).SetTextSize(10),
         PlaneIDTexts: NewPDF.DrawingsInOrder.EstablishType("PlaneIDTexts", 7, [3], { r: 0, g: 0, b: 0, a: .5 }).SetTextSize(10, 10),
@@ -791,7 +805,9 @@ export async function Test(Lat: number | string, Lon: number | string) {
         Hips: "HC",
         Ridges: "RC",
         Valleys: "VF",
-        InterceptRidges: "IR",
+        Gables: "GR",
+        HighSides: "HS",
+        // InterceptRidges: "IR",
         // Panels: "XX",
         // PanelTexts: "XX",
         // OTHER: "XX",
@@ -818,10 +834,12 @@ export async function Test(Lat: number | string, Lon: number | string) {
         let SketchColor = { r: Math.random(), g: Math.random(), b: Math.random() };
         for (let LineID in Sketch.Lines) {
             let Line = Sketch.Lines[LineID];
+            if (!Line.ENABLED) continue;
             let MainLength = Line.Length;
             let BottomLength = MainLength + Line.ExtrudeA + Line.ExtrudeB;
-            let HardPoints = [0, Line.ExtrudeB, BottomLength];
-            if (MainLength != 0) HardPoints.push(Line.ExtrudeB + MainLength);
+            let HardPoints = [0, BottomLength];
+            if (Line.ExtrudeB != 0) HardPoints.push(Line.ExtrudeB);
+            if (MainLength != 0 && Line.ExtrudeA != 0) HardPoints.push(Line.ExtrudeB + MainLength);
             for (let ZoningPoint of Line.SketchExtrusionLines.Zonings) {
                 let Actual0X = Line.ExtrudeA + ZoningPoint[0].X;
                 let Actual1X = Line.ExtrudeA + ZoningPoint[1].X;
@@ -939,11 +957,19 @@ export async function Test(Lat: number | string, Lon: number | string) {
                 if (PanelLength > 0) DrawTheseInOrder.PanelTexts.AddDraw(SketchIndex, LineID, InchesToFT_IN_FORMAT(PanelLength), LineAngle, AvgCF).TextWidth = Line.RUN * PanelLength / 3 / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5);
             }
 
-
-
+            console.log(Sketch, Line, LazyPolyLines);
+            if (SketchIndex == "1") console.log("CHEESE", LazyPolyLines);
             // for (let Bottom of HardBottom) {
-            for (let Index = 0; Index < LazyPolyLines.length - 1; Index++) {
+            for (let Index = 0; Index < LazyPolyLines.length; Index++) {
                 let ThisLine = LazyPolyLines[Index];
+                if (Line.ExtrudeB == 0 && Index == 0) {
+                    DrawTheseInOrder.Gables.AddLine(SketchIndex, LineID, ThisLine.TopCF, ThisLine.BottomCF);
+                }
+                if (Line.ExtrudeB == 0 && Index == LazyPolyLines.length - 1) {
+                    DrawTheseInOrder.Gables.AddLine(SketchIndex, LineID, ThisLine.TopCF, ThisLine.BottomCF);
+                }
+                if (Index == LazyPolyLines.length - 1) continue;
+
                 let NextLine = LazyPolyLines[Index + 1];
 
                 // if ((ThisLine.Top - ThisLine.Bottom) >= 0 && ThisLine.Bottom == 0) NewPDF.DrawLineFromV3(ThisLine.BottomCF, ThisLine.TopCF, SketchColor, 1);
@@ -966,7 +992,11 @@ export async function Test(Lat: number | string, Lon: number | string) {
 
                 // if (ThisLine)
                 if (Approx(ThisLine.Top) == Approx(NextLine.Top)) {
-                    DrawTheseInOrder.Ridges.AddLine(SketchIndex, LineID, ThisLine.TopCF, NextLine.TopCF);
+                    if (Line.LineConnectA.LineConnectA == Line.LineConnectB.LineConnectB && Line.LineConnectA.LineConnectA.ENABLED) {
+                        DrawTheseInOrder.Ridges.AddLine(SketchIndex, LineID, ThisLine.TopCF, NextLine.TopCF);
+                    } else {
+                        DrawTheseInOrder.HighSides.AddLine(SketchIndex, LineID, ThisLine.TopCF, NextLine.TopCF);
+                    }
                     // if (Approx(ThisLine.Top) == Approx(LineHypo))
                     //     DrawTheseInOrder.Ridges.AddLine(SketchIndex, LineID, ThisLine.TopCF, NextLine.TopCF);
                     // else
@@ -1079,6 +1109,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
     }
     for (let SketchID in DrawSketches) {
         for (let LineID in DrawSketches[SketchID].Lines) {
+            if (!DrawSketches[SketchID].Lines[LineID].ENABLED) continue;
             NumericalIdenitifers.push(`${SketchID}-${LineID}`);
             AlphabeticalizedIdenitifers[`${SketchID}-${LineID}`] = numberToLetters0(NumericalIdenitifers.length - 1);
             AlphabeticalizedIdenitifers[numberToLetters0(NumericalIdenitifers.length - 1)] = `${SketchID}-${LineID}`;
@@ -1089,6 +1120,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
         let Sketch = DrawSketches[SketchID];
         for (let LineID in Sketch.Lines) {
             let Line = Sketch.Lines[LineID];
+            if (!Line.ENABLED) continue;
             let POINTS = [];
             for (let DrawingType of NewPDF.DrawingsInOrder.DrawTypes) {
                 for (let Drawing of DrawingType.Draws) {
@@ -1149,13 +1181,14 @@ export async function Test(Lat: number | string, Lon: number | string) {
                 let Point0 = Drawing.Points[0], Point1 = Drawing.Points[1];
                 POINTS.push(Point0, Point1);
                 console.log("Y", Point0.y ?? 0, Point1.y ?? 0);
-                TotalDistance += ((Point1.x - Point0.x) ** 2 + ((Point1.y ?? 0) - (Point0.y ?? 0)) ** 2 + (Point1.z - Point0.z) ** 2) ** .5;
-                LineRotation += Math.atan2(-(Point1.z - Point0.z), -(Point1.x - Point0.x)) * 180 / Math.PI;
+                let AddDistance = ((Point1.x - Point0.x) ** 2 + ((Point1.y ?? 0) - (Point0.y ?? 0)) ** 2 + (Point1.z - Point0.z) ** 2) ** .5;
+                TotalDistance += AddDistance;
+                LineRotation += Math.atan2(-(Point1.z - Point0.z), -(Point1.x - Point0.x)) * 180 / Math.PI * AddDistance;
             }
             let BOUNDS = Vector3.Bounds(POINTS);
             let AVG = BOUNDS[0].Average(BOUNDS[1]);
             NewPDF.PageIndex = 1;
-            LineRotation /= DrawingList.length;
+            LineRotation /= TotalDistance; // DrawingList.length;
             Simp.push({ Lines, AVG, LineRotation, TotalDistance });
         }
     }
@@ -1226,9 +1259,11 @@ export async function Test(Lat: number | string, Lon: number | string) {
     NewPDF.PageIndex = 2;
     NewPDF.DrawLine(0, 100, 600, 100, { r: 0, g: 0, b: 0, a: 1 });
     NewPDF.AddText(`[${ShorthandTypes.Eaves}] EAVES (x${MeasurementCounts["Eaves"]}): ${InchesToFT_IN_FORMAT(Measurements["Eaves"])}`, 300, 100, 0, 10, -10, 1);
-    NewPDF.AddText(`[${ShorthandTypes.Ridges}] RIDGES (x${MeasurementCounts["Ridges"]}): ${InchesToFT_IN_FORMAT(Measurements["Ridges"])}`, 300, 100, 0, 10, -20, 1);
-    NewPDF.AddText(`[${ShorthandTypes.Hips}] HIPS (x${MeasurementCounts["Hips"]}): ${InchesToFT_IN_FORMAT(Measurements["Hips"])}`, 300, 100, 0, 10, -30, 1);
+    NewPDF.AddText(`[${ShorthandTypes.Hips}] HIPS (x${MeasurementCounts["Hips"]}): ${InchesToFT_IN_FORMAT(Measurements["Hips"])}`, 300, 100, 0, 10, -20, 1);
+    NewPDF.AddText(`[${ShorthandTypes.Ridges}] RIDGES (x${MeasurementCounts["Ridges"]}): ${InchesToFT_IN_FORMAT(Measurements["Ridges"])}`, 300, 100, 0, 10, -30, 1);
     NewPDF.AddText(`[${ShorthandTypes.Valleys}] VALLEYS (x${MeasurementCounts["Valleys"]}): ${InchesToFT_IN_FORMAT(Measurements["Valleys"])}`, 300, 100, 0, 10, -40, 1);
+    NewPDF.AddText(`[${ShorthandTypes.Gables}] GABLES (x${MeasurementCounts["Gables"]}): ${InchesToFT_IN_FORMAT(Measurements["Gables"])}`, 300, 100, 0, 10, -50, 1);
+    NewPDF.AddText(`[${ShorthandTypes.HighSides}] HIGHSIDES (x${MeasurementCounts["HighSides"]}): ${InchesToFT_IN_FORMAT(Measurements["HighSides"])}`, 300, 100, 0, 10, -60, 1);
 
     console.log("Actual Measurements", Measurements);
 

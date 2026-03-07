@@ -305,13 +305,10 @@ export class ExtrusionLines {
         this.LineB = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings);
         this.Polygon?.dispose();
 
-        let MainLength = this.ExtrudedLine.Length; // this.ExtrudedLine.IsParallel ? this.ExtrudedLine.CF0.Distance(this.ExtrudedLine.CF1) : 0;
-        // let TopCF = CFrame.fromXYZ(MainLength, 0, 0);
+        let MainLength = this.ExtrudedLine.Length;
 
         let ANGLE = Math.atan2(this.ExtrudedLine.RISE, this.ExtrudedLine.RUN);
         let RoofAngle = CFrame.Angles(ANGLE, 0, 0);
-        // let RoofAngle = CFrame.Angles(Math.atan2(this.ExtrudedLine.PITCH, 12), 0, 0);
-        // let RoofAngle = CFrame.Angles(Math.atan2(12, this.ExtrudedLine.PITCH), 0, 0);
 
         let ExtrudeLength = (this.ExtrudedLine.RISE ** 2 + this.ExtrudedLine.RUN ** 2) ** .5;
 
@@ -322,25 +319,10 @@ export class ExtrusionLines {
             new Vector3(-MainLength, 0, 0),
         ];
 
-        // this.LineFSettings?.instance?.dispose();
-        // this.LineFSettings = { points: FlattenedPoints, updatable: true };
-        // this.LineFSettings.instance = this.LineF = BABYLON.MeshBuilder.CreateLines("LINE", this.LineFSettings, this.ActiveEditor.Scene);
-        // this.LineF.color = new BABYLON.Color3(.5, 1, 1);
-
-        // console.log("FlattenedPoints:", FlattenedPoints);
-
-        let FocusCF = this.ExtrudedLine.CF0.ToWorldSpace(CFrame.Angles(0, Math.PI, 0)).ToWorldSpace(RoofAngle); // EdgeCF; // HeadingCF.Rotation.TranslateAdd(Averaged);
-
+        let FocusCF = this.ExtrudedLine.CF0.ToWorldSpace(CFrame.Angles(0, Math.PI, 0)).ToWorldSpace(RoofAngle);
 
         let Bounds = Vector3.Bounds(FlattenedPoints);
         let Size = Bounds[1].TranslateSub(Bounds[0]);
-        // console.log("Size:", Size, Math.atan2(this.ExtrudedLine.RISE, this.ExtrudedLine.RUN)); // , Math.atan2(this.ExtrudedLine.PITCH, 12));
-        // let FlattenedPoints = [];
-        // for (let Point of Points) {
-        //     let FP = MapToFlat(FocusCF, Size, Point);
-        //     FlattenedPoints.push(FP.Position.ToBabylon());
-        // }
-        // Size = 
 
 
         // BABYLON.MeshBuilder.ExtrudePolygon("POLY", this.PolygonSettings, null, BABYLON_EARCUT.earcut);
@@ -352,14 +334,14 @@ export class ExtrusionLines {
         let BBL = FocusCF.ToBabylon(); // I had to name this variable BBL. LOL
         this.BBL = BBL;
         // if (true) return;
-        // if (!this.ExtrudedLine.ENABLED) {
-        // this.Polygon = BABYLON.MeshBuilder.CreatePolygon("POLY", this.PolygonSettings, null, BABYLON_EARCUT.earcut);
-        // this.Polygon.material = this.MAT;
-        // this.Polygon.position.copyFrom(this.BBL[0]);
-        // this.Polygon.rotationQuaternion = this.BBL[1];
-        // this.PanelSettings?.instance?.dispose();
-        // return;
-        // };
+        if (!this.ExtrudedLine.ENABLED) {
+            this.Polygon = BABYLON.MeshBuilder.CreatePolygon("POLY", this.PolygonSettings, null, BABYLON_EARCUT.earcut);
+            this.Polygon.material = this.MAT;
+            this.Polygon.position.copyFrom(this.BBL[0]);
+            this.Polygon.rotationQuaternion = this.BBL[1];
+            this.PanelSettings?.instance?.dispose();
+            return;
+        };
 
         this.UpdatePanelMesh();
 
@@ -513,7 +495,7 @@ export class ExtrusionLines {
         let BottomLength = MainLength + this.ExtrudedLine.ExtrudeA + this.ExtrudedLine.ExtrudeB;
         let ExtrudeLength = (this.ExtrudedLine.RISE ** 2 + this.ExtrudedLine.RUN ** 2) ** .5;
         let Height = 0;
-        if (X <= this.ExtrudedLine.ExtrudeB) {
+        if (X <= this.ExtrudedLine.ExtrudeB && this.ExtrudedLine.ExtrudeB != 0) {
             Height = X / this.ExtrudedLine.ExtrudeB * ExtrudeLength;
             if (!Raw)
                 for (let ZoningPoint of this.Zonings) {
@@ -523,7 +505,7 @@ export class ExtrusionLines {
                 }
         } else if (X <= this.ExtrudedLine.ExtrudeB + MainLength) {
             Height = ExtrudeLength;
-        } else {
+        } else if (this.ExtrudedLine.ExtrudeA != 0) {
             Height = (BottomLength - X) / this.ExtrudedLine.ExtrudeA * ExtrudeLength;
             if (!Raw)
                 for (let ZoningPoint of this.Zonings) {
@@ -531,7 +513,7 @@ export class ExtrusionLines {
                     if (Actual1X < X) continue;
                     Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
                 }
-        }
+        } // else Height = ExtrudeLength;
         return Height;
     }
 
