@@ -140,229 +140,7 @@ let PanelProfiles = {
 // Outer, Extrude Up, Inner, Extrude Down //
 
 // let SketchDirection = new CFrame();
-export class ExtrusionLines {
-    ActiveEditor: Editor;
-    ExtrudedLine: ExtrudedLine;
-    LineA: BABYLON.LinesMesh;
-    LineB: BABYLON.LinesMesh;
-    LineASettings: LineSettingsPeanut;
-    LineBSettings: LineSettingsPeanut;
 
-    Polygon: BABYLON.Mesh;
-    PolygonSettings: PolygonSettingsPeanut;
-
-    PanelSettings: ExtrudedPolygonSettingsPeanut;
-
-    // Panels: ExtrudedPolygonSettingsPeanut[] = [];
-
-    FocusCF: CFrame;
-
-    constructor(ExtrudedLine: ExtrudedLine) {
-        this.ActiveEditor = ExtrudedLine.ActiveEditor;
-        this.ExtrudedLine = ExtrudedLine;
-
-        let V0 = ExtrudedLine.FocusSketchLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 0 : 1];
-        let V1 = ExtrudedLine.FocusSketchLine.LineSettings.points[ExtrudedLine.FocusPoint1 == "V0" ? 0 : 1];
-
-        this.LineASettings = { points: [ExtrudedLine.FocusPoint0 == "V0" ? V1 : V0, ExtrudedLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 1 : 0]], updatable: true };
-        this.LineASettings.instance = this.LineA = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings, this.ActiveEditor.Scene);
-        this.LineA.color = new BABYLON.Color3(0, 1, 1);
-        // this.LineA.isVisible = false;
-
-
-        this.LineBSettings = { points: [ExtrudedLine.FocusPoint0 == "V0" ? V0 : V1, ExtrudedLine.LineSettings.points[ExtrudedLine.FocusPoint0 == "V0" ? 0 : 1]], updatable: true };
-        this.LineBSettings.instance = this.LineB = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings, this.ActiveEditor.Scene);
-        this.LineB.color = new BABYLON.Color3(0, 1, 1);
-
-        this.PolygonSettings = { sideOrientation: BABYLON.Mesh.DOUBLESIDE, shape: [this.LineASettings.points[0], this.LineASettings.points[1], this.LineBSettings.points[1], this.LineBSettings.points[0]], updatable: true };
-        this.PanelSettings = {
-            shape: [new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, 0, 0)], path: [
-                new BABYLON.Vector3(0, 0, 0),
-                new BABYLON.Vector3(0, 0, 1e-6),
-                // new BABYLON.Vector3(0, 0, 10),
-                // new BABYLON.Vector3(0, 0, -Size.Z),
-                // new BABYLON.Vector3(0, 0, -Size.Z + .001),
-            ],
-            cap: BABYLON.Mesh.CAP_END,
-            sideOrientation: BABYLON.Mesh.DOUBLESIDE, // DEFAULTSIDE,
-            updatable: true,
-        };
-        // Editor.meshesRef.current.push([this.PanelSettings, "PANEL"]);
-
-        this.MAT = new BABYLON.StandardMaterial("material", this.ActiveEditor.Scene);
-        // this.MAT.diffuseColor =
-        //     this.ExtrudedLine.Angle == 0 ? new BABYLON.Color3(1, 0, 0) : // "0" //
-        //         this.ExtrudedLine.Angle == 90 ? new BABYLON.Color3(0, 1, 0) : // "A" //
-        //             this.ExtrudedLine.Angle == 180 ? new BABYLON.Color3(0, 0, 1) : // "1" //
-        //                 this.ExtrudedLine.Angle == 270 ? new BABYLON.Color3(1, 1, 1) : // "B" //
-        //                     new BABYLON.Color3(0, 0, 0); // this.ExtrudedLine.IsParallel ? new BABYLON.Color3(0, 0, 1) : new BABYLON.Color3(1, 0, 0);
-        // this.MAT.diffuseColor =
-        //     this.ExtrudedLine.ID == "0" ? new BABYLON.Color3(1, 0, 0) :
-        //         this.ExtrudedLine.ID == "A" ? new BABYLON.Color3(0, 1, 0) :
-        //             this.ExtrudedLine.ID == "1" ? new BABYLON.Color3(0, 0, 1) :
-        //                 this.ExtrudedLine.ID == "B" ? new BABYLON.Color3(1, 1, 1) :
-        //                     new BABYLON.Color3(0, 0, 0); // this.ExtrudedLine.IsParallel ? new BABYLON.Color3(0, 0, 1) : new BABYLON.Color3(1, 0, 0);
-    }
-
-    Zonings: Vector3[][] = [];
-
-    UpdateForZonings() {
-        if (!this.ExtrudedLine.Line) return;
-        // TEMP //
-        if (this.Zonings.length == 0) return;
-        this.UpdatePanelMesh();
-    }
-
-    SelectedProfile: string = "standing-seam";
-
-    UpdatePanelMesh() {
-        this.Polygon?.dispose();
-
-        {
-            let MainLength = this.ExtrudedLine.Length;
-
-            let ANGLE = Math.atan2(this.ExtrudedLine.RISE, this.ExtrudedLine.RUN);
-            let RoofAngle = CFrame.Angles(ANGLE, 0, 0);
-
-            let ExtrudeLength = (this.ExtrudedLine.RISE ** 2 + this.ExtrudedLine.RUN ** 2) ** .5;
-
-            let FlattenedPoints = [
-                new Vector3(),
-                new Vector3(this.ExtrudedLine.ExtrudeA, 0, ExtrudeLength),
-                new Vector3(-MainLength - this.ExtrudedLine.ExtrudeB, 0, ExtrudeLength),
-                new Vector3(-MainLength, 0, 0),
-            ];
-
-            let FocusCF = this.ExtrudedLine.CF0.ToWorldSpace(CFrame.Angles(0, Math.PI, 0)).ToWorldSpace(RoofAngle);
-
-            this.PolygonSettings.shape = FlattenedPoints;
-
-            this.FocusCF = FocusCF;
-            let BBL = FocusCF.ToBabylon(); // I had to name this variable BBL. LOL
-            this.BBL = BBL;
-        }
-        // if (true) return;
-        if (!this.ExtrudedLine.ENABLED) {
-            this.Polygon = BABYLON.MeshBuilder.CreatePolygon("POLY", this.PolygonSettings, null, BABYLON_EARCUT.earcut);
-            this.Polygon.material = this.MAT; // Editor.ActiveEditor.RoofPBR_Material;
-            this.Polygon.position.copyFrom(this.BBL[0]);
-            this.Polygon.rotationQuaternion = this.BBL[1];
-            this.PanelSettings?.instance?.dispose();
-            return;
-        };
-        let MainLength = this.ExtrudedLine.Length;
-        let BottomLength = MainLength + this.ExtrudedLine.ExtrudeA + this.ExtrudedLine.ExtrudeB;
-        let ExtrudeLength = (this.ExtrudedLine.RISE ** 2 + this.ExtrudedLine.RUN ** 2) ** .5;
-
-        let PanelThickness = 0 * .0179;
-        // shape.push(new BABYLON.Vector3(-X, 0, 0));
-
-        let SelectedPanelData = PanelProfiles[this.SelectedProfile] ?? PanelProfiles["standing-seam"]; // SelectedProfile];
-        let PanelLength = SelectedPanelData.PanelLength; // 36;
-        let MaxPanels = Math.ceil(BottomLength / PanelLength);
-
-        let shape = []; // new BABYLON.Vector3(0, 0, 0)];
-
-        let X = SelectedPanelData.Overlap; // 0; // -PBR_Panel[0][0] / 2;
-        let Y = PanelThickness + 0;  // .1;
-
-        for (let i = 0; i < MaxPanels; i++) {
-            for (let P of SelectedPanelData.Shape) {
-                let Outer = P[0];
-                let Extrude = P.length > 1 ? P[1] : 0;
-                let Inner = P.length > 2 ? P[2] : 0;
-                let ExtrudeUndo = P.length > 3 ? P[3] : Extrude;
-                if (X >= BottomLength) break;
-
-                X += Outer / 2 - Inner / 2;
-                Y += Extrude;
-                shape.push(new BABYLON.Vector3(X, Y, 0));
-                if (X >= BottomLength) break;
-
-                X += Inner;
-                if (Inner != 0) shape.push(new BABYLON.Vector3(X, Y, 0));
-                if (X >= BottomLength) break;
-
-                X += Outer / 2 - Inner / 2;
-                Y -= ExtrudeUndo;
-                if (ExtrudeUndo != 0 || (Outer - Inner) != 0) shape.push(new BABYLON.Vector3(X, Y, 0));
-                if (X >= BottomLength) break;
-            };
-        };
-
-        if (shape.length != 0) shape[shape.length - 1].x = BottomLength; // Could handle the slope and stuff properly...
-
-        PanelLength *= MaxPanels;
-
-        this.PanelSettings?.instance?.dispose();
-        delete this.PanelSettings?.instance;
-        // this.PanelSettings = {
-        this.PanelSettings.shape = shape;
-        this.PanelSettings.capFunction = (shapePath: BABYLON.Vector3[]) => shapePath.map((v) => new BABYLON.Vector3(v.x, v.y + PanelThickness, -this.GetHeightAtX(v.x)));
-        // cap: BABYLON.Mesh.CAP_END,
-        // sideOrientation: BABYLON.Mesh.DOUBLESIDE, // DEFAULTSIDE,
-        // updatable: true,
-        // };
-        let Panel = this.PanelSettings.instance = BABYLON.MeshBuilder.ExtrudeShape(`PANEL`, this.PanelSettings, this.ActiveEditor.Scene).convertToFlatShadedMesh(); // this.ActiveEditor.Scene);
-
-        // Panel.position.set(i * 36, i * 36, 0);
-        // i * 36 - this.ExtrudedLine.ExtrudeA
-        // let P_BBL = FocusCF.ToWorldSpace(CFrame.fromXYZ(this.ExtrudedLine.ExtrudeA, PanelThickness, ExtrudeLength)).ToBabylon();
-        let ANGLE = Math.atan2(this.ExtrudedLine.RISE, this.ExtrudedLine.RUN);
-        let RoofAngle = CFrame.Angles(ANGLE, 0, 0);
-        let FocusCF = this.ExtrudedLine.CF0.ToWorldSpace(CFrame.Angles(0, Math.PI, 0)).ToWorldSpace(RoofAngle);
-        let P_BBL = FocusCF.ToWorldSpace(CFrame.fromXYZ(-this.ExtrudedLine.ExtrudeB - MainLength, PanelThickness, ExtrudeLength)).ToBabylon();
-        Panel.position.set(P_BBL[0].x, P_BBL[0].y, P_BBL[0].z);
-        Panel.rotationQuaternion = P_BBL[1]; //.copyFrom(this.BBL[1]);
-        Panel.material = Editor.ActiveEditor.RoofPBR_Material;
-    }
-
-    Update() {
-        this.LineA = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings);
-        this.LineB = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings);
-
-        this.UpdatePanelMesh();
-    }
-
-    GetHeightAtX(X: number, Raw = false) {
-        // return this.GetBottomAtX(X);
-        let MainLength = this.ExtrudedLine.Length;
-        let BottomLength = MainLength + this.ExtrudedLine.ExtrudeA + this.ExtrudedLine.ExtrudeB;
-        let ExtrudeLength = (this.ExtrudedLine.RISE ** 2 + this.ExtrudedLine.RUN ** 2) ** .5;
-        let Height = 0;
-        if (X <= this.ExtrudedLine.ExtrudeB && this.ExtrudedLine.ExtrudeB != 0) {
-            Height = X / this.ExtrudedLine.ExtrudeB * ExtrudeLength;
-            if (!Raw)
-                for (let ZoningPoint of this.Zonings) {
-                    let Actual1X = -ZoningPoint[1].X + this.ExtrudedLine.ExtrudeB + MainLength;
-                    if (Actual1X > X) continue;
-                    Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
-                }
-        } else if (X <= this.ExtrudedLine.ExtrudeB + MainLength) {
-            Height = ExtrudeLength;
-        } else if (this.ExtrudedLine.ExtrudeA != 0) {
-            Height = (BottomLength - X) / this.ExtrudedLine.ExtrudeA * ExtrudeLength;
-            if (!Raw)
-                for (let ZoningPoint of this.Zonings) {
-                    let Actual1X = -ZoningPoint[1].X + this.ExtrudedLine.ExtrudeB + MainLength;
-                    if (Actual1X < X) continue;
-                    Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
-                }
-        } // else Height = ExtrudeLength;
-        return Height;
-    }
-
-    Delete() {
-        this.LineA?.dispose();
-        this.LineB?.dispose();
-        this.Polygon?.dispose();
-        this.PanelSettings?.instance?.dispose();
-        // this.TESTYSETTINGS?.instance?.dispose();
-        // this.TESTYSETTINGSSIDE?.instance?.dispose();
-        // for (let PanelSettings of this.Panels) PanelSettings.instance?.dispose();
-        // delete this;
-    }
-}
 export class ExtrudedLine {
     ActiveEditor: Editor;
 
@@ -439,29 +217,204 @@ export class ExtrudedLine {
     LineSettings: LineSettingsPeanut;
     Line: BABYLON.LinesMesh;
 
-    SketchExtrusionLines: ExtrusionLines;
+    // SketchExtrusionLines: ExtrusionLines;
+
+    LineA: BABYLON.LinesMesh;
+    LineB: BABYLON.LinesMesh;
+    LineASettings: LineSettingsPeanut;
+    LineBSettings: LineSettingsPeanut;
+
+    Polygon: BABYLON.Mesh;
+    PolygonSettings: PolygonSettingsPeanut;
+
+    PanelSettings: ExtrudedPolygonSettingsPeanut;
+
+    // Panels: ExtrudedPolygonSettingsPeanut[] = [];
+
+    FocusCF: CFrame;
 
     constructor(FocusSketchLine: SketchLine, FocusPoint0: "V0" | "V1", FocusPoint1: "V0" | "V1", Angle = 0) { // IsParallel = true) {
         this.ActiveEditor = FocusSketchLine.ActiveEditor;
         this.FocusSketchLine = FocusSketchLine;
         this.FocusPoint0 = FocusPoint0;
         this.FocusPoint1 = FocusPoint1;
-        // this.IsParallel = IsParallel;
         this.Angle = Angle; // - 90;
 
         this.LineSettings = { points: [new BABYLON.Vector3(), new BABYLON.Vector3()], updatable: true };
         this.LineSettings.instance = this.Line = BABYLON.MeshBuilder.CreateLines("LINE", this.LineSettings, this.ActiveEditor.Scene);
         this.Line.color = new BABYLON.Color3(0, 1, 0);
         this.Line.isVisible = false;
-        // this.Line.color = Angle == 0 ? new BABYLON.Color3(1, 0, 0) : // "0" //
-        //     Angle == 90 ? new BABYLON.Color3(0, 1, 0) : // "A" //
-        //         Angle == 180 ? new BABYLON.Color3(0, 0, 1) : // "1" //
-        //             Angle == 270 ? new BABYLON.Color3(1, 1, 1) : // "B" //
-        //                 new BABYLON.Color3(0, 0, 0);
 
-        this.SketchExtrusionLines = new ExtrusionLines(this);
-        // if (this.SketchExtrusionLines.LineB) this.SketchExtrusionLines.LineB.color = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
-        // if (this.SketchExtrusionLines.LineB) this.SketchExtrusionLines.LineA.color = this.SketchExtrusionLines.LineB.color;
+        let V0 = FocusSketchLine.LineSettings.points[FocusPoint0 == "V0" ? 0 : 1];
+        let V1 = FocusSketchLine.LineSettings.points[FocusPoint1 == "V0" ? 0 : 1];
+
+        this.LineASettings = { points: [FocusPoint0 == "V0" ? V1 : V0, this.LineSettings.points[FocusPoint0 == "V0" ? 1 : 0]], updatable: true };
+        this.LineASettings.instance = this.LineA = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings, this.ActiveEditor.Scene);
+        this.LineA.color = new BABYLON.Color3(0, 1, 1);
+
+        this.LineBSettings = { points: [FocusPoint0 == "V0" ? V0 : V1, this.LineSettings.points[FocusPoint0 == "V0" ? 0 : 1]], updatable: true };
+        this.LineBSettings.instance = this.LineB = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings, this.ActiveEditor.Scene);
+        this.LineB.color = new BABYLON.Color3(0, 1, 1);
+
+        this.PolygonSettings = { sideOrientation: BABYLON.Mesh.DOUBLESIDE, shape: [this.LineASettings.points[0], this.LineASettings.points[1], this.LineBSettings.points[1], this.LineBSettings.points[0]], updatable: true };
+        this.PanelSettings = {
+            shape: [new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, 0, 0)], path: [
+                new BABYLON.Vector3(0, 0, 0),
+                new BABYLON.Vector3(0, 0, 1e-6),
+                // new BABYLON.Vector3(0, 0, 10),
+                // new BABYLON.Vector3(0, 0, -Size.Z),
+                // new BABYLON.Vector3(0, 0, -Size.Z + .001),
+            ],
+            cap: BABYLON.Mesh.CAP_END,
+            sideOrientation: BABYLON.Mesh.DOUBLESIDE, // DEFAULTSIDE,
+            updatable: true,
+        };
+        // Editor.meshesRef.current.push([this.PanelSettings, "PANEL"]);
+
+        this.MAT = new BABYLON.StandardMaterial("material", this.ActiveEditor.Scene);
+    }
+
+    SelectedProfile: string = "standing-seam";
+
+    UpdatePanelMesh() {
+        this.LineA = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings);
+        this.LineB = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings);
+        this.Polygon?.dispose();
+
+        {
+            let MainLength = this.Length;
+
+            let ANGLE = Math.atan2(this.RISE, this.RUN);
+            let RoofAngle = CFrame.Angles(ANGLE, 0, 0);
+
+            let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
+
+            let FlattenedPoints = [
+                new Vector3(),
+                new Vector3(this.ExtrudeA, 0, ExtrudeLength),
+                new Vector3(-MainLength - this.ExtrudeB, 0, ExtrudeLength),
+                new Vector3(-MainLength, 0, 0),
+            ];
+
+            let FocusCF = this.CF0.ToWorldSpace(CFrame.Angles(0, Math.PI, 0)).ToWorldSpace(RoofAngle);
+
+            this.PolygonSettings.shape = FlattenedPoints;
+
+            this.FocusCF = FocusCF;
+            let BBL = FocusCF.ToBabylon(); // I had to name this variable BBL. LOL
+            this.BBL = BBL;
+        }
+        // if (true) return;
+        if (!this.ENABLED) {
+            this.Polygon = BABYLON.MeshBuilder.CreatePolygon("POLY", this.PolygonSettings, null, BABYLON_EARCUT.earcut);
+            this.Polygon.material = this.MAT; // Editor.ActiveEditor.RoofPBR_Material;
+            this.Polygon.position.copyFrom(this.BBL[0]);
+            this.Polygon.rotationQuaternion = this.BBL[1];
+            this.PanelSettings?.instance?.dispose();
+            return;
+        };
+        let MainLength = this.Length;
+        let BottomLength = MainLength + this.ExtrudeA + this.ExtrudeB;
+        let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
+
+        let PanelThickness = 0 * .0179;
+        // shape.push(new BABYLON.Vector3(-X, 0, 0));
+
+        let SelectedPanelData = PanelProfiles[this.SelectedProfile] ?? PanelProfiles["standing-seam"]; // SelectedProfile];
+        let PanelLength = SelectedPanelData.PanelLength; // 36;
+        let MaxPanels = Math.ceil(BottomLength / PanelLength);
+
+        let shape = []; // new BABYLON.Vector3(0, 0, 0)];
+
+        let X = SelectedPanelData.Overlap; // 0; // -PBR_Panel[0][0] / 2;
+        let Y = PanelThickness + 0;  // .1;
+
+        for (let i = 0; i < MaxPanels; i++) {
+            for (let P of SelectedPanelData.Shape) {
+                let Outer = P[0];
+                let Extrude = P.length > 1 ? P[1] : 0;
+                let Inner = P.length > 2 ? P[2] : 0;
+                let ExtrudeUndo = P.length > 3 ? P[3] : Extrude;
+                if (X >= BottomLength) break;
+
+                X += Outer / 2 - Inner / 2;
+                Y += Extrude;
+                shape.push(new BABYLON.Vector3(X, Y, 0));
+                if (X >= BottomLength) break;
+
+                X += Inner;
+                if (Inner != 0) shape.push(new BABYLON.Vector3(X, Y, 0));
+                if (X >= BottomLength) break;
+
+                X += Outer / 2 - Inner / 2;
+                Y -= ExtrudeUndo;
+                if (ExtrudeUndo != 0 || (Outer - Inner) != 0) shape.push(new BABYLON.Vector3(X, Y, 0));
+                if (X >= BottomLength) break;
+            };
+        };
+
+        if (shape.length != 0) shape[shape.length - 1].x = BottomLength; // Could handle the slope and stuff properly...
+
+        PanelLength *= MaxPanels;
+
+        this.PanelSettings?.instance?.dispose();
+        delete this.PanelSettings?.instance;
+        // this.PanelSettings = {
+        this.PanelSettings.shape = shape;
+        this.PanelSettings.capFunction = (shapePath: BABYLON.Vector3[]) => shapePath.map((v) => new BABYLON.Vector3(v.x, v.y + PanelThickness, -this.GetHeightAtX(v.x)));
+        // cap: BABYLON.Mesh.CAP_END,
+        // sideOrientation: BABYLON.Mesh.DOUBLESIDE, // DEFAULTSIDE,
+        // updatable: true,
+        // };
+        let Panel = this.PanelSettings.instance = BABYLON.MeshBuilder.ExtrudeShape(`PANEL`, this.PanelSettings, this.ActiveEditor.Scene).convertToFlatShadedMesh(); // this.ActiveEditor.Scene);
+
+        // Panel.position.set(i * 36, i * 36, 0);
+        // i * 36 - this.ExtrudeA
+        // let P_BBL = FocusCF.ToWorldSpace(CFrame.fromXYZ(this.ExtrudeA, PanelThickness, ExtrudeLength)).ToBabylon();
+        let ANGLE = Math.atan2(this.RISE, this.RUN);
+        let RoofAngle = CFrame.Angles(ANGLE, 0, 0);
+        let FocusCF = this.CF0.ToWorldSpace(CFrame.Angles(0, Math.PI, 0)).ToWorldSpace(RoofAngle);
+        let P_BBL = FocusCF.ToWorldSpace(CFrame.fromXYZ(-this.ExtrudeB - MainLength, PanelThickness, ExtrudeLength)).ToBabylon();
+        Panel.position.set(P_BBL[0].x, P_BBL[0].y, P_BBL[0].z);
+        Panel.rotationQuaternion = P_BBL[1]; //.copyFrom(this.BBL[1]);
+        Panel.material = Editor.RoofPBR_Material;
+    }
+
+    Zonings: Vector3[][] = [];
+
+    UpdateForZonings() {
+        if (!this.Line) return;
+        // TEMP //
+        if (this.Zonings.length == 0) return;
+        this.UpdatePanelMesh();
+    }
+
+    GetHeightAtX(X: number, Raw = false) {
+        // return this.GetBottomAtX(X);
+        let MainLength = this.Length;
+        let BottomLength = MainLength + this.ExtrudeA + this.ExtrudeB;
+        let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
+        let Height = 0;
+        if (X <= this.ExtrudeB && this.ExtrudeB != 0) {
+            Height = X / this.ExtrudeB * ExtrudeLength;
+            if (!Raw)
+                for (let ZoningPoint of this.Zonings) {
+                    let Actual1X = -ZoningPoint[1].X + this.ExtrudeB + MainLength;
+                    if (Actual1X > X) continue;
+                    Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
+                }
+        } else if (X <= this.ExtrudeB + MainLength) {
+            Height = ExtrudeLength;
+        } else if (this.ExtrudeA != 0) {
+            Height = (BottomLength - X) / this.ExtrudeA * ExtrudeLength;
+            if (!Raw)
+                for (let ZoningPoint of this.Zonings) {
+                    let Actual1X = -ZoningPoint[1].X + this.ExtrudeB + MainLength;
+                    if (Actual1X < X) continue;
+                    Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
+                }
+        } // else Height = ExtrudeLength;
+        return Height;
     }
 
     CF0!: CFrame;
@@ -484,7 +437,7 @@ export class ExtrudedLine {
         this.LineSettings.points[0].set(CF_A.X, CF_A.Y, CF_A.Z);
         this.LineSettings.points[1].set(CF_B.X, CF_B.Y, CF_B.Z);
 
-        this.SketchExtrusionLines?.Update();
+        this.UpdatePanelMesh();
         this.Line = BABYLON.MeshBuilder.CreateLines("LINE", this.LineSettings);
     }
 
@@ -493,7 +446,14 @@ export class ExtrudedLine {
 
     Delete() {
         this.Line?.dispose();
-        this.SketchExtrusionLines?.Delete();
+        this.LineA?.dispose();
+        this.LineB?.dispose();
+        this.Polygon?.dispose();
+        this.PanelSettings?.instance?.dispose();
+        delete this.PanelSettings?.instance;
+        // this.TESTYSETTINGS?.instance?.dispose();
+        // this.TESTYSETTINGSSIDE?.instance?.dispose();
+        // for (let PanelSettings of this.Panels) PanelSettings.instance?.dispose();
         // delete this;
     }
 }
@@ -896,8 +856,8 @@ export class SketchLine {
             this.HasExtruded = true;
 
             this.Lines["0"] = new ExtrudedLine(this, "V0", "V0", 0);
-            this.Lines["1"] = new ExtrudedLine(this, "V1", "V1", 180);
             this.Lines["A"] = new ExtrudedLine(this, "V1", "V0", 90);
+            this.Lines["1"] = new ExtrudedLine(this, "V1", "V1", 180);
             this.Lines["B"] = new ExtrudedLine(this, "V0", "V1", 270);
             this.Lines["A"].Length = this.Lines["B"].Length = this.Length;
 
@@ -946,47 +906,47 @@ export class SketchLine {
         let SketchRelations = GetRelations(Sketch1, Sketch2);
 
         let Sketch1Points = [
-            Sketch1.Lines["0"].SketchExtrusionLines.LineASettings.points[0], // 0
-            Sketch1.Lines["0"].SketchExtrusionLines.LineASettings.points[1], // 1
-            Sketch1.Lines["0"].SketchExtrusionLines.LineBSettings.points[1], // 2
-            Sketch1.Lines["0"].SketchExtrusionLines.LineBSettings.points[0], // 3
+            Sketch1.Lines["0"].LineASettings.points[0], // 0
+            Sketch1.Lines["0"].LineASettings.points[1], // 1
+            Sketch1.Lines["0"].LineBSettings.points[1], // 2
+            Sketch1.Lines["0"].LineBSettings.points[0], // 3
 
-            Sketch1.Lines["B"].SketchExtrusionLines.LineASettings.points[0], // 4
-            Sketch1.Lines["B"].SketchExtrusionLines.LineASettings.points[1], // 5
-            Sketch1.Lines["B"].SketchExtrusionLines.LineBSettings.points[1], // 6
-            Sketch1.Lines["B"].SketchExtrusionLines.LineBSettings.points[0], // 7
+            Sketch1.Lines["B"].LineASettings.points[0], // 4
+            Sketch1.Lines["B"].LineASettings.points[1], // 5
+            Sketch1.Lines["B"].LineBSettings.points[1], // 6
+            Sketch1.Lines["B"].LineBSettings.points[0], // 7
 
-            Sketch1.Lines["1"].SketchExtrusionLines.LineASettings.points[0], // 8
-            Sketch1.Lines["1"].SketchExtrusionLines.LineASettings.points[1], // 9
-            Sketch1.Lines["1"].SketchExtrusionLines.LineBSettings.points[1], // 10
-            Sketch1.Lines["1"].SketchExtrusionLines.LineBSettings.points[0], // 11
+            Sketch1.Lines["1"].LineASettings.points[0], // 8
+            Sketch1.Lines["1"].LineASettings.points[1], // 9
+            Sketch1.Lines["1"].LineBSettings.points[1], // 10
+            Sketch1.Lines["1"].LineBSettings.points[0], // 11
 
-            Sketch1.Lines["A"].SketchExtrusionLines.LineASettings.points[0], // 12
-            Sketch1.Lines["A"].SketchExtrusionLines.LineASettings.points[1], // 13
-            Sketch1.Lines["A"].SketchExtrusionLines.LineBSettings.points[1], // 14
-            Sketch1.Lines["A"].SketchExtrusionLines.LineBSettings.points[0], // 15
+            Sketch1.Lines["A"].LineASettings.points[0], // 12
+            Sketch1.Lines["A"].LineASettings.points[1], // 13
+            Sketch1.Lines["A"].LineBSettings.points[1], // 14
+            Sketch1.Lines["A"].LineBSettings.points[0], // 15
         ];
 
         let Sketch2Points = [
-            Sketch2.Lines["0"].SketchExtrusionLines.LineASettings.points[0], // 0
-            Sketch2.Lines["0"].SketchExtrusionLines.LineASettings.points[1], // 1
-            Sketch2.Lines["0"].SketchExtrusionLines.LineBSettings.points[1], // 2
-            Sketch2.Lines["0"].SketchExtrusionLines.LineBSettings.points[0], // 3
+            Sketch2.Lines["0"].LineASettings.points[0], // 0
+            Sketch2.Lines["0"].LineASettings.points[1], // 1
+            Sketch2.Lines["0"].LineBSettings.points[1], // 2
+            Sketch2.Lines["0"].LineBSettings.points[0], // 3
 
-            Sketch2.Lines["B"].SketchExtrusionLines.LineASettings.points[0], // 4
-            Sketch2.Lines["B"].SketchExtrusionLines.LineASettings.points[1], // 5
-            Sketch2.Lines["B"].SketchExtrusionLines.LineBSettings.points[1], // 6
-            Sketch2.Lines["B"].SketchExtrusionLines.LineBSettings.points[0], // 7
+            Sketch2.Lines["B"].LineASettings.points[0], // 4
+            Sketch2.Lines["B"].LineASettings.points[1], // 5
+            Sketch2.Lines["B"].LineBSettings.points[1], // 6
+            Sketch2.Lines["B"].LineBSettings.points[0], // 7
 
-            Sketch2.Lines["1"].SketchExtrusionLines.LineASettings.points[0], // 8
-            Sketch2.Lines["1"].SketchExtrusionLines.LineASettings.points[1], // 9
-            Sketch2.Lines["1"].SketchExtrusionLines.LineBSettings.points[1], // 10
-            Sketch2.Lines["1"].SketchExtrusionLines.LineBSettings.points[0], // 11
+            Sketch2.Lines["1"].LineASettings.points[0], // 8
+            Sketch2.Lines["1"].LineASettings.points[1], // 9
+            Sketch2.Lines["1"].LineBSettings.points[1], // 10
+            Sketch2.Lines["1"].LineBSettings.points[0], // 11
 
-            Sketch2.Lines["A"].SketchExtrusionLines.LineASettings.points[0], // 12
-            Sketch2.Lines["A"].SketchExtrusionLines.LineASettings.points[1], // 13
-            Sketch2.Lines["A"].SketchExtrusionLines.LineBSettings.points[1], // 14
-            Sketch2.Lines["A"].SketchExtrusionLines.LineBSettings.points[0], // 15
+            Sketch2.Lines["A"].LineASettings.points[0], // 12
+            Sketch2.Lines["A"].LineASettings.points[1], // 13
+            Sketch2.Lines["A"].LineBSettings.points[1], // 14
+            Sketch2.Lines["A"].LineBSettings.points[0], // 15
         ];
 
         // function TESTBS(S1P1, S1P2, S2P1, S2P2) {

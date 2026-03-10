@@ -225,6 +225,7 @@ export default function RoofViewer3D({
       if (!canvasRef.current || disposed) return;
 
       try { engineRef.current?.dispose?.(); meshesRef.current?.dispose?.(); } catch { }
+      console.log("AND THEN THERE WAS LIGHT");
       meshesRef.current = [];
       const Engine = new BABYLON.Engine(canvasRef.current, true, {
         antialias: true,
@@ -233,6 +234,18 @@ export default function RoofViewer3D({
       });
       Engine.setHardwareScalingLevel(1 / Math.min(window.devicePixelRatio || 1, 2));
       engineRef.current = Engine;
+
+      for (let i in SketchLine.AllRelations) {
+        delete SketchLine.AllRelations[i];
+        // SketchLine.AllRelations[i] = undefined;
+      }
+      SketchLine.AllRelations = [];
+      for (let i in SketchLine.AllDrawings) {
+        SketchLine.AllDrawings[i].Delete();
+        delete SketchLine.AllDrawings[i];
+        // SketchLine.AllDrawings[i] = undefined;
+      }
+      SketchLine.AllDrawings = [];
 
       Editor.canvasRef = canvasRef;
 
@@ -426,7 +439,6 @@ export default function RoofViewer3D({
       // let LAT = 37.4440563, LON = -122.1393081; // GIANT BUILDING //
       // let LAT = 37.44318785801852, LON = -122.13798024271368; // SIMPLER HOUSE //
 
-      // ouiy4it_VhI1BPMzwEmNU0ub5LQ= \\ SECRET
       // document.getElementById('randomHouse').addEventListener('click', async function (event) {
       //   SetMapCenter(LAT, LON);
       //   EEEEE();
@@ -459,7 +471,13 @@ export default function RoofViewer3D({
       Editor.window = window;
       console.log("EDITOR WINDOW", window);
       let ActiveEditor = Editor.ActiveEditor = new Editor(Engine, Scene, Camera, RoofUI, window);
-      Editor.ActiveEditor.RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString(selectedColor);
+
+      Editor.RoofPBR_Material?.dispose();
+      let RoofPBR_Material = Editor.RoofPBR_Material = new BABYLON.PBRMetallicRoughnessMaterial("PanelMaterial", Scene);
+
+      RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString(selectedColor);
+      RoofPBR_Material.metallic = .5; RoofPBR_Material.roughness = 0.25;
+      RoofPBR_Material.backFaceCulling = false;
       // Editor.MapDebugging.CreateGoogleDebugMesh();
       // Editor.meshesRef = meshesRef;
 
@@ -546,17 +564,23 @@ export default function RoofViewer3D({
   }, [dims, overhang, thickness, seamSpacing, spin]); // , selectedColor]);
 
   useEffect(() => {
+    // Editor.RoofPBR_Material = new BABYLON.PBRMetallicRoughnessMaterial("PanelMaterial", Editor.ActiveEditor.Scene);
+
+    // Editor.RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString(selectedColor);
+    // Editor.RoofPBR_Material.metallic = .5; Editor.RoofPBR_Material.roughness = 0.25;
+    // Editor.RoofPBR_Material.backFaceCulling = false;
     for (let Sketch of SketchLine.AllDrawings) {
       for (let LineID in Sketch.Lines) {
-        Sketch.Lines[LineID].SketchExtrusionLines.SelectedProfile = panelProfile;
-        Sketch.Lines[LineID].SketchExtrusionLines.UpdatePanelMesh();
+        // if (Sketch.Lines[LineID].PanelSettings.instance) Sketch.Lines[LineID].PanelSettings.instance.material = Editor.RoofPBR_Material;
+        Sketch.Lines[LineID].SelectedProfile = panelProfile;
+        Sketch.Lines[LineID].UpdatePanelMesh();
       }
     }
   }, [panelProfile]);
 
   // Update material color when selectedColor changes
   useEffect(() => {
-    Editor.ActiveEditor.RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString(selectedColor);
+    Editor.RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString(selectedColor);
     // if (panelMaterialRef.current) {
     //   // Editor.meshesRef = meshesRef;
     //   // panelMaterialRef.current.baseColor = BABYLON.Color3.FromHexString(selectedColor);

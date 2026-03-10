@@ -121,7 +121,7 @@ export class Editor {
     UI_Controls: EditorControls;
 
     // Root: BABYLON.TransformNode;
-    RoofPBR_Material: BABYLON.PBRMetallicRoughnessMaterial;
+    static RoofPBR_Material: BABYLON.PBRMetallicRoughnessMaterial;
 
     PanelEngine?: BABYLON.Engine;
 
@@ -140,7 +140,7 @@ export class Editor {
     }
 
     LabelMarker(V3: Vector3 | BABYLON.Vector3, Text: string = "Vertex") {
-        let marker = BABYLON.MeshBuilder.CreatePlane("marker", { diameter: 0.01 }, this.Scene);
+        let marker = BABYLON.MeshBuilder.CreateSphere("marker", { diameter: 0.01 }, this.Scene);
         marker.isVisible = false; // don’t show it
         marker.position.set(V3.x, V3.z, V3.y);
         // marker.position.set(V3.X, V3.Y, V3.Z);
@@ -154,9 +154,7 @@ export class Editor {
     }
 
     CreateMarker(Name: string = "") {
-        const Marker = BABYLON.MeshBuilder.CreateSphere(Name + "Marker", {
-            diameter: 0.01
-        }, this.Scene);
+        const Marker = BABYLON.MeshBuilder.CreateSphere(Name + "Marker", { diameter: 0.01 }, this.Scene);
         Marker.isVisible = false;
         Marker.isPickable = false;
 
@@ -180,16 +178,12 @@ export class Editor {
 
         let DesignGrid = this.DesignGrid = BABYLON.Mesh.CreateGround("ground", 10000, 10000, 10, Scene);
         var gridMaterial = new GridMaterial("gridMaterial", Scene);
-        gridMaterial.mainColor = BABYLON.Color4.FromInts(230, 230, 235, 255);
-        gridMaterial.lineColor = BABYLON.Color4.FromInts(25, 25, 30);
-        gridMaterial.opacity = .8;
+        // gridMaterial.mainColor = BABYLON.Color4.FromInts(230, 230, 235, 255);
+        // gridMaterial.lineColor = BABYLON.Color4.FromInts(25, 25, 30);
+        // gridMaterial.opacity = .8;
         DesignGrid.material = gridMaterial
         DesignGrid.isVisible = false;
 
-        let RoofPBR_Material = this.RoofPBR_Material = new BABYLON.PBRMetallicRoughnessMaterial("PanelMaterial", this.Scene);
-        RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString("#ffffff");
-        RoofPBR_Material.metallic = .5; RoofPBR_Material.roughness = 0.25;
-        RoofPBR_Material.backFaceCulling = false;
         // this.Root = new BABYLON.TransformNode("ROOT", Scene);
 
 

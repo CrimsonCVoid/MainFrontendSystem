@@ -1,4 +1,4 @@
-import { SketchLine, ExtrusionLines } from "./drawings";
+import { SketchLine, ExtrudedLine } from "./drawings";
 import { Editor } from "./editor";
 import { CFrame, segmentIntersection2D, Vector3 } from "./positioning";
 import * as BABYLON from "@babylonjs/core";
@@ -21,31 +21,36 @@ type CustomBackendType = {
     P0: Vector3,
     P1: Vector3,
     Panels: any[],
+    Size: Vector3;
+    NE: Vector3;
+    NW: Vector3;
+    SW: Vector3;
+    SE: Vector3;
 }
 
-// declare global {
-interface ExtrusionLines {
-    GetXsAtHeight(Height: number): number[];
-    GetBottomAtX(X: number, Inclusive?: boolean, ApplyOffset?: boolean): number;
-    GetHeightAtZ(Z: number): number;
+declare global {
+    interface ExtrudedLine {
+        GetXsAtHeight(Height: number): number[];
+        GetBottomAtX(X: number, Inclusive?: boolean, ApplyOffset?: boolean): number;
+        GetHeightAtZ(Z: number): number;
+    }
 }
-// }
 
-ExtrusionLines.prototype.GetXsAtHeight = function (Height: number) {
-    let BottomLength = this.ExtrudedLine.Length + this.ExtrudedLine.ExtrudeA + this.ExtrudedLine.ExtrudeB;
-    let ExtrudeLength = (this.ExtrudedLine.RISE ** 2 + this.ExtrudedLine.RUN ** 2) ** .5;
-    let ExtrudeB_X = Height / ExtrudeLength * this.ExtrudedLine.ExtrudeB;
-    let ExtrudeA_X = -Height / ExtrudeLength * this.ExtrudedLine.ExtrudeA + BottomLength;
+ExtrudedLine.prototype.GetXsAtHeight = function (Height: number) {
+    let BottomLength = this.Length + this.ExtrudeA + this.ExtrudeB;
+    let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
+    let ExtrudeB_X = Height / ExtrudeLength * this.ExtrudeB;
+    let ExtrudeA_X = -Height / ExtrudeLength * this.ExtrudeA + BottomLength;
     return [ExtrudeB_X, ExtrudeA_X];
 }
 
-ExtrusionLines.prototype.GetBottomAtX = function (X: number, Inclusive = false, ApplyOffset = true) {
-    let MainLength = this.ExtrudedLine.Length;
-    let ExtrudeLength = (this.ExtrudedLine.RISE ** 2 + this.ExtrudedLine.RUN ** 2) ** .5;
+ExtrudedLine.prototype.GetBottomAtX = function (X: number, Inclusive = false, ApplyOffset = true) {
+    let MainLength = this.Length;
+    let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
     let Height = 0;
     for (let ZoningPoint of this.Zonings) {
-        let Actual0X = -ZoningPoint[0].X + this.ExtrudedLine.ExtrudeB + MainLength;
-        let Actual1X = -ZoningPoint[1].X + this.ExtrudedLine.ExtrudeB + MainLength;
+        let Actual0X = -ZoningPoint[0].X + this.ExtrudeB + MainLength;
+        let Actual1X = -ZoningPoint[1].X + this.ExtrudeB + MainLength;
         // if (Actual0X > X) continue;
         let EL2 = ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5)
         let EL1 = ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5)
@@ -59,12 +64,12 @@ ExtrusionLines.prototype.GetBottomAtX = function (X: number, Inclusive = false, 
     return Height;
 }
 
-ExtrusionLines.prototype.GetHeightAtZ = function (Z: number) {
-    return this.ExtrudedLine.RISE * Z / this.ExtrudedLine.RUN; // + Line1Top;
+ExtrudedLine.prototype.GetHeightAtZ = function (Z: number) {
+    return this.RISE * Z / this.RUN; // + Line1Top;
 };
 
-function CalculateCorners(Data, v: GRoofSegment, LineCreation = false) {
-    let Info: CustomBackendType = { Raw: v, Panels: [] };
+function CalculateCorners(Data: GSolarData & { CenteredLAT0: number, CenteredLON0: number, CosCenteredLAT0: number }, v: GRoofSegment, LineCreation = false) {
+    let Info: CustomBackendType = { Raw: v, Panels: [], Size: new Vector3() };
     // console.log("INFO", InfoStoof);
     // v.center
     let CenterLAT = v.center.latitude * Math.PI / 180, CenterLON = v.center.longitude * Math.PI / 180;
@@ -160,7 +165,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
     // Lat = 40.26076924275762, Lon = -74.7981296370152;
     let URL = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${Lat}&location.longitude=${Lon}&key=${ENV_KEY}`;
     const response = await fetch(URL);
-    const Data = await response.json() as GSolarData;
+    const Data = await response.json() as GSolarData & { CenteredLAT0: number, CenteredLON0: number, CosCenteredLAT0: number, SinCenteredLAT0: number };
     if (response.status != 200) {
         // console.error('findClosestBuilding\n', content);
         throw Data;
@@ -417,7 +422,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
         // console.log("INTERLIST", InterList);
 
         if (Please.length == 0) {
-            Info.Size = new Vector3(HEIGHT * 2, 0, 0);
+            Info.Size.x = HEIGHT * 2;
             continue;
         }
         let Bounds = Vector3.Bounds(Please);
@@ -465,23 +470,33 @@ export async function Test(Lat: number | string, Lon: number | string) {
     for (let RoofID in ConvertedRoofs) {
         let Info = ConvertedRoofs[RoofID];
         let Roof = Info.Raw;
-        let Adjust = CFrame.Angles(0, Roof.azimuthDegrees * Math.PI / 180, 0).ToWorldSpace(
-            CFrame.fromXYZ((Info?.Size?.x ?? 0) / 2, 0 * Math.sin(Roof.pitchDegrees * Math.PI / 180) / 2 * Info?.Size?.x, 0));
-        let Adjusted = Adjust.TranslateAdd(Info.Center.XZY);
+        let RunHalf = Info.Size.x / 2;
+        let TopRoofHeight = Math.sin(Roof.pitchDegrees * Math.PI / 180) * RunHalf;
+        let Center = Info.Center.XZY; Center.Y += TopRoofHeight;
+        let Adjust = CFrame.Angles(0, Roof.azimuthDegrees * Math.PI / 180, 0).ToWorldSpace(CFrame.fromXYZ(RunHalf, 0, 0));
+        let Adjusted = Adjust.TranslateAdd(Center);
+        // Editor.ActiveEditor.LabelMarker(Adjusted.Position.ToBabylonXZY(), `${RoofID}`);
+        // Editor.ActiveEditor.LabelMarker(Vector3.AverageAll(Sketch.Lines["B"].LineSettings.points).ToBabylonXZY(), `LINE-B`);
         let CloseToRoof: string[] = ClosestTo[RoofID] = [];
         for (let OtherRoofID in ConvertedRoofs) {
             if (RoofID == OtherRoofID) continue;
             let OtherInfo = ConvertedRoofs[OtherRoofID];
-            let OtherLocal = Adjusted.ToObjectSpace(OtherInfo.Center.XZY.ToCFrame());
-            if (OtherLocal.x < -Info.Size.x || -12 > OtherLocal.Y || OtherLocal.Y > 12) continue;
             let OtherRoof = OtherInfo.Raw;
-            let OtherAdjust = CFrame.Angles(0, OtherRoof.azimuthDegrees * Math.PI / 180, 0).ToWorldSpace(
-                CFrame.fromXYZ((OtherInfo?.Size?.x ?? 0) / 2, 0 * Math.sin(OtherRoof.pitchDegrees * Math.PI / 180) / 2 * OtherInfo?.Size?.x, 0));
-            let OtherAdjusted = OtherAdjust.TranslateAdd(OtherInfo.Center.XZY);
-            let LocalToOther = OtherAdjusted.ToObjectSpace(Info.Center.XZY.ToCFrame());
-            if (LocalToOther.x < -OtherInfo.Size.x || -12 > LocalToOther.Y || LocalToOther.Y > 12) continue; // Does let you know what builds upwards and stuff.
+            let OtherRunHalf = OtherInfo.Size.x / 2;
+            let OtherTopRoofHeight = Math.sin(OtherRoof.pitchDegrees * Math.PI / 180) * OtherRunHalf;
+            let OtherCenter = OtherInfo.Center.XZY; OtherCenter.Y += OtherTopRoofHeight;
+            let OtherLocal = Adjusted.ToObjectSpace(OtherCenter.ToCFrame());
+            if (OtherLocal.x < -Info.Size.x) continue; // || -12 > OtherLocal.Y || OtherLocal.Y > 12) continue;
+            // let TopRoofHeight = 
+            let OtherAdjust = CFrame.Angles(0, OtherRoof.azimuthDegrees * Math.PI / 180, 0).ToWorldSpace(CFrame.fromXYZ(OtherRunHalf, 0, 0));
+            let OtherAdjusted = OtherAdjust.TranslateAdd(OtherCenter);
+            let LocalToOther = OtherAdjusted.ToObjectSpace(Center.ToCFrame());
+            if (LocalToOther.x < -OtherInfo.Size.x) continue; // || -12 > LocalToOther.Y || LocalToOther.Y > 12) continue; // Does let you know what builds upwards and stuff.
 
-            // console.log(RoofID, OtherRoofID, OtherLocal, LocalToOther);
+            if (Math.abs(OtherCenter.Y - Center.Y) > 24) continue;
+
+            // console.log(RoofID, OtherRoofID, )
+            // console.log(RoofID, OtherRoofID, Center.Y, OtherCenter.Y, OtherLocal, LocalToOther);
             // if (OtherLocal.X > )
             // Possibly use the RUN to figure out what to exclude?
             CloseToRoof.push(OtherRoofID);
@@ -504,6 +519,12 @@ export async function Test(Lat: number | string, Lon: number | string) {
         });
         // console.log(RoofID, CloseToRoof);
         // Info.CT
+
+        BABYLON.MeshBuilder.CreateLines("e", {
+            points: [
+                Adjust.TranslateAdd(Info.P0.XZY).Position.ToBabylon(), Info.Center.XZY.ToBabylon(), Adjust.TranslateAdd(Info.P1.XZY).Position.ToBabylon()
+            ]
+        }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(1, 0, 1);
         DrawTheseInOrder.TestLine.AddLine("E", "E", Adjust.TranslateAdd(Info.P0.XZY), Info.Center.XZY, Adjust.TranslateAdd(Info.P1.XZY));
     }
 
@@ -910,24 +931,24 @@ export async function Test(Lat: number | string, Lon: number | string) {
             let ActualConvergencePoint = Extrude1 == 0 ? Data2.ToWorldSpace(CFrame.fromXYZ(Extrude2, 0, 0)) : Data1.ToWorldSpace(CFrame.fromXYZ(Extrude1, 0, 0));
             // Have to get via CFrame object spaces.
             if (Extrude1 == 0 ? !ActualConvergencePoint.Position.PointInPolygon([
-                Line1.SketchExtrusionLines.LineASettings.points[0], // 0
-                Line1.SketchExtrusionLines.LineASettings.points[1], // 1
-                Line1.SketchExtrusionLines.LineBSettings.points[1], // 2
-                Line1.SketchExtrusionLines.LineBSettings.points[0], // 3
+                Line1.LineASettings.points[0], // 0
+                Line1.LineASettings.points[1], // 1
+                Line1.LineBSettings.points[1], // 2
+                Line1.LineBSettings.points[0], // 3
             ]) : !ActualConvergencePoint.Position.PointInPolygon([
-                Line2.SketchExtrusionLines.LineASettings.points[0], // 0
-                Line2.SketchExtrusionLines.LineASettings.points[1], // 1
-                Line2.SketchExtrusionLines.LineBSettings.points[1], // 2
-                Line2.SketchExtrusionLines.LineBSettings.points[0], // 3
+                Line2.LineASettings.points[0], // 0
+                Line2.LineASettings.points[1], // 1
+                Line2.LineBSettings.points[1], // 2
+                Line2.LineBSettings.points[0], // 3
             ])) {
                 ActualConvergencePoint = Extrude1 == 0 ? Data2.ToWorldSpace(CFrame.fromXYZ(-Extrude2, 0, 0)) : Data1.ToWorldSpace(CFrame.fromXYZ(-Extrude1, 0, 0));
             }
             let Direction = Line1.CF0.LookVector.Scale(L2_Q).TranslateAdd(Line2.CF0.LookVector.Scale(L1_Q));
 
-            let OTHER1A = segmentIntersection2D(Line1.SketchExtrusionLines.LineASettings.points[0], Line1.SketchExtrusionLines.LineASettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
-            let OTHER1B = segmentIntersection2D(Line1.SketchExtrusionLines.LineBSettings.points[0], Line1.SketchExtrusionLines.LineBSettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
-            let OTHER2A = segmentIntersection2D(Line2.SketchExtrusionLines.LineASettings.points[0], Line2.SketchExtrusionLines.LineASettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
-            let OTHER2B = segmentIntersection2D(Line2.SketchExtrusionLines.LineBSettings.points[0], Line2.SketchExtrusionLines.LineBSettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
+            let OTHER1A = segmentIntersection2D(Line1.LineASettings.points[0], Line1.LineASettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
+            let OTHER1B = segmentIntersection2D(Line1.LineBSettings.points[0], Line1.LineBSettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
+            let OTHER2A = segmentIntersection2D(Line2.LineASettings.points[0], Line2.LineASettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
+            let OTHER2B = segmentIntersection2D(Line2.LineBSettings.points[0], Line2.LineBSettings.points[1], ActualConvergencePoint.Position, ActualConvergencePoint.Position.TranslateAdd(Direction));
 
             let AddZonings = [];
             if (OTHER1A && 0 <= OTHER1A.t1 && OTHER1A.t1 <= 1) AddZonings.push(OTHER1A.point.XZY);
@@ -937,9 +958,9 @@ export async function Test(Lat: number | string, Lon: number | string) {
             // console.log(AddZonings);
             for (let ZoningPoint of AddZonings) {
                 let Local = Line1.CF0.ToObjectSpace(CFrame.fromVector3(ZoningPoint));
-                let Height = Line1.SketchExtrusionLines.GetHeightAtZ(Local.Z) + Line1Top;
-                Line1.SketchExtrusionLines.Zonings.push([Line1.CF0.ToObjectSpace(CFrame.fromVector3(ActualConvergencePoint.Position)).Position, Line1.CF0.ToObjectSpace(CFrame.fromVector3(ZoningPoint.TranslateAdd(new Vector3(0, Height, 0)))).Position]);
-                Line2.SketchExtrusionLines.Zonings.push([Line2.CF0.ToObjectSpace(CFrame.fromVector3(ActualConvergencePoint.Position)).Position, Line2.CF0.ToObjectSpace(CFrame.fromVector3(ZoningPoint.TranslateAdd(new Vector3(0, Height, 0)))).Position]);
+                let Height = Line1.GetHeightAtZ(Local.Z) + Line1Top;
+                Line1.Zonings.push([Line1.CF0.ToObjectSpace(CFrame.fromVector3(ActualConvergencePoint.Position)).Position, Line1.CF0.ToObjectSpace(CFrame.fromVector3(ZoningPoint.TranslateAdd(new Vector3(0, Height, 0)))).Position]);
+                Line2.Zonings.push([Line2.CF0.ToObjectSpace(CFrame.fromVector3(ActualConvergencePoint.Position)).Position, Line2.CF0.ToObjectSpace(CFrame.fromVector3(ZoningPoint.TranslateAdd(new Vector3(0, Height, 0)))).Position]);
                 BABYLON.MeshBuilder.CreateLines("e", {
                     points: [
                         ZoningPoint.TranslateAdd(new Vector3(0, Height, 0)).ToBabylon(),
@@ -947,13 +968,13 @@ export async function Test(Lat: number | string, Lon: number | string) {
                     ]
                 }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(0, 1, 0);
             }
-            console.log(Line1.SketchExtrusionLines.Zonings, Line2.SketchExtrusionLines.Zonings);
+            console.log(Line1.Zonings, Line2.Zonings);
         }
     }
     console.log("END RELATIONS");
     for (let SketchRelation of SketchLine.AllRelations) {
-        for (let Line of Object.values(SketchRelation.Sketch1.Lines)) Line.SketchExtrusionLines.UpdateForZonings();
-        for (let Line of Object.values(SketchRelation.Sketch2.Lines)) Line.SketchExtrusionLines.UpdateForZonings();
+        for (let Line of Object.values(SketchRelation.Sketch1.Lines)) Line.UpdateForZonings();
+        for (let Line of Object.values(SketchRelation.Sketch2.Lines)) Line.UpdateForZonings();
     }
 
     // console.log("AVERAGE PITCH", PITCH / COUNT, Math.tan(PITCH / COUNT * Math.PI / 180) * 12);
@@ -1121,13 +1142,13 @@ export async function Test(Lat: number | string, Lon: number | string) {
             let HardPoints = [0, BottomLength];
             if (Line.ExtrudeA != 0) HardPoints.push(Line.ExtrudeA);
             if (MainLength != 0 && Line.ExtrudeA != 0) HardPoints.push(Line.ExtrudeA + MainLength);
-            for (let ZoningPoint of Line.SketchExtrusionLines.Zonings) {
+            for (let ZoningPoint of Line.Zonings) {
                 let Actual0X = Line.ExtrudeB + ZoningPoint[0].X;
                 let Actual1X = Line.ExtrudeB + ZoningPoint[1].X;
                 if (!HardPoints.find((x) => Approx(x) == Approx(Actual0X))) HardPoints.push(Actual0X);
                 if (!HardPoints.find((x) => Approx(x) == Approx(Actual1X))) HardPoints.push(Actual1X);
-                let Height = Line.SketchExtrusionLines.GetHeightAtX(BottomLength - Actual1X);
-                let NormalX = Line.SketchExtrusionLines.GetXsAtHeight(Height);
+                let Height = Line.GetHeightAtX(BottomLength - Actual1X);
+                let NormalX = Line.GetXsAtHeight(Height);
                 let ExtrudeB = NormalX[0], ExtrudeA = NormalX[1];
                 if (Actual1X <= ExtrudeB) if (!HardPoints.find((x) => Approx(x) == Approx(ExtrudeB))) HardPoints.push(ExtrudeB);
                 if (Actual1X >= ExtrudeA) if (!HardPoints.find((x) => Approx(x) == Approx(ExtrudeA))) HardPoints.push(ExtrudeA);
@@ -1138,8 +1159,8 @@ export async function Test(Lat: number | string, Lon: number | string) {
             // HardPoints.sort((a, b) => a - b);
             HardPoints.sort((a, b) => b - a);
             // NewPDF.DrawLineFromV3(Line.LineSettings.points[0], Line.LineSettings.points[1], { r: 0, g: 1, b: 0 });
-            // NewPDF.DrawLineFromV3(Line.SketchExtrusionLines.LineASettings.points[0], Line.SketchExtrusionLines.LineASettings.points[1], { r: 0, g: 1, b: 1 });
-            // NewPDF.DrawLineFromV3(Line.SketchExtrusionLines.LineBSettings.points[0], Line.SketchExtrusionLines.LineBSettings.points[1], { r: 0, g: 1, b: 1 });
+            // NewPDF.DrawLineFromV3(Line.LineASettings.points[0], Line.LineASettings.points[1], { r: 0, g: 1, b: 1 });
+            // NewPDF.DrawLineFromV3(Line.LineBSettings.points[0], Line.LineBSettings.points[1], { r: 0, g: 1, b: 1 });
 
             let ALLPOSITIONSAREDOOMEDHERE = [];
             let LineAngle = Sketch.Angle * 180 / Math.PI + Line.Angle;
@@ -1162,13 +1183,13 @@ export async function Test(Lat: number | string, Lon: number | string) {
             // for (let TinyOffset = -.00001; TinyOffset <= .00001; TinyOffset += .00001)
             for (let Index = 0; Index < HardPoints.length; Index++) {
                 let HardX = HardPoints[Index]; // + TinyOffset; // - .00001;
-                let TopHypo = Line.SketchExtrusionLines.GetHeightAtX(BottomLength - HardX);
-                let RawTopHypo = Line.SketchExtrusionLines.GetHeightAtX(BottomLength - HardX, true);
-                let LengthFromBottom = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - HardX, false, false);
-                let LengthFromBottomOffset = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - HardX, false, true);
-                let LengthFromBottomInclusive = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - HardX, true, false);
-                let LengthFromBottomInclusiveOffset = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - HardX, true, true);
-                for (let ZoningPoint of Line.SketchExtrusionLines.Zonings) {
+                let TopHypo = Line.GetHeightAtX(BottomLength - HardX);
+                let RawTopHypo = Line.GetHeightAtX(BottomLength - HardX, true);
+                let LengthFromBottom = Line.GetBottomAtX(BottomLength - HardX, false, false);
+                let LengthFromBottomOffset = Line.GetBottomAtX(BottomLength - HardX, false, true);
+                let LengthFromBottomInclusive = Line.GetBottomAtX(BottomLength - HardX, true, false);
+                let LengthFromBottomInclusiveOffset = Line.GetBottomAtX(BottomLength - HardX, true, true);
+                for (let ZoningPoint of Line.Zonings) {
                     let Actual0X = Line.ExtrudeA + ZoningPoint[0].X;
                     let Actual1X = Line.ExtrudeA + ZoningPoint[1].X;
                     if (Approx(HardX) == Approx(Actual0X)) {
@@ -1201,8 +1222,8 @@ export async function Test(Lat: number | string, Lon: number | string) {
             for (let X = 0; X < BottomLength;) {
                 if (X == BottomLength) break;
                 let LineHypo = (Line.RISE ** 2 + Line.RUN ** 2) ** .5;
-                let PrevTopHypo = Line.SketchExtrusionLines.GetHeightAtX(BottomLength - X);
-                let PrevBottomHypo = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - X);
+                let PrevTopHypo = Line.GetHeightAtX(BottomLength - X);
+                let PrevBottomHypo = Line.GetBottomAtX(BottomLength - X);
                 let PrevTop = Line.RUN * PrevTopHypo / LineHypo;
                 let PrevBottom = Line.RUN * PrevBottomHypo / LineHypo;
                 let PrevTestTop = LineCF.ToWorldSpace(CFrame.fromXYZ(X, 0, PrevTop));
@@ -1220,8 +1241,8 @@ export async function Test(Lat: number | string, Lon: number | string) {
                     }
                 }
                 // if (X > BottomLength) X = BottomLength;
-                let TopHypo = Line.SketchExtrusionLines.GetHeightAtX(BottomLength - X); OverallTopHypo = Math.max(OverallTopHypo, TopHypo);
-                let BottomHypo = Line.SketchExtrusionLines.GetBottomAtX(BottomLength - X); OverallBottomHypo = Math.min(OverallBottomHypo, BottomHypo);
+                let TopHypo = Line.GetHeightAtX(BottomLength - X); OverallTopHypo = Math.max(OverallTopHypo, TopHypo);
+                let BottomHypo = Line.GetBottomAtX(BottomLength - X); OverallBottomHypo = Math.min(OverallBottomHypo, BottomHypo);
                 // if (Bottom <= Top) continue;
                 let TestBottom = LineCF.ToWorldSpace(CFrame.fromXYZ(X, 0, Line.RUN * BottomHypo / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5)));
                 let TestTop = LineCF.ToWorldSpace(CFrame.fromXYZ(X, 0, Line.RUN * TopHypo / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5)));
@@ -1290,7 +1311,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
                 }
             }
 
-            // DrawTheseLinesInOrder.Ridges.push([Line.SketchExtrusionLines.LineASettings.points[0], Line.SketchExtrusionLines.LineBSettings.points[0], SketchIndex, LineID]);
+            // DrawTheseLinesInOrder.Ridges.push([Line.LineASettings.points[0], Line.LineBSettings.points[0], SketchIndex, LineID]);
 
             NewPDF.PageIndex = 1;
             // let RidgeCalc = Line.CF0.Distance(Line.CF1.Position);
@@ -1302,7 +1323,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
             // let AvgPos = Vector3.AverageAll(ALLPOSITIONSAREDOOMEDHERE);
             // NewPDF.AddTextAtV3("+" + Math.round(Line.PITCH), AvgPos, -90, 16, 0, 1);
 
-            // NewPDF.AddText("(HC)-", Line.SketchExtrusionLines.LineASettings.points[0], Line.SketchExtrusionLines.LineBSettings.points[0])
+            // NewPDF.AddText("(HC)-", Line.LineASettings.points[0], Line.LineBSettings.points[0])
             NewPDF.PageIndex = 0;
         }
         // NewPDF.DrawLine();
@@ -1942,4 +1963,6 @@ export type GSolarData = {
     boundingBox: GBoundingBox;
     imageryQuality: string;
     imageryProcessedDate: GDate;
+
+
 };

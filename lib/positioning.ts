@@ -1,5 +1,8 @@
 /* eslint-disable prefer-const */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+type xyz_Class = { x: number, y: number, z: number };
+
 export class Vector3 {
     ToCFrame() { return CFrame.fromVector3(this); };
     ToBabylon!: () => any;
@@ -84,12 +87,12 @@ export class Vector3 {
 
 
 
-    DistanceFromPoint(A: Vector3) { return ((this.x - A.x) ** 2 + (this.y - A.y) ** 2 + (this.z - A.z) ** 2) ** .5; };
+    DistanceFromPoint(A: xyz_Class) { return ((this.x - A.x) ** 2 + (this.y - A.y) ** 2 + (this.z - A.z) ** 2) ** .5; };
     DistanceFromPointV2(A: Vector3) { return ((this.x - A.x) ** 2 + (this.y - A.y) ** 2) ** .5; };
     DistanceFromPointXZ(A: Vector3) { return ((this.x - A.x) ** 2 + (this.z - A.z) ** 2) ** .5; };
 
 
-    PointOnSegment(a: Vector3, b: Vector3, eps = 1e-10) {
+    PointOnSegment(a: xyz_Class, b: xyz_Class, eps = 1e-10) {
         const cross = (b.z - a.z) * (this.x - a.x) -
             (b.x - a.x) * (this.z - a.z);
 
@@ -104,7 +107,7 @@ export class Vector3 {
 
         return true;
     };
-    PointInPolygon(poly: Vector3[], epsilon = 1e-10) {
+    PointInPolygon(poly: xyz_Class[], epsilon = 1e-10) {
         let inside = false;
 
         for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -183,7 +186,7 @@ export function SegmentIntersectionInfo(P1: Vector3, P2: Vector3, P3: Vector3, P
     return Info;
 }
 
-export function segmentIntersection2D(p1: Vector3, p2: Vector3, p3: Vector3, p4: Vector3) {
+export function segmentIntersection2D(p1: xyz_Class, p2: xyz_Class, p3: xyz_Class, p4: xyz_Class) {
     const x1 = p1.x, y1 = p1.z;
     const x2 = p2.x, y2 = p2.z;
     const x3 = p3.x, y3 = p3.z;
