@@ -482,6 +482,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
             if (RoofID == OtherRoofID) continue;
             let OtherInfo = ConvertedRoofs[OtherRoofID];
             let OtherRoof = OtherInfo.Raw;
+            if (OtherRoof.pitchDegrees < 5) continue;
             let OtherRunHalf = OtherInfo.Size.x / 2;
             let OtherTopRoofHeight = Math.sin(OtherRoof.pitchDegrees * Math.PI / 180) * OtherRunHalf;
             let OtherCenter = OtherInfo.Center.XZY; OtherCenter.Y += OtherTopRoofHeight;
@@ -494,6 +495,11 @@ export async function Test(Lat: number | string, Lon: number | string) {
             if (LocalToOther.x < -OtherInfo.Size.x) continue; // || -12 > LocalToOther.Y || LocalToOther.Y > 12) continue; // Does let you know what builds upwards and stuff.
 
             if (Math.abs(OtherCenter.Y - Center.Y) > 24) continue;
+
+            //Math.abs(OtherInfo.Size.X / (OtherInfo.Size.X + Info.Size.X) - .5) > .5 && 
+            // if (Math.abs(OtherInfo.Length / (OtherInfo.Length + Info.Length) - .5) * 2 > .3) continue;
+            // if (Math.max(LocalToOther.X, LocalToOther.Z, OtherLocal.X, OtherLocal.Z) > Info.Length / 2) continue;
+            // if (Math.min(LocalToOther.X, LocalToOther.Z, OtherLocal.X, OtherLocal.Z) > Info.Size.X / 2) continue;
 
             // console.log(RoofID, OtherRoofID, )
             // console.log(RoofID, OtherRoofID, Center.Y, OtherCenter.Y, OtherLocal, LocalToOther);
@@ -541,6 +547,13 @@ export async function Test(Lat: number | string, Lon: number | string) {
         return ReferencesChecked;
     }
 
+    type GroupCounterTing = {
+        Set: string[];
+        Counter: number;
+    }
+
+    let PotentialGroups: GroupCounterTing[] = [];
+
     let RoofReferences: string[][] = [];
     let RoofID_Counter: number[] = [];
     for (let RoofID in ClosestTo) {
@@ -550,9 +563,28 @@ export async function Test(Lat: number | string, Lon: number | string) {
             TrueCount[RefID] = 0;
             for (let RawTings of ClosestTo[RefID]) TrueCount[RefID]++;
         }
+        let SameGroupID = -1;
+        for (let PotentialGroupID in PotentialGroups) {
+            let PotentialGroup = PotentialGroups[PotentialGroupID];
+            if (PotentialGroup.Set.length !== AllReferences.length) continue;
+            let AllSame = true;
+            for (const value of PotentialGroup.Set) {
+                if (!AllReferences.includes(value)) AllSame = false;
+                if (!AllSame) break;
+            }
+            if (!AllSame) continue;
+            SameGroupID = PotentialGroupID;
+        }
+        if (SameGroupID != -1) {
+            PotentialGroups[SameGroupID].Counter++;
+        } else {
+            SameGroupID = PotentialGroups.length;
+            PotentialGroups[SameGroupID] = { Counter: 1, Set: AllReferences };
+        }
         RoofReferences[RoofID] = AllReferences;
         console.log(RoofID, AllReferences);
     }
+    console.log("POTENTIALS", PotentialGroups)
     const intersectionMany = lists =>
         lists.reduce((a, b) => a.filter(x => b.includes(x)))
     // function intersectionMany(lists) {
@@ -608,7 +640,55 @@ export async function Test(Lat: number | string, Lon: number | string) {
     // console.log("COUNT", Counts);
 
     // Could use significant boundary intersections to handle this automagically.
-    let CombineIntoSketches = []; // [["0", "3", "4", "5", "6"], ["7", "8"], ["1", "2", "9"]]; // [["0", "2", "1", "3"]]; // [["4", "8", "5", "10"], ["0", "2", "1", "3"], ["7", "6", "9"]]; // ExtrusionSort.copyWithin(0, 0, ExtrusionSort.length);
+    let CombineIntoSketches = [];
+    let UsedIDs = [];
+    PotentialGroups.sort((a, b) => ((b.Counter - a.Counter) == 0 ? -(b.Set.length - a.Set.length) : 0) + b.Counter - a.Counter);
+    // for (let GroupID in PotentialGroups) {
+    while (PotentialGroups.length > 0 && PotentialGroups[0].Set.length > 1) {
+        let NewGroup = [];
+        for (let ID of PotentialGroups[0].Set) NewGroup.push(ID);
+        if (NewGroup.length <= 1) continue;
+
+        // let SameGroupID = -1;
+        // for (let PotentialGroupID = 1; PotentialGroupID < PotentialGroups.length; PotentialGroupID++) {
+        //     let PotentialGroup = PotentialGroups[PotentialGroupID];
+        //     if (PotentialGroup.Set.length !== AllReferences.length) continue;
+        //     let AllSame = true;
+        //     for (const value of PotentialGroup.Set) {
+        //         if (!AllReferences.includes(value)) AllSame = false;
+        //         if (!AllSame) break;
+        //     }
+        //     if (!AllSame) continue;
+        //     SameGroupID = PotentialGroupID;
+        // }
+        // if (SameGroupID != -1) {
+        //     PotentialGroups[SameGroupID].Counter++;
+        // } else {
+        //     SameGroupID = PotentialGroups.length;
+        //     PotentialGroups[SameGroupID] = { Counter: 1, Set: AllReferences };
+        // }
+
+        for (let ID of NewGroup) {
+            UsedIDs.push(ID);
+        }
+
+
+        for (let PotentialGroupID in PotentialGroups) {
+            let PotentialGroup = PotentialGroups[PotentialGroupID];
+            PotentialGroup.Set = PotentialGroup.Set.filter(x => !UsedIDs.includes(x))
+        }
+
+        PotentialGroups = PotentialGroups.filter(x => x.Set.length > 0);
+
+        console.log(PotentialGroups, NewGroup, UsedIDs);
+
+        // PotentialGroups.sort((a, b) => ((b.Counter - a.Counter) == 0 ? (b.Set.length - a.Set.length) : 0) + b.Counter - a.Counter);
+
+        CombineIntoSketches.push(NewGroup);
+        // if (Math.random() > .8) break;
+    }
+    console.log("AUTOMATIC GROUPING", CombineIntoSketches);
+    // let CombineIntoSketches = [["0", "1", "2", "3"]]; // [["0", "3", "4", "5", "6"], ["7", "8"], ["1", "2", "9"]]; // [["0", "2", "1", "3"]]; // [["4", "8", "5", "10"], ["0", "2", "1", "3"], ["7", "6", "9"]]; // ExtrusionSort.copyWithin(0, 0, ExtrusionSort.length);
 
     // for (let RoofID in ConvertedRoofs) {
     //     let Info = ConvertedRoofs[RoofID];

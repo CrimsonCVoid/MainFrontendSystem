@@ -455,8 +455,9 @@ export class Editor {
 
                     case "o":
                         console.log("hi?")
-                        // await Test(37.443185078072716, -122.13801955359011); // ANGLED HOUSE //
-                        await Test(37.444938331695944, -122.13916635930947); // THE LIBRARY //
+                        // await Test(40.26076924275762, -74.7981296370152); // JOHN HOUSE //
+                        await Test(37.443185078072716, -122.13801955359011); // ANGLED HOUSE //
+                        // await Test(37.444938331695944, -122.13916635930947); // THE LIBRARY //
                         // await Test(37.44412278382237, -122.13891846157102); // GIANT BUILDING BELOW THE LIBRARY //
                         // await Test(36.278676208726246, -86.53094040983781); // STRANGE HOUSE IN NASHVILLE //
                         console.log("um?");
