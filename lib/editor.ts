@@ -6,7 +6,7 @@ import { GridMaterial } from "@babylonjs/materials";
 
 // import { PanelEngine } from "./panelview.bl.js";
 // import { Scene, Camera, Engine, RoofUI } from "./roofedit.bl.js";
-import { CFrame, Vector3 } from "./positioning";
+// import { CFrame, Vector3 } from "./positioning";
 // import * from "./Editor.d.ts";
 // import { SketchLine } from "./drawings";
 
@@ -14,7 +14,13 @@ import { CFrame, Vector3 } from "./positioning";
 
 import TestingConfig from "./EditorUI.json";
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
-import { Test } from "./backend"; // DebuggingClass
+// import { Test } from "./backend"; // DebuggingClass
+
+type xyz_Class = { x: number, y: number, z: number };
+
+async function Test() {
+
+}
 
 type BABYLON_LineOptions = {
     points: BABYLON.Vector3[];
@@ -139,7 +145,7 @@ export class Editor {
         return pick?.hit ? pick.pickedPoint : null;
     }
 
-    LabelMarker(V3: Vector3 | BABYLON.Vector3, Text: string = "Vertex") {
+    LabelMarker(V3: xyz_Class, Text: string = "Vertex") {
         let marker = BABYLON.MeshBuilder.CreateSphere("marker", { diameter: 0.01 }, this.Scene);
         marker.isVisible = false; // don’t show it
         marker.position.set(V3.x, V3.z, V3.y);

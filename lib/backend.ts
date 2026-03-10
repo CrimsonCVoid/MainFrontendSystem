@@ -162,6 +162,19 @@ function InchesToFT_IN_FORMAT(X: number) {
 }
 
 export async function Test(Lat: number | string, Lon: number | string) {
+
+    for (let i in SketchLine.AllRelations) {
+        delete SketchLine.AllRelations[i];
+        // SketchLine.AllRelations[i] = undefined;
+    }
+    SketchLine.AllRelations = [];
+    for (let i in SketchLine.AllDrawings) {
+        SketchLine.AllDrawings[i].Delete();
+        delete SketchLine.AllDrawings[i];
+        // SketchLine.AllDrawings[i] = undefined;
+    }
+    SketchLine.AllDrawings = [];
+
     // Lat = 40.26076924275762, Lon = -74.7981296370152;
     let URL = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${Lat}&location.longitude=${Lon}&key=${ENV_KEY}`;
     const response = await fetch(URL);
@@ -811,6 +824,9 @@ export async function Test(Lat: number | string, Lon: number | string) {
 
     // console.log("BOUNDS BY ROOF", BoundsByRoof, BoundsByRoof.map((value, index) => value[1].TranslateSub(value[0])));
 
+
+    let JSON_Output = [];
+
     let DrawSketches: SketchLine[] = [];
 
     for (let SketchGroupID in CombineIntoSketches) {
@@ -886,7 +902,6 @@ export async function Test(Lat: number | string, Lon: number | string) {
         let Angle = -(ConvertedRoofs[FocusRoofIndex].Raw.azimuthDegrees + (FocusRoofSize.x > FocusRoofSize.z ? 0 : 90)) * Math.PI / 180;
 
         // Maybe use azimuth degrees to figure out which surface is which sketch line. //
-
 
         // if (true) continue;
         let Sketch = new SketchLine(Editor.ActiveEditor, BoundsCFrame.x, BoundsCFrame.z, 0); // Info.NE.y); // Math.round(p.y));
@@ -979,6 +994,17 @@ export async function Test(Lat: number | string, Lon: number | string) {
         // Editor.ActiveEditor.LabelMarker(Vector3.AverageAll(Sketch.Lines["B"].LineSettings.points).ToBabylonXZY(), `LINE-B`);
         console.log("E?");
         DrawSketches.push(Sketch);
+
+        JSON_Output.push({
+            TempSketch: Sketch,
+            Length: Length,
+            Angle: Angle,
+            StartX: BoundsCFrame.x,
+            StartY: BoundsCFrame.z,
+            RUN: BoundWidth / 2,
+            Z1: AverageHeight - AverageGlobalHeight,
+            Pitch: AveragePitch,
+        });
     }
 
     // console.log("ALL RELATIONS");
@@ -1137,6 +1163,23 @@ export async function Test(Lat: number | string, Lon: number | string) {
         // Sketch.Commit();
         // console.log("E?");
         DrawSketches.push(Sketch);
+
+        JSON_Output.push({
+            NonGroup: true,
+            TempSketch: Sketch,
+            Length: Length,
+            Angle: Angle,
+            StartX: Info.CT.x,
+            StartY: Info.CT.y,
+            RUN: RUN,
+            Z1: Info.CT.z - AverageGlobalHeight,
+            Pitch: Roof.pitchDegrees,
+
+            X0: Info.P0.x + CheapCF.Z,
+            Y0: Info.P0.y + CheapCF.X,
+            X1: Info.P1.x + CheapCF.Z,
+            Y1: Info.P1.y + CheapCF.X,
+        });
     }
 
     // if (true) return;
@@ -1664,21 +1707,52 @@ export async function Test(Lat: number | string, Lon: number | string) {
 
     NewPDF.Download();
     console.log("PDF saved?");
+
+    // // SketchLine.AllDrawings
+    // let JSON_Output = {};
+    // for (let SketchID in SketchLine.AllDrawings) {
+    //     let Sketch = SketchLine.AllDrawings[SketchID];
+    //     let JSON_Sketch = JSON_Output[SketchID] = {
+    //         Lines: {}
+    //     };
+    //     // JSON_Sketch.
+    //     for (let LineID in Sketch.Lines) {
+    //         let Line = Sketch.Lines[LineID];
+    //         JSON_Sketch.Lines[LineID] = {
+    //             Line.
+    //         }
+    //     }
+    //     Sketch.Delete();
+    // }
+
+    for (let JSON_Sketch of JSON_Output) {
+        JSON_Sketch.Zonings = {};
+        for (let LineID in JSON_Sketch.TempSketch.Lines) {
+            let Line = JSON_Sketch.TempSketch.Lines[LineID];
+            // Line.Zonings
+            JSON_Sketch.Zonings[LineID] = Line.Zonings;
+        }
+        JSON_Sketch.TempSketch.Delete();
+        JSON_Sketch.TempSketch = null;
+        // delete JSON_Sketch.TempSketch;
+    }
+    // console.log("JSON_Output", JSON_Output);
+    return JSON_Output;
 }
 
 function Approx(X: number) { return Math.round(X * 1000) / 1000; }
 
-interface DataLayersResponse {
-    imageryDate: Date;
-    imageryProcessedDate: Date;
-    dsmUrl: string;
-    rgbUrl: string;
-    maskUrl: string;
-    annualFluxUrl: string;
-    monthlyFluxUrl: string;
-    hourlyShadeUrls: string[];
-    imageryQuality: 'HIGH' | 'MEDIUM' | 'BASE';
-}
+// interface DataLayersResponse {
+//     imageryDate: Date;
+//     imageryProcessedDate: Date;
+//     dsmUrl: string;
+//     rgbUrl: string;
+//     maskUrl: string;
+//     annualFluxUrl: string;
+//     monthlyFluxUrl: string;
+//     hourlyShadeUrls: string[];
+//     imageryQuality: 'HIGH' | 'MEDIUM' | 'BASE';
+// }
 
 // interface Bounds {
 //   north: number;
@@ -1687,124 +1761,122 @@ interface DataLayersResponse {
 //   west: number;
 // }
 
-interface GeoTiff {
-    width: number;
-    height: number;
-    rasters: Array<number>[];
-    //   bounds: Bounds;
-}
+// interface GeoTiff {
+//     width: number;
+//     height: number;
+//     rasters: Array<number>[];
+//     //   bounds: Bounds;
+// }
 
-import * as geotiff from 'geotiff';
-// import * as geokeysToProj4 from 'geotiff-geokeys-to-proj4';
-// import proj4 from 'proj4';
-
-
-async function downloadGeoTIFF(url: string, apiKey: string): Promise<GeoTiff> {
-    // console.log(`Downloading data layer: ${url}`);
-
-    // Include your Google Cloud API key in the Data Layers URL.
-    const solarUrl = url.includes('solar.googleapis.com') ? url + `&key=${apiKey}` : url;
-    // console.log("URL", solarUrl);
-    const response = await fetch(solarUrl);
-    if (response.status != 200) {
-        const error = await response.json();
-        console.error(`downloadGeoTIFF failed: ${url}\n`, error);
-        throw error;
-    }
-
-    // Get the GeoTIFF rasters, which are the pixel values for each band.
-    const arrayBuffer = await response.arrayBuffer();
-    const tiff = await geotiff.fromArrayBuffer(arrayBuffer);
-    const image = await tiff.getImage();
-    const rasters = await image.readRasters();
+// import * as geotiff from 'geotiff';
+// // import * as geokeysToProj4 from 'geotiff-geokeys-to-proj4';
+// // import proj4 from 'proj4';
 
 
+// async function downloadGeoTIFF(url: string, apiKey: string): Promise<GeoTiff> {
+//     // console.log(`Downloading data layer: ${url}`);
 
+//     // Include your Google Cloud API key in the Data Layers URL.
+//     const solarUrl = url.includes('solar.googleapis.com') ? url + `&key=${apiKey}` : url;
+//     // console.log("URL", solarUrl);
+//     const response = await fetch(solarUrl);
+//     if (response.status != 200) {
+//         const error = await response.json();
+//         console.error(`downloadGeoTIFF failed: ${url}\n`, error);
+//         throw error;
+//     }
 
-
-    const width = image.getWidth(); // rasters.width; // image.getWidth()
-    const height = image.getHeight(); // rasters.height; // image.getHeight()
-
-    // Read as RGB (interleaved)
-    // const rgb = await image.readRGB(); // Uint8Array length = width*height*3
-
-    // Convert RGB to RGBA by adding alpha channel
-    const rgba = new Uint8ClampedArray(width * height * 4);
-    // console.log("LENGTH OF RGB???", width, height, rasters.length, rasters)
-    for (let i = 0, j = 0; i < width * height; i++, j += 4) {
-        rgba[j] = rasters[0][i];       // R
-        rgba[j + 1] = rasters[1][i]; // G
-        rgba[j + 2] = rasters[2][i]; // B
-        rgba[j + 3] = 255;      // A (opaque)
-    }
-    // console.log("RGBA", rgba);
-
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext('2d')
-
-    const imageData = new ImageData(rgba, width, height)
-    ctx.putImageData(imageData, 0, 0)
-
-    // Convert canvas to PNG bytes
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
-
-    // const url = URL.createObjectURL(blob);
-    // const a = document.createElement("a");
-    // a.href = url;
-    // a.download = "eeee.png"; //filename ?? `Estimate_${data.projectName.replace(/\s+/g, "_")}.pdf`;
-    // document.body.appendChild(a);
-    // a.click();
-    // document.body.removeChild(a);
-    // URL.revokeObjectURL(url);
-
-    const pngBytes = new Uint8Array(await blob.arrayBuffer())
+//     // Get the GeoTIFF rasters, which are the pixel values for each band.
+//     const arrayBuffer = await response.arrayBuffer();
+//     const tiff = await geotiff.fromArrayBuffer(arrayBuffer);
+//     const image = await tiff.getImage();
+//     const rasters = await image.readRasters();
 
 
 
 
-    // const PNG_Bytes = await geotiffToPngBytes(arrayBuffer);
 
-    // Reproject the bounding box into lat/lon coordinates.
-    //   const box = image.getBoundingBox();
-    //   const geoKeys = image.getGeoKeys();
-    //   const projObj = geokeysToProj4.toProj4(geoKeys);
-    //   const projection = proj4(projObj.proj4, 'WGS84');
-    //   const sw = projection.forward({
-    //     x: box[0] * projObj.coordinatesConversionParameters.x,
-    //     y: box[1] * projObj.coordinatesConversionParameters.y,
-    //   });
-    //   const ne = projection.forward({
-    //     x: box[2] * projObj.coordinatesConversionParameters.x,
-    //     y: box[3] * projObj.coordinatesConversionParameters.y,
-    //   });
+//     const width = image.getWidth(); // rasters.width; // image.getWidth()
+//     const height = image.getHeight(); // rasters.height; // image.getHeight()
 
-    return {
-        // Width and height of the data layer image in pixels.
-        // Used to know the row and column since Javascript
-        // stores the values as flat arrays.
-        width: width, // rasters.width,
-        height: height, // rasters.height,
-        // PNG_Bytes: PNG_Bytes,
-        // Each raster reprents the pixel values of each band.
-        // We convert them from `geotiff.TypedArray`s into plain
-        // Javascript arrays to make them easier to process.
-        rasters: [...Array(rasters.length).keys()].map((i) =>
-            Array.from(rasters[i] as geotiff.TypedArray),
-        ),
-        PNG: pngBytes,
-        // The bounding box as a lat/lon rectangle.
-        // bounds: {
-        //   north: ne.y,
-        //   south: sw.y,
-        //   east: ne.x,
-        //   west: sw.x,
-        // },
-    };
-}
+//     // Read as RGB (interleaved)
+//     // const rgb = await image.readRGB(); // Uint8Array length = width*height*3
+
+//     // Convert RGB to RGBA by adding alpha channel
+//     const rgba = new Uint8ClampedArray(width * height * 4);
+//     // console.log("LENGTH OF RGB???", width, height, rasters.length, rasters)
+//     for (let i = 0, j = 0; i < width * height; i++, j += 4) {
+//         rgba[j] = rasters[0][i];       // R
+//         rgba[j + 1] = rasters[1][i]; // G
+//         rgba[j + 2] = rasters[2][i]; // B
+//         rgba[j + 3] = 255;      // A (opaque)
+//     }
+//     // console.log("RGBA", rgba);
+
+//     const canvas = document.createElement('canvas')
+//     canvas.width = width
+//     canvas.height = height
+//     const ctx = canvas.getContext('2d')
+
+//     const imageData = new ImageData(rgba, width, height)
+//     ctx.putImageData(imageData, 0, 0)
+
+//     // Convert canvas to PNG bytes
+//     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
+
+//     // const url = URL.createObjectURL(blob);
+//     // const a = document.createElement("a");
+//     // a.href = url;
+//     // a.download = "eeee.png"; //filename ?? `Estimate_${data.projectName.replace(/\s+/g, "_")}.pdf`;
+//     // document.body.appendChild(a);
+//     // a.click();
+//     // document.body.removeChild(a);
+//     // URL.revokeObjectURL(url);
+
+//     const pngBytes = new Uint8Array(await blob.arrayBuffer())
 
 
+
+
+//     // const PNG_Bytes = await geotiffToPngBytes(arrayBuffer);
+
+//     // Reproject the bounding box into lat/lon coordinates.
+//     //   const box = image.getBoundingBox();
+//     //   const geoKeys = image.getGeoKeys();
+//     //   const projObj = geokeysToProj4.toProj4(geoKeys);
+//     //   const projection = proj4(projObj.proj4, 'WGS84');
+//     //   const sw = projection.forward({
+//     //     x: box[0] * projObj.coordinatesConversionParameters.x,
+//     //     y: box[1] * projObj.coordinatesConversionParameters.y,
+//     //   });
+//     //   const ne = projection.forward({
+//     //     x: box[2] * projObj.coordinatesConversionParameters.x,
+//     //     y: box[3] * projObj.coordinatesConversionParameters.y,
+//     //   });
+
+//     return {
+//         // Width and height of the data layer image in pixels.
+//         // Used to know the row and column since Javascript
+//         // stores the values as flat arrays.
+//         width: width, // rasters.width,
+//         height: height, // rasters.height,
+//         // PNG_Bytes: PNG_Bytes,
+//         // Each raster reprents the pixel values of each band.
+//         // We convert them from `geotiff.TypedArray`s into plain
+//         // Javascript arrays to make them easier to process.
+//         rasters: [...Array(rasters.length).keys()].map((i) =>
+//             Array.from(rasters[i] as geotiff.TypedArray),
+//         ),
+//         PNG: pngBytes,
+//         // The bounding box as a lat/lon rectangle.
+//         // bounds: {
+//         //   north: ne.y,
+//         //   south: sw.y,
+//         //   east: ne.x,
+//         //   west: sw.x,
+//         // },
+//     };
+// }
 
 
 
@@ -1813,142 +1885,144 @@ async function downloadGeoTIFF(url: string, apiKey: string): Promise<GeoTiff> {
 
 
 
-import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
-import { Average, Inter } from "next/font/google";
-
-export class DebuggingClass {
-    GoogleMesh!: BABYLON_ADDONS.HtmlMesh;
-    mapDiv: HTMLDivElement;
-    mapContainer: HTMLDivElement;
-    FlatMapElement: HTMLElement | null;
-    GoogleMap!: google.maps.Map;
-    MapScale = 2000; //63781.37 / 3; // 111132/10
-
-    constructor() {
-        console.log("MAP DEBUGGING CLASS CREATED", Editor.window);
-        this.FlatMapElement = Editor.window.document.getElementById("flatmap");
-        this.FlatMapElement.style.pointerEvents = "none";
-
-        let mapContainer = this.mapContainer = Editor.window.document.createElement("div");
-        // overlayMeshDiv.innerHTML = `<p style="padding: 60px; font-size: 80px;">This is an overlay. It is positioned in front of the canvas. This allows it to have transparency and to be non-rectangular, but it will always show over any other content in the scene</p>`;
-        mapContainer.style.backgroundColor = 'rgba(0, 0, 0, 0)';
-        mapContainer.style.width = '100%';
-        mapContainer.style.height = '100%';
-        mapContainer.style.border = 'none';
-        mapContainer.style.overflow = 'hidden';
-        mapContainer.style.pointerEvents = "none";
-        // mapContainer.style.zIndex = -1;
-        // mapContainer.style.
-
-        let mapDiv = this.mapDiv = Editor.window.document.createElement("div");
-        mapDiv.style.position = "absolute";
-        mapDiv.style.inset = "0";
-        mapDiv.style.width = "100%";
-        mapDiv.style.height = "100%";
-
-        mapContainer.appendChild(mapDiv);
-
-        setOptions({ key: "AIzaSyDUfrliF4ydB8G4JbQudiC4t8L39pG_E74" });
-
-        this.RunWithAsync().then(() => {
-            console.log("MAP LOADED");
-        }).catch((e) => {
-            console.error("MAP LOAD ERROR", e);
-        });
-    }
-
-    async RunWithAsync() {
-        const { Map } = await importLibrary("maps");
-        this.GoogleMap = new Map(this.mapDiv, {
-            zoom: 25,
-            center: { lat: 36.1820, lng: -86.5150 },
-            mapTypeId: "hybrid", // "satellite",
-            tilt: 0, // 45, // 0,
-            mapTypeControl: false,
-            fullscreenControl: false,
-            rotateControl: false,
-            streetViewControl: false,
-            zoomControl: false,
-        });
-
-        this.GoogleMap.addListener("tilesloaded", () => {
-            this.GoogleMap.setZoom(25); // 25
-            // GoogleMap.setHeading(Camera.alpha * 180 / Math.PI);
-            console.log("YAY");
-        });
-
-        var InchesInMeter = 39.3701;
-
-        this.GoogleMap.addListener("zoom_changed", () => {
-            SketchLine.DrawingScale = 156543.03392 * Math.cos(this.GetMapCenterLAT() * Math.PI / 180) / Math.pow(2, this.GoogleMap.getZoom() ?? 0) * InchesInMeter;
-            // GoogleMesh.scalingDeterminant = .015; // .scale(SketchLine.DrawingScale);
-            // mapContainer
-            // console.log(GoogleMesh);
-            this.GoogleMesh._height = this.MapScale * SketchLine.DrawingScale;
-            this.GoogleMesh._width = this.MapScale * SketchLine.DrawingScale;
-            // GoogleMesh.setContentSizePx(MapScale * SketchLine.DrawingScale, MapScale * SketchLine.DrawingScale);
-        });
-
-        this.GoogleMap.addListener("center_changed", async () => {
-            SketchLine.DrawingScale = 156543.03392 * Math.cos(this.GetMapCenterLAT() * Math.PI / 180) / Math.pow(2, this.GoogleMap.getZoom() ?? 0) * InchesInMeter;
-            // GoogleMesh.scalingDeterminant = .015; // .scale(SketchLine.DrawingScale);
-            this.GoogleMesh._height = this.MapScale * SketchLine.DrawingScale;
-            this.GoogleMesh._width = this.MapScale * SketchLine.DrawingScale;
-            // GoogleMesh.setContentSizePx(MapScale * SketchLine.DrawingScale, MapScale * SketchLine.DrawingScale);
-        });
-
-        SketchLine.DrawingScale = 156543.03392 * Math.cos(this.GetMapCenterLAT() * Math.PI / 180) / Math.pow(2, this.GoogleMap.getZoom() ?? 0) * InchesInMeter;
-
-        console.log("SCALE", SketchLine.DrawingScale);
-    }
-
-    CreateGoogleDebugMesh() {
-        if (this.GoogleMesh) return;
-        // HtmlMeshRenderer
-        const htmlMeshRenderer = new BABYLON_ADDONS.HtmlMeshRenderer(Editor.ActiveEditor.Scene);
-        // const htmlMeshDiv = new BABYLON_ADDONS.HtmlMesh(Scene, "html-mesh-div");
-        htmlMeshRenderer._width = 2000;
-        htmlMeshRenderer._height = 2000;
-
-        this.GoogleMesh = new BABYLON_ADDONS.HtmlMesh(Editor.ActiveEditor.Scene, "html-overlay-mesh", { isCanvasOverlay: false, captureOnPointerEnter: false, fitStrategy: BABYLON_ADDONS.FitStrategy.NONE });
-        this.GoogleMesh.overlayColor = new BABYLON.Color4(0, 0, 0, 0);
-        this.GoogleMesh.visibility = 0;
-        // GoogleMesh.material.useLogarithmicDepth = true;
-        this.GoogleMesh.material.disableLighting = true;
-        this.GoogleMesh.scaling = new BABYLON.Vector3(.5, .5, .5);
-
-        // GoogleMesh.element
-        this.GoogleMesh.overlayAlpha = 0;
-        // GoogleMesh.setContentSizePx(2000, 2000);
-        this.GoogleMesh.position.y = 0; // 10;
-        this.GoogleMesh.rotation.x = Math.PI / 2; // face the camera
-        this.GoogleMesh.rotation.y = -Math.PI / 2; // face the camera
-        // this.GoogleMesh.enablePointerEvents = false;
-        // this.GoogleMesh.enablePointerMoveEvents = false;
-        // GoogleMesh.isVisible = false;
-        // transform: rotate(45deg)
-
-        this.GoogleMesh.setContent(this.mapContainer, this.MapScale, this.MapScale);
-    }
 
 
-    SwitchMap(In3D: boolean) {
-        if (In3D) this.mapContainer.appendChild(this.mapDiv);
-        else this.FlatMapElement?.appendChild(this.mapDiv);
-    }
+// import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
+// import { Average, Inter } from "next/font/google";
 
-    SetMapCenter(LAT: number, LON: number) {
-        this.GoogleMap.setCenter({ lat: LAT, lng: LON });
-    }
+// export class DebuggingClass {
+//     GoogleMesh!: BABYLON_ADDONS.HtmlMesh;
+//     mapDiv: HTMLDivElement;
+//     mapContainer: HTMLDivElement;
+//     FlatMapElement: HTMLElement | null;
+//     GoogleMap!: google.maps.Map;
+//     MapScale = 2000; //63781.37 / 3; // 111132/10
 
-    GetMapCenterLAT() {
-        return this.GoogleMap.getCenter()?.lat() ?? 0;
-    }
+//     constructor() {
+//         console.log("MAP DEBUGGING CLASS CREATED", Editor.window);
+//         this.FlatMapElement = Editor.window.document.getElementById("flatmap");
+//         this.FlatMapElement.style.pointerEvents = "none";
 
-    GetMapCenterLON() {
-        return this.GoogleMap.getCenter()?.lng() ?? 0;
-    }
-}
+//         let mapContainer = this.mapContainer = Editor.window.document.createElement("div");
+//         // overlayMeshDiv.innerHTML = `<p style="padding: 60px; font-size: 80px;">This is an overlay. It is positioned in front of the canvas. This allows it to have transparency and to be non-rectangular, but it will always show over any other content in the scene</p>`;
+//         mapContainer.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+//         mapContainer.style.width = '100%';
+//         mapContainer.style.height = '100%';
+//         mapContainer.style.border = 'none';
+//         mapContainer.style.overflow = 'hidden';
+//         mapContainer.style.pointerEvents = "none";
+//         // mapContainer.style.zIndex = -1;
+//         // mapContainer.style.
+
+//         let mapDiv = this.mapDiv = Editor.window.document.createElement("div");
+//         mapDiv.style.position = "absolute";
+//         mapDiv.style.inset = "0";
+//         mapDiv.style.width = "100%";
+//         mapDiv.style.height = "100%";
+
+//         mapContainer.appendChild(mapDiv);
+
+//         setOptions({ key: "AIzaSyDUfrliF4ydB8G4JbQudiC4t8L39pG_E74" });
+
+//         this.RunWithAsync().then(() => {
+//             console.log("MAP LOADED");
+//         }).catch((e) => {
+//             console.error("MAP LOAD ERROR", e);
+//         });
+//     }
+
+//     async RunWithAsync() {
+//         const { Map } = await importLibrary("maps");
+//         this.GoogleMap = new Map(this.mapDiv, {
+//             zoom: 25,
+//             center: { lat: 36.1820, lng: -86.5150 },
+//             mapTypeId: "hybrid", // "satellite",
+//             tilt: 0, // 45, // 0,
+//             mapTypeControl: false,
+//             fullscreenControl: false,
+//             rotateControl: false,
+//             streetViewControl: false,
+//             zoomControl: false,
+//         });
+
+//         this.GoogleMap.addListener("tilesloaded", () => {
+//             this.GoogleMap.setZoom(25); // 25
+//             // GoogleMap.setHeading(Camera.alpha * 180 / Math.PI);
+//             console.log("YAY");
+//         });
+
+//         var InchesInMeter = 39.3701;
+
+//         this.GoogleMap.addListener("zoom_changed", () => {
+//             SketchLine.DrawingScale = 156543.03392 * Math.cos(this.GetMapCenterLAT() * Math.PI / 180) / Math.pow(2, this.GoogleMap.getZoom() ?? 0) * InchesInMeter;
+//             // GoogleMesh.scalingDeterminant = .015; // .scale(SketchLine.DrawingScale);
+//             // mapContainer
+//             // console.log(GoogleMesh);
+//             this.GoogleMesh._height = this.MapScale * SketchLine.DrawingScale;
+//             this.GoogleMesh._width = this.MapScale * SketchLine.DrawingScale;
+//             // GoogleMesh.setContentSizePx(MapScale * SketchLine.DrawingScale, MapScale * SketchLine.DrawingScale);
+//         });
+
+//         this.GoogleMap.addListener("center_changed", async () => {
+//             SketchLine.DrawingScale = 156543.03392 * Math.cos(this.GetMapCenterLAT() * Math.PI / 180) / Math.pow(2, this.GoogleMap.getZoom() ?? 0) * InchesInMeter;
+//             // GoogleMesh.scalingDeterminant = .015; // .scale(SketchLine.DrawingScale);
+//             this.GoogleMesh._height = this.MapScale * SketchLine.DrawingScale;
+//             this.GoogleMesh._width = this.MapScale * SketchLine.DrawingScale;
+//             // GoogleMesh.setContentSizePx(MapScale * SketchLine.DrawingScale, MapScale * SketchLine.DrawingScale);
+//         });
+
+//         SketchLine.DrawingScale = 156543.03392 * Math.cos(this.GetMapCenterLAT() * Math.PI / 180) / Math.pow(2, this.GoogleMap.getZoom() ?? 0) * InchesInMeter;
+
+//         console.log("SCALE", SketchLine.DrawingScale);
+//     }
+
+//     CreateGoogleDebugMesh() {
+//         if (this.GoogleMesh) return;
+//         // HtmlMeshRenderer
+//         const htmlMeshRenderer = new BABYLON_ADDONS.HtmlMeshRenderer(Editor.ActiveEditor.Scene);
+//         // const htmlMeshDiv = new BABYLON_ADDONS.HtmlMesh(Scene, "html-mesh-div");
+//         htmlMeshRenderer._width = 2000;
+//         htmlMeshRenderer._height = 2000;
+
+//         this.GoogleMesh = new BABYLON_ADDONS.HtmlMesh(Editor.ActiveEditor.Scene, "html-overlay-mesh", { isCanvasOverlay: false, captureOnPointerEnter: false, fitStrategy: BABYLON_ADDONS.FitStrategy.NONE });
+//         this.GoogleMesh.overlayColor = new BABYLON.Color4(0, 0, 0, 0);
+//         this.GoogleMesh.visibility = 0;
+//         // GoogleMesh.material.useLogarithmicDepth = true;
+//         this.GoogleMesh.material.disableLighting = true;
+//         this.GoogleMesh.scaling = new BABYLON.Vector3(.5, .5, .5);
+
+//         // GoogleMesh.element
+//         this.GoogleMesh.overlayAlpha = 0;
+//         // GoogleMesh.setContentSizePx(2000, 2000);
+//         this.GoogleMesh.position.y = 0; // 10;
+//         this.GoogleMesh.rotation.x = Math.PI / 2; // face the camera
+//         this.GoogleMesh.rotation.y = -Math.PI / 2; // face the camera
+//         // this.GoogleMesh.enablePointerEvents = false;
+//         // this.GoogleMesh.enablePointerMoveEvents = false;
+//         // GoogleMesh.isVisible = false;
+//         // transform: rotate(45deg)
+
+//         this.GoogleMesh.setContent(this.mapContainer, this.MapScale, this.MapScale);
+//     }
+
+
+//     SwitchMap(In3D: boolean) {
+//         if (In3D) this.mapContainer.appendChild(this.mapDiv);
+//         else this.FlatMapElement?.appendChild(this.mapDiv);
+//     }
+
+//     SetMapCenter(LAT: number, LON: number) {
+//         this.GoogleMap.setCenter({ lat: LAT, lng: LON });
+//     }
+
+//     GetMapCenterLAT() {
+//         return this.GoogleMap.getCenter()?.lat() ?? 0;
+//     }
+
+//     GetMapCenterLON() {
+//         return this.GoogleMap.getCenter()?.lng() ?? 0;
+//     }
+// }
 
 
 
@@ -2043,6 +2117,4 @@ export type GSolarData = {
     boundingBox: GBoundingBox;
     imageryQuality: string;
     imageryProcessedDate: GDate;
-
-
 };

@@ -10,3 +10,5 @@ build/
 .cache/
  migrations/
  netlify.toml
+lib/pdf-export
+lib/backend
