@@ -45,7 +45,7 @@ export class PDF_Exporter {
         this.Pages[this.PageIndex].drawLine({
             start: { x: X0, y: Y0 },
             end: { x: X1, y: Y1 },
-            thickness: 1,
+            thickness: 2 * this.Scale,
             lineCap: LineCapStyle.Round,
             blendMode: BlendMode.Normal,
             color: rgb(RGB.r, RGB.g, RGB.b),
@@ -72,7 +72,7 @@ export class PDF_Exporter {
     }
 
     AddTextAtV3(Text: string, Pos: { x: number, z: number }, Rotate: number = 0, TextSize: number = 6, AddHeight: number = 0, Opacity = 1) {
-        this.AddText(Text, Pos.z * this.Scale + 300, -Pos.x * this.Scale + 400, Rotate + 90, TextSize, AddHeight, Opacity);
+        this.AddText(Text, Pos.z * this.Scale + 300, -Pos.x * this.Scale + 400, Rotate + 90, TextSize * this.Scale, AddHeight * this.Scale, Opacity);
     }
 
     DrawLineFromV3(Start: { x: number, z: number }, End: { x: number, z: number }, RGB = { r: 0, g: 0, b: 0, a: 1 }) {
@@ -142,8 +142,8 @@ class Draw {
         AveragePosition.x /= this.Points.length; AveragePosition.z /= this.Points.length;
         let ActualTextSize = this.DrawingType.TextSize ?? this.TextSize ?? 8;
         if (this.TextWidth)
-            while (ActualTextSize > 1 && ThisPDF.CurrentFont.widthOfTextAtSize(this.Text, ActualTextSize) > this.TextWidth)
-                ActualTextSize -= 0.5;
+            while (ActualTextSize > 1 && ThisPDF.CurrentFont.widthOfTextAtSize(this.Text, ActualTextSize) > this.TextWidth && ThisPDF.Scale > 0)
+                ActualTextSize -= ThisPDF.Scale;
         ThisPDF.AddTextAtV3(this.Text, AveragePosition, this.TextRotate ?? 0, ActualTextSize, this.DrawingType.TextHeightOffset ?? 0, .5);
     }
     Execute(ThisPDF: PDF_Exporter) {

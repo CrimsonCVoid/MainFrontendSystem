@@ -1,6 +1,7 @@
 /* eslint-disable prefer-const */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export class Vector3 {
+    ToCFrame() { return CFrame.fromVector3(this); };
     ToBabylon!: () => any;
     ToBabylonXZY!: () => any;
     constructor(X = 0, Y = 0, Z = 0) {

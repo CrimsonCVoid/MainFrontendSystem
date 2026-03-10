@@ -8,13 +8,13 @@ import { GridMaterial } from "@babylonjs/materials";
 // import { Scene, Camera, Engine, RoofUI } from "./roofedit.bl.js";
 import { CFrame, Vector3 } from "./positioning";
 // import * from "./Editor.d.ts";
-import { SketchLine } from "./drawings";
+// import { SketchLine } from "./drawings";
 
 // import { CreateMarker } from "./editor-utils"; // SwitchMap
 
 import TestingConfig from "./EditorUI.json";
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
-import { Test, DebuggingClass } from "./backend";
+import { Test } from "./backend"; // DebuggingClass
 
 type BABYLON_LineOptions = {
     points: BABYLON.Vector3[];
@@ -112,13 +112,16 @@ type EditorControls = {
 
 export class Editor {
     static ActiveEditor: Editor;
-    static MapDebugging: DebuggingClass;
+    // static MapDebugging: DebuggingClass;
 
     Engine: BABYLON.Engine;
     Scene: BABYLON.Scene;
     Camera: BABYLON.ArcRotateCamera;
     RoofUI: AdvancedDynamicTexture;
     UI_Controls: EditorControls;
+
+    // Root: BABYLON.TransformNode;
+    RoofPBR_Material: BABYLON.PBRMetallicRoughnessMaterial;
 
     PanelEngine?: BABYLON.Engine;
 
@@ -143,6 +146,7 @@ export class Editor {
         // marker.position.set(V3.X, V3.Y, V3.Z);
         let text = new BABYLON_UI.TextBlock();
         text.text = Text;
+        // text.textHorizontalAlignment = BABYLON_UI.Control.HORIZONTAL_ALIGNMENT_CENTER;
         this.RoofUI.addControl(text);
         text.linkWithMesh(marker); // text follows invisible mesh
         text.color = "white"; // "Black";
@@ -172,7 +176,7 @@ export class Editor {
         this.Camera = Camera;
         this.RoofUI = RoofUI;
         console.log("WINDOWWWWWWWWWWWWWWWWWWWWWWW", window);
-        Editor.MapDebugging = new DebuggingClass();
+        // Editor.MapDebugging = new DebuggingClass();
 
         let DesignGrid = this.DesignGrid = BABYLON.Mesh.CreateGround("ground", 10000, 10000, 10, Scene);
         var gridMaterial = new GridMaterial("gridMaterial", Scene);
@@ -180,13 +184,20 @@ export class Editor {
         gridMaterial.lineColor = BABYLON.Color4.FromInts(25, 25, 30);
         gridMaterial.opacity = .8;
         DesignGrid.material = gridMaterial
+        DesignGrid.isVisible = false;
 
+        let RoofPBR_Material = this.RoofPBR_Material = new BABYLON.PBRMetallicRoughnessMaterial("PanelMaterial", this.Scene);
+        RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString("#ffffff");
+        RoofPBR_Material.metallic = .5; RoofPBR_Material.roughness = 0.25;
+        RoofPBR_Material.backFaceCulling = false;
+        // this.Root = new BABYLON.TransformNode("ROOT", Scene);
 
 
         RoofUI.parseSerializedObject(TestingConfig); // await RoofUI.parseFromURLAsync("EditorUI.json");
         let EditorUI = RoofUI;
 
         const DrawingCursor = BABYLON.MeshBuilder.CreateSphere("DrawingCursor", { diameter: .5 }, Scene);
+        DrawingCursor.isVisible = false;
         DrawingCursor.isPickable = false;
 
 
@@ -297,112 +308,112 @@ export class Editor {
 
         // mapContainer.appendChild(mapDiv);
 
-        let RenderWidth = Engine.getRenderWidth();
-        let RenderHeight = Engine.getRenderHeight();
+        // let RenderWidth = Engine.getRenderWidth();
+        // let RenderHeight = Engine.getRenderHeight();
 
-        const updateOrtho = () => {
-            RenderWidth = Engine.getRenderWidth();
-            RenderHeight = Engine.getRenderHeight();
-            const ratio = RenderWidth / RenderHeight;
-            const zoom = Camera.radius / SketchLine.DrawingScale; // use radius as scale
+        // const updateOrtho = () => {
+        //     RenderWidth = Engine.getRenderWidth();
+        //     RenderHeight = Engine.getRenderHeight();
+        //     const ratio = RenderWidth / RenderHeight;
+        //     const zoom = Camera.radius / SketchLine.DrawingScale; // use radius as scale
 
-            Camera.orthoLeft = -zoom * ratio;
-            Camera.orthoRight = zoom * ratio;
-            Camera.orthoBottom = -zoom;
-            Camera.orthoTop = zoom;
+        //     Camera.orthoLeft = -zoom * ratio;
+        //     Camera.orthoRight = zoom * ratio;
+        //     Camera.orthoBottom = -zoom;
+        //     Camera.orthoTop = zoom;
 
 
-            // console.log(zoom, 1500 / zoom)
-            let Scale = 1 / Camera.radius * SketchLine.DrawingScale / ratio * 1450; // zoom; // * .9366666; // 25; // * .9;
-            Editor.MapDebugging.FlatMapElement.style.scale = Scale.toString();
-            // console.log(Camera.orthoTop, Scale);
-            // May still not be perfect, but honestly, idrk anymore.
-            Editor.MapDebugging.FlatMapElement.style.left = -(Editor.MapDebugging.FlatMapElement.clientWidth - RenderWidth) / 2 + "px";
-            Editor.MapDebugging.FlatMapElement.style.top = -(Editor.MapDebugging.FlatMapElement.clientHeight - RenderHeight) / 2 + "px";
-        };
+        //     // console.log(zoom, 1500 / zoom)
+        //     let Scale = 1 / Camera.radius * SketchLine.DrawingScale / ratio * 1450; // zoom; // * .9366666; // 25; // * .9;
+        //     Editor.MapDebugging.FlatMapElement.style.scale = Scale.toString();
+        //     // console.log(Camera.orthoTop, Scale);
+        //     // May still not be perfect, but honestly, idrk anymore.
+        //     Editor.MapDebugging.FlatMapElement.style.left = -(Editor.MapDebugging.FlatMapElement.clientWidth - RenderWidth) / 2 + "px";
+        //     Editor.MapDebugging.FlatMapElement.style.top = -(Editor.MapDebugging.FlatMapElement.clientHeight - RenderHeight) / 2 + "px";
+        // };
 
-        Scene.onBeforeRenderObservable.add(() => {
-            Editor.MapDebugging.FlatMapElement.style.rotate = Camera.alpha + "rad";
-            // FlatMapElement.style.transform // Need to look into using skew.
-            // console.log(Camera.alpha);
+        // Scene.onBeforeRenderObservable.add(() => {
+        //     Editor.MapDebugging.FlatMapElement.style.rotate = Camera.alpha + "rad";
+        //     // FlatMapElement.style.transform // Need to look into using skew.
+        //     // console.log(Camera.alpha);
 
-            let Scale = 1500 / Camera.radius * .921 * .8;
+        //     let Scale = 1500 / Camera.radius * .921 * .8;
 
-            let CheapCF = CFrame.Angles(0, -Camera.alpha, 0).ToWorldSpace(CFrame.fromXYZ(-Camera.target.z * Scale, 0, -Camera.target.x * Scale));
-            Editor.MapDebugging.FlatMapElement.style.translate = `${CheapCF.x}px ${CheapCF.z}px`;
-            if (!FirstRotation) DesignGrid.rotation.y = -Camera.alpha;
-        });
+        //     let CheapCF = CFrame.Angles(0, -Camera.alpha, 0).ToWorldSpace(CFrame.fromXYZ(-Camera.target.z * Scale, 0, -Camera.target.x * Scale));
+        //     Editor.MapDebugging.FlatMapElement.style.translate = `${CheapCF.x}px ${CheapCF.z}px`;
+        //     if (!FirstRotation) DesignGrid.rotation.y = -Camera.alpha;
+        // });
 
-        console.log(Camera);
+        // console.log(Camera);
 
-        updateOrtho();
+        // updateOrtho();
 
-        Camera.onViewMatrixChangedObservable.add(updateOrtho);
+        // Camera.onViewMatrixChangedObservable.add(updateOrtho);
 
-        window.addEventListener("resize", () => {
-            // Engine.resize();
-            updateOrtho();
-        });
+        // window.addEventListener("resize", () => {
+        //     // Engine.resize();
+        //     updateOrtho();
+        // });
 
         // console.log(BABYLON.PointerEventTypes.POINTERDOWN);
         // console.log(BABYLON.PointerEventTypes.POINTERMOVE);
         // console.log(BABYLON.PointerEventTypes.POINTERUP);
 
-        let HoldingShift = false;
-        let ChangingPitch = false;
-        let CanDraw = true;
-        let FirstRotation = false;
+        // let HoldingShift = false;
+        // let ChangingPitch = false;
+        // let CanDraw = true;
+        // let FirstRotation = false;
 
-        Scene.onPointerObservable.add((pi) => {
-            // if (this.RoofUI.isForegroundPicked) return; // Prevent drawing when interacting with GUI
-            // pi.pickInfo?
+        // Scene.onPointerObservable.add((pi) => {
+        //     // if (this.RoofUI.isForegroundPicked) return; // Prevent drawing when interacting with GUI
+        //     // pi.pickInfo?
 
-            const p = this.pickOnGround(Scene.pointerX, Scene.pointerY);
-            if (!p) return;
-            DrawingCursor.position.x = Math.round(p.x);
-            DrawingCursor.position.y = Math.round(p.y);
-            DrawingCursor.position.z = Math.round(p.z);
-            // DesignGrid.rotationQuaternion.copyFrom(BABYLON.Quaternion.FromEulerAngles(0, Camera.rotation.y, 0));
-            // DesignGrid.rotate(BABYLON.Vector3.Up, Camera.rotation.y, BABYLON.Space.WORLD);
-            if (pi.type === BABYLON.PointerEventTypes.POINTERDOWN && CanDraw) {
-                if (pi.event.button !== 0) return;
-                if (SketchLine.ActiveSketch) {
-                    if (SketchLine.ActiveSketch.Commit()) {
-                        console.log("COMMIT");
-                        SketchLine.ActiveSketch = null;
-                        // DesignGrid.position.y -= 20;
-                        return;
-                    }
-                    console.log("EXTRUDE");
-                    // DesignGrid.rotation.y = -Camera.alpha;
-                    FirstRotation = true;
-                } else {
-                    // SketchLine.ActiveSketch = new SketchLine(Math.round(p.x), Math.round(p.z), Math.round(p.y));
-                    if (!FirstRotation) {
-                        DesignGrid.position.x = p.x;
-                        DesignGrid.position.z = p.z;
-                    };
-                    SketchLine.ActiveSketch = new SketchLine(this, p.x, p.z, Math.round(p.y));
-                    SketchLine.ActiveSketch.Start();
-                }
-            }
+        //     const p = this.pickOnGround(Scene.pointerX, Scene.pointerY);
+        //     if (!p) return;
+        //     DrawingCursor.position.x = Math.round(p.x);
+        //     DrawingCursor.position.y = Math.round(p.y);
+        //     DrawingCursor.position.z = Math.round(p.z);
+        //     // DesignGrid.rotationQuaternion.copyFrom(BABYLON.Quaternion.FromEulerAngles(0, Camera.rotation.y, 0));
+        //     // DesignGrid.rotate(BABYLON.Vector3.Up, Camera.rotation.y, BABYLON.Space.WORLD);
+        //     if (pi.type === BABYLON.PointerEventTypes.POINTERDOWN && CanDraw) {
+        //         if (pi.event.button !== 0) return;
+        //         if (SketchLine.ActiveSketch) {
+        //             if (SketchLine.ActiveSketch.Commit()) {
+        //                 console.log("COMMIT");
+        //                 SketchLine.ActiveSketch = null;
+        //                 // DesignGrid.position.y -= 20;
+        //                 return;
+        //             }
+        //             console.log("EXTRUDE");
+        //             // DesignGrid.rotation.y = -Camera.alpha;
+        //             FirstRotation = true;
+        //         } else {
+        //             // SketchLine.ActiveSketch = new SketchLine(Math.round(p.x), Math.round(p.z), Math.round(p.y));
+        //             if (!FirstRotation) {
+        //                 DesignGrid.position.x = p.x;
+        //                 DesignGrid.position.z = p.z;
+        //             };
+        //             SketchLine.ActiveSketch = new SketchLine(this, p.x, p.z, Math.round(p.y));
+        //             SketchLine.ActiveSketch.Start();
+        //         }
+        //     }
 
-            if (pi.type === BABYLON.PointerEventTypes.POINTERMOVE && SketchLine.ActiveSketch) {
-                SketchLine.ActiveSketch.SnapAngle = -DesignGrid.rotation.y; // Camera.alpha;
-                SketchLine.ActiveSketch.Update(p.x, p.z, HoldingShift);
-            }
+        //     if (pi.type === BABYLON.PointerEventTypes.POINTERMOVE && SketchLine.ActiveSketch) {
+        //         SketchLine.ActiveSketch.SnapAngle = -DesignGrid.rotation.y; // Camera.alpha;
+        //         SketchLine.ActiveSketch.Update(p.x, p.z, HoldingShift);
+        //     }
 
-            if (ChangingPitch && pi.type === BABYLON.PointerEventTypes.POINTERWHEEL && SketchLine.ActiveSketch) {
-                // console.log(pi);
-                // console.log(pi.event.wheelDelta);
-                let IncrementValue = (HoldingShift ? .5 : 1) * (pi.event.wheelDelta / 120);
-                SketchLine.ActiveSketch.Lines["0"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["0"].PITCH + IncrementValue);
-                SketchLine.ActiveSketch.Lines["1"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["1"].PITCH + IncrementValue);
-                SketchLine.ActiveSketch.Lines["A"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["A"].PITCH + IncrementValue);
-                SketchLine.ActiveSketch.Lines["B"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["B"].PITCH + IncrementValue);
-                SketchLine.ActiveSketch.UpdateWithPointer(HoldingShift);
-            }
-        });
+        //     if (ChangingPitch && pi.type === BABYLON.PointerEventTypes.POINTERWHEEL && SketchLine.ActiveSketch) {
+        //         // console.log(pi);
+        //         // console.log(pi.event.wheelDelta);
+        //         let IncrementValue = (HoldingShift ? .5 : 1) * (pi.event.wheelDelta / 120);
+        //         SketchLine.ActiveSketch.Lines["0"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["0"].PITCH + IncrementValue);
+        //         SketchLine.ActiveSketch.Lines["1"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["1"].PITCH + IncrementValue);
+        //         SketchLine.ActiveSketch.Lines["A"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["A"].PITCH + IncrementValue);
+        //         SketchLine.ActiveSketch.Lines["B"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["B"].PITCH + IncrementValue);
+        //         SketchLine.ActiveSketch.UpdateWithPointer(HoldingShift);
+        //     }
+        // });
 
         Camera.lowerBetaLimit = 0; // -Math.PI / 2;
         Camera.upperBetaLimit = Math.PI / 2;
@@ -410,22 +421,24 @@ export class Editor {
         var PanelViewCollapsed = true;
 
         Scene.onKeyboardObservable.add(async (kbInfo) => {
+            console.log(kbInfo.event.key)
             if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYDOWN) {
+                console.log(kbInfo.event.key)
                 switch (kbInfo.event.key) {
-                    case "p":
-                        Camera.mode = Camera.mode == BABYLON.Camera.ORTHOGRAPHIC_CAMERA ? BABYLON.Camera.PERSPECTIVE_CAMERA : BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
-                        if (Camera.mode == BABYLON.Camera.ORTHOGRAPHIC_CAMERA) {
-                            // Editor.MapDebugging.SwitchMap(false);
-                            Camera.lowerBetaLimit = 0;
-                            Camera.upperBetaLimit = 0;
-                        } else {
-                            // Editor.MapDebugging.SwitchMap(true);
-                            Camera.lowerBetaLimit = 0; // -Math.PI / 2;
-                            Camera.upperBetaLimit = Math.PI / 2;
-                        }
-                        updateOrtho();
-                        console.log("Pressed P");
-                        break;
+                    // case "p":
+                    //     Camera.mode = Camera.mode == BABYLON.Camera.ORTHOGRAPHIC_CAMERA ? BABYLON.Camera.PERSPECTIVE_CAMERA : BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+                    //     if (Camera.mode == BABYLON.Camera.ORTHOGRAPHIC_CAMERA) {
+                    //         // Editor.MapDebugging.SwitchMap(false);
+                    //         Camera.lowerBetaLimit = 0;
+                    //         Camera.upperBetaLimit = 0;
+                    //     } else {
+                    //         // Editor.MapDebugging.SwitchMap(true);
+                    //         Camera.lowerBetaLimit = 0; // -Math.PI / 2;
+                    //         Camera.upperBetaLimit = Math.PI / 2;
+                    //     }
+                    //     updateOrtho();
+                    //     // console.log("Pressed P");
+                    //     break;
 
                     case "t":
                         // Camera.alpha = 0t;
@@ -434,94 +447,96 @@ export class Editor {
                         // Camera.upperBetaLimit = 0;
                         break;
 
-                    case "q":
-                        SketchLine.ActiveSketch?.Delete();
-                        SketchLine.ActiveSketch = null;
-                        break;
+                    // case "q":
+                    //     SketchLine.ActiveSketch?.Delete();
+                    //     SketchLine.ActiveSketch = null;
+                    //     break;
 
-                    case "f":
-                        if (SketchLine.ActiveSketch && SketchLine.ActiveSketch.HasExtruded) SketchLine.ActiveSketch.DrawingMode = SketchLine.ActiveSketch.DrawingMode == "LINE" ? "EXTRUSION" : "LINE";
-                        SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                        break;
+                    // case "f":
+                    //     if (SketchLine.ActiveSketch && SketchLine.ActiveSketch.HasExtruded) SketchLine.ActiveSketch.DrawingMode = SketchLine.ActiveSketch.DrawingMode == "LINE" ? "EXTRUSION" : "LINE";
+                    //     SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
+                    //     break;
 
 
 
                     case "o":
-                        await Test(37.443185078072716, -122.13801955359011); // ANGLED HOUSE //
-                        // await Test(37.444938331695944, -122.13916635930947); // THE LIBRARY //
+                        console.log("hi?")
+                        // await Test(37.443185078072716, -122.13801955359011); // ANGLED HOUSE //
+                        await Test(37.444938331695944, -122.13916635930947); // THE LIBRARY //
                         // await Test(37.44412278382237, -122.13891846157102); // GIANT BUILDING BELOW THE LIBRARY //
                         // await Test(36.278676208726246, -86.53094040983781); // STRANGE HOUSE IN NASHVILLE //
+                        console.log("um?");
                         break;
 
-                    case "i":
+                    // case "i":
 
-                        break;
+                    //     break;
 
 
-                    case "e":
-                        ChangingPitch = true;
-                        Camera.lowerRadiusLimit = Camera.radius;
-                        Camera.upperRadiusLimit = Camera.radius;
-                        break;
+                    // case "e":
+                    //     ChangingPitch = true;
+                    //     Camera.lowerRadiusLimit = Camera.radius;
+                    //     Camera.upperRadiusLimit = Camera.radius;
+                    //     break;
 
-                    case "1":
-                        UI_Controls.Checkbox0.isChecked = !UI_Controls.Checkbox0.isChecked;
-                        SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                        break;
+                    // case "1":
+                    //     UI_Controls.Checkbox0.isChecked = !UI_Controls.Checkbox0.isChecked;
+                    //     SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
+                    //     break;
 
-                    case "2":
-                        UI_Controls.Checkbox1.isChecked = !UI_Controls.Checkbox1.isChecked;
-                        SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                        break;
+                    // case "2":
+                    //     UI_Controls.Checkbox1.isChecked = !UI_Controls.Checkbox1.isChecked;
+                    //     SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
+                    //     break;
 
-                    case "3":
-                        UI_Controls.Checkbox2.isChecked = !UI_Controls.Checkbox2.isChecked;
-                        SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                        break;
+                    // case "3":
+                    //     UI_Controls.Checkbox2.isChecked = !UI_Controls.Checkbox2.isChecked;
+                    //     SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
+                    //     break;
 
-                    case "4":
-                        UI_Controls.Checkbox3.isChecked = !UI_Controls.Checkbox3.isChecked;
-                        SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                        break;
+                    // case "4":
+                    //     UI_Controls.Checkbox3.isChecked = !UI_Controls.Checkbox3.isChecked;
+                    //     SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
+                    //     break;
 
-                    case "Shift":
-                        console.log("Shift is down");
-                        HoldingShift = true;
-                        SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                        break;
+                    // case "Shift":
+                    //     console.log("Shift is down");
+                    //     HoldingShift = true;
+                    //     SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
+                    //     break;
 
-                    case "Escape":
-                        PanelViewCollapsed = !PanelViewCollapsed;
-                        let RoofingEditor = window.document.getElementById("RoofingEditor") as HTMLElement;
-                        let PanelViewer = window.document.getElementById("PanelViewer") as HTMLElement;
-                        // FlatMapElement.style.marginLeft =
-                        RoofingEditor.style.marginLeft = PanelViewCollapsed ? "0%" : "30%";
-                        RoofingEditor.style.width = PanelViewCollapsed ? "100%" : "70%";
-                        PanelViewer.style.marginRight = PanelViewCollapsed ? "0%" : "70%";
-                        PanelViewer.style.width = PanelViewCollapsed ? "0%" : "30%";
-                        Engine.resize();
-                        this.PanelEngine?.resize();
-                        updateOrtho();
-                        console.log("Escape key pressed");
-                        break;
+                    // case "Escape":
+                    //     PanelViewCollapsed = !PanelViewCollapsed;
+                    //     let RoofingEditor = window.document.getElementById("RoofingEditor") as HTMLElement;
+                    //     let PanelViewer = window.document.getElementById("PanelViewer") as HTMLElement;
+                    //     // FlatMapElement.style.marginLeft =
+                    //     RoofingEditor.style.marginLeft = PanelViewCollapsed ? "0%" : "30%";
+                    //     RoofingEditor.style.width = PanelViewCollapsed ? "100%" : "70%";
+                    //     PanelViewer.style.marginRight = PanelViewCollapsed ? "0%" : "70%";
+                    //     PanelViewer.style.width = PanelViewCollapsed ? "0%" : "30%";
+                    //     Engine.resize();
+                    //     this.PanelEngine?.resize();
+                    //     updateOrtho();
+                    //     console.log("Escape key pressed");
+                    //     break;
                 }
             }
 
-            if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYUP) {
-                console.log("Released:", kbInfo.event.key);
-                switch (kbInfo.event.key) {
-                    case "Shift":
-                        HoldingShift = false;
-                        SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                        break;
+            // if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYUP) {
+            //     // console.log("Released:", kbInfo.event.key);
+            //     switch (kbInfo.event.key) {
+            //         case "Shift":
+            //             HoldingShift = false;
+            //             SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
+            //             break;
 
-                    case "e":
-                        ChangingPitch = false;
-                        Camera.lowerRadiusLimit = 10;
-                        Camera.upperRadiusLimit = null;
-                        break;
-                }
-            }
+            //         case "e":
+            //             ChangingPitch = false;
+            //             Camera.lowerRadiusLimit = 10;
+            //             Camera.upperRadiusLimit = null;
+            //             break;
+            //     }
+            // }
         });
 
         // EditorUI.onControlPickedObservable.add(control => {
@@ -562,130 +577,127 @@ export class Editor {
         //     // Camera.detachControl();
         // });
 
-        EditorUI.onControlPickedObservable.add(control => {
-            if (control.isPointerBlocker) {
-                CanDraw = false;
-                // Camera.detachControl();
-            }
-        });
+        // EditorUI.onControlPickedObservable.add(control => {
+        //     if (control.isPointerBlocker) {
+        //         CanDraw = false;
+        //         // Camera.detachControl();
+        //     }
+        // });
 
-        EditorUI.executeOnAllControls(control => {
-            if (control.isPointerBlocker) {
-                control.onPointerOutObservable.add(() => {
-                    CanDraw = true;
-                    // Camera.attachControl(true);
-                });
-            }
-        });
+        // EditorUI.executeOnAllControls(control => {
+        //     if (control.isPointerBlocker) {
+        //         control.onPointerOutObservable.add(() => {
+        //             CanDraw = true;
+        //             // Camera.attachControl(true);
+        //         });
+        //     }
+        // });
 
-        setTimeout(() => {
-            UI_Controls.Rectangle1.isPointerBlocker = true;
-        }, 500);
+        // setTimeout(() => {
+        //     UI_Controls.Rectangle1.isPointerBlocker = true;
+        // }, 500);
 
+        // function UpdateDrawing() {
+        //     let Y0 = UI_Controls.Checkbox0.isChecked ? ((UI_Controls.Checkbox2.isChecked && UI_Controls.Checkbox3.isChecked) ? "160px" : "128px") : "192px";
+        //     UI_Controls.Line.y1 = Y0;
+        //     UI_Controls.Line0A.y2 = Y0;
+        //     UI_Controls.Line0B.y2 = Y0;
 
-        console.log(UI_Controls.Line0A)
+        //     let Y1 = UI_Controls.Checkbox1.isChecked ? ((UI_Controls.Checkbox2.isChecked && UI_Controls.Checkbox3.isChecked) ? "32px" : "64px") : "0px";
+        //     UI_Controls.Line.y2 = Y1;
+        //     UI_Controls.Line1A.y2 = Y1;
+        //     UI_Controls.Line1B.y2 = Y1;
 
-        function UpdateDrawing() {
-            let Y0 = UI_Controls.Checkbox0.isChecked ? ((UI_Controls.Checkbox2.isChecked && UI_Controls.Checkbox3.isChecked) ? "160px" : "128px") : "192px";
-            UI_Controls.Line.y1 = Y0;
-            UI_Controls.Line0A.y2 = Y0;
-            UI_Controls.Line0B.y2 = Y0;
+        //     // console.log(UI_Controls.Line);
+        //     UI_Controls.Line.lineWidth = (UI_Controls.Checkbox2.isChecked && UI_Controls.Checkbox3.isChecked) ? 1 : 3;
 
-            let Y1 = UI_Controls.Checkbox1.isChecked ? ((UI_Controls.Checkbox2.isChecked && UI_Controls.Checkbox3.isChecked) ? "32px" : "64px") : "0px";
-            UI_Controls.Line.y2 = Y1;
-            UI_Controls.Line1A.y2 = Y1;
-            UI_Controls.Line1B.y2 = Y1;
+        //     let LineX = UI_Controls.Checkbox2.isChecked ? (UI_Controls.Checkbox3.isChecked ? "32px" : "64px") : "0px";
+        //     UI_Controls.Line.x1 = LineX
+        //     UI_Controls.Line.x2 = LineX;
+        //     UI_Controls.Line1A.x2 = LineX;
+        //     UI_Controls.Line1B.x2 = LineX;
+        //     UI_Controls.Line0A.x2 = LineX;
+        //     UI_Controls.Line0B.x2 = LineX;
 
-            // console.log(UI_Controls.Line);
-            UI_Controls.Line.lineWidth = (UI_Controls.Checkbox2.isChecked && UI_Controls.Checkbox3.isChecked) ? 1 : 3;
+        //     UI_Controls.Textblock0.isVisible = UI_Controls.Checkbox0.isChecked;
+        //     UI_Controls.Textblock1.isVisible = UI_Controls.Checkbox1.isChecked;
+        //     UI_Controls.Textblock2.isVisible = UI_Controls.Checkbox2.isChecked;
+        //     UI_Controls.Textblock3.isVisible = UI_Controls.Checkbox3.isChecked;
+        // };
 
-            let LineX = UI_Controls.Checkbox2.isChecked ? (UI_Controls.Checkbox3.isChecked ? "32px" : "64px") : "0px";
-            UI_Controls.Line.x1 = LineX
-            UI_Controls.Line.x2 = LineX;
-            UI_Controls.Line1A.x2 = LineX;
-            UI_Controls.Line1B.x2 = LineX;
-            UI_Controls.Line0A.x2 = LineX;
-            UI_Controls.Line0B.x2 = LineX;
-
-            UI_Controls.Textblock0.isVisible = UI_Controls.Checkbox0.isChecked;
-            UI_Controls.Textblock1.isVisible = UI_Controls.Checkbox1.isChecked;
-            UI_Controls.Textblock2.isVisible = UI_Controls.Checkbox2.isChecked;
-            UI_Controls.Textblock3.isVisible = UI_Controls.Checkbox3.isChecked;
-        };
-
-        UpdateDrawing();
+        // UpdateDrawing();
 
         // UI_Controls.Primary0.getChildByName()
         PrimaryText0.text = "RUN";
         PrimaryText1.text = "RUN";
 
-        UI_Controls.Primary0.onPointerClickObservable.add(function (eventData, eventState) {
-            let TEXT = PrimaryText0.text;
-            PrimaryText0.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
-            if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.Lines["0"].PRIMARY = PrimaryText0.text;
-        });
-
-        UI_Controls.Primary1.onPointerClickObservable.add(function (eventData, eventState) {
-            let TEXT = PrimaryText1.text;
-            PrimaryText1.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
-            if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.Lines["1"].PRIMARY = PrimaryText1.text;
-        });
-
-        UI_Controls.Primary2.onPointerClickObservable.add(function (eventData, eventState) {
-            let TEXT = PrimaryText2.text;
-            PrimaryText2.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
-            if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.Lines["A"].PRIMARY = PrimaryText2.text;
-        });
-
-        UI_Controls.Primary3.onPointerClickObservable.add(function (eventData, eventState) {
-            let TEXT = PrimaryText3.text;
-            PrimaryText3.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
-            if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.Lines["B"].PRIMARY = PrimaryText3.text;
-        });
-        // console.log(UI_Controls.Rise0);
-        // UI_Controls.Rise0.onTextChangedObservable.add(function (test) {
-        //     console.log("TEST", test.text == +test.text);
+        // UI_Controls.Primary0.onPointerClickObservable.add(function (eventData, eventState) {
+        //     let TEXT = PrimaryText0.text;
+        //     PrimaryText0.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
+        //     if (!SketchLine.ActiveSketch) return;
+        //     SketchLine.ActiveSketch.Lines["0"].PRIMARY = PrimaryText0.text;
         // });
 
-        // UI_Controls.Rise0.onEnterPressedObservable.add(function (test) {
-        //     console.log("TEST2", test.text == +test.text);
+        // UI_Controls.Primary1.onPointerClickObservable.add(function (eventData, eventState) {
+        //     let TEXT = PrimaryText1.text;
+        //     PrimaryText1.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
+        //     if (!SketchLine.ActiveSketch) return;
+        //     SketchLine.ActiveSketch.Lines["1"].PRIMARY = PrimaryText1.text;
         // });
 
-        // UI_Controls.Rise0.onPointerUpObservable.add(function (test) {
-        //     console.log("EEE", test);
-        //     // console.log("TEST3", test.text == +test.text);
+        // UI_Controls.Primary2.onPointerClickObservable.add(function (eventData, eventState) {
+        //     let TEXT = PrimaryText2.text;
+        //     PrimaryText2.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
+        //     if (!SketchLine.ActiveSketch) return;
+        //     SketchLine.ActiveSketch.Lines["A"].PRIMARY = PrimaryText2.text;
         // });
 
-        UI_Controls.Checkbox0.onIsCheckedChangedObservable.add(function (Value) {
-            UpdateDrawing();
-            if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.Lines["0"].ENABLED = Value;
-        });
+        // UI_Controls.Primary3.onPointerClickObservable.add(function (eventData, eventState) {
+        //     let TEXT = PrimaryText3.text;
+        //     PrimaryText3.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
+        //     if (!SketchLine.ActiveSketch) return;
+        //     SketchLine.ActiveSketch.Lines["B"].PRIMARY = PrimaryText3.text;
+        // });
+        // // console.log(UI_Controls.Rise0);
+        // // UI_Controls.Rise0.onTextChangedObservable.add(function (test) {
+        // //     console.log("TEST", test.text == +test.text);
+        // // });
 
-        UI_Controls.Checkbox1.onIsCheckedChangedObservable.add(function (Value) {
-            UpdateDrawing();
-            if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.Lines["1"].ENABLED = Value;
-        });
+        // // UI_Controls.Rise0.onEnterPressedObservable.add(function (test) {
+        // //     console.log("TEST2", test.text == +test.text);
+        // // });
 
-        UI_Controls.Checkbox2.onIsCheckedChangedObservable.add(function (Value) {
-            UI_Controls.Checkbox3.isChecked = Value ? UI_Controls.Checkbox3.isChecked : true
-            UpdateDrawing();
-            if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.Lines["B"].ENABLED = UI_Controls.Checkbox3.isChecked;
-            SketchLine.ActiveSketch.Lines["A"].ENABLED = Value;
-        });
+        // // UI_Controls.Rise0.onPointerUpObservable.add(function (test) {
+        // //     console.log("EEE", test);
+        // //     // console.log("TEST3", test.text == +test.text);
+        // // });
 
-        UI_Controls.Checkbox3.onIsCheckedChangedObservable.add(function (Value) {
-            UI_Controls.Checkbox2.isChecked = Value ? UI_Controls.Checkbox2.isChecked : true;
-            UpdateDrawing();
-            if (!SketchLine.ActiveSketch) return;
-            SketchLine.ActiveSketch.Lines["A"].ENABLED = UI_Controls.Checkbox2.isChecked;
-            SketchLine.ActiveSketch.Lines["B"].ENABLED = Value;
-        });
+        // UI_Controls.Checkbox0.onIsCheckedChangedObservable.add(function (Value) {
+        //     UpdateDrawing();
+        //     if (!SketchLine.ActiveSketch) return;
+        //     SketchLine.ActiveSketch.Lines["0"].ENABLED = Value;
+        // });
+
+        // UI_Controls.Checkbox1.onIsCheckedChangedObservable.add(function (Value) {
+        //     UpdateDrawing();
+        //     if (!SketchLine.ActiveSketch) return;
+        //     SketchLine.ActiveSketch.Lines["1"].ENABLED = Value;
+        // });
+
+        // UI_Controls.Checkbox2.onIsCheckedChangedObservable.add(function (Value) {
+        //     UI_Controls.Checkbox3.isChecked = Value ? UI_Controls.Checkbox3.isChecked : true
+        //     UpdateDrawing();
+        //     if (!SketchLine.ActiveSketch) return;
+        //     SketchLine.ActiveSketch.Lines["B"].ENABLED = UI_Controls.Checkbox3.isChecked;
+        //     SketchLine.ActiveSketch.Lines["A"].ENABLED = Value;
+        // });
+
+        // UI_Controls.Checkbox3.onIsCheckedChangedObservable.add(function (Value) {
+        //     UI_Controls.Checkbox2.isChecked = Value ? UI_Controls.Checkbox2.isChecked : true;
+        //     UpdateDrawing();
+        //     if (!SketchLine.ActiveSketch) return;
+        //     SketchLine.ActiveSketch.Lines["A"].ENABLED = UI_Controls.Checkbox2.isChecked;
+        //     SketchLine.ActiveSketch.Lines["B"].ENABLED = Value;
+        // });
     }
 }

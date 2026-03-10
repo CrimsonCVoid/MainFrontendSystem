@@ -30,6 +30,7 @@ import * as BABYLON from "@babylonjs/core";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
 import { Editor } from "@/lib/editor";
+import { SketchLine } from "@/lib/drawings";
 // import { CreateGoogleDebugMesh, GetMapCenterLAT, GetMapCenterLON, SetMapCenter } from "@/lib/utils";
 
 declare global { interface Window { BABYLON?: any } }
@@ -91,7 +92,7 @@ export default function RoofViewer3D({
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<any>(null);
-  const panelMaterialRef = useRef<any>(null);
+  // const panelMaterialRef = useRef<any>(null);
   const cameraRef = useRef<any>(null);
   const meshesRef = useRef<any>(null);
   const [selectedColor, setSelectedColor] = useState(color);
@@ -279,14 +280,14 @@ export default function RoofViewer3D({
       sun.intensity = 1.1;
 
       // Root transform node for rotation control
-      const root = new BABYLON.TransformNode("root", Scene);
+      // const root = new BABYLON.TransformNode("root", Scene);
 
       // Metal roof panel material (PBR with metallic properties)
-      const panelMat = new BABYLON.PBRMetallicRoughnessMaterial("panelMat", Scene);
-      panelMat.baseColor = BABYLON.Color3.FromHexString(selectedColor);
-      panelMat.metallic = .5; panelMat.roughness = 0.25;
-      panelMat.backFaceCulling = false;
-      panelMaterialRef.current = panelMat;
+      // const panelMat = new BABYLON.PBRMetallicRoughnessMaterial("panelMat", Scene);
+      // panelMat.baseColor = BABYLON.Color3.FromHexString(selectedColor);
+      // panelMat.metallic = .5; panelMat.roughness = 0.25;
+      // panelMat.backFaceCulling = false;
+      // panelMaterialRef.current = panelMat;
 
       // KY - INTEGRATION POINT:
       // Replace makePanel logic with actual roof geometry from roofData.planes
@@ -304,7 +305,7 @@ export default function RoofViewer3D({
 
 
 
-      var UpperMostLayer = new BABYLON.UtilityLayerRenderer(Scene);
+      // var UpperMostLayer = new BABYLON.UtilityLayerRenderer(Scene);
 
 
       // CreateGoogleDebugMesh();
@@ -313,65 +314,65 @@ export default function RoofViewer3D({
       let light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), Scene);
       light.intensity = 0; // .2; // 0.7;
 
-      let HoverHighlight = new BABYLON.HighlightLayer("highlight", Scene);
-      let SelectionHighlight = new BABYLON.HighlightLayer("highlight", Scene);
+      // let HoverHighlight = new BABYLON.HighlightLayer("highlight", Scene);
+      // let SelectionHighlight = new BABYLON.HighlightLayer("highlight", Scene);
       // SelectionHighlight.color3 = 
 
       // let GUI3D = new BABYLON.GUI.GUI3DManager(Scene);
-      let actionManager = new BABYLON.ActionManager(Scene);
-      let PreviousMeshHover;
-      let PreviousMeshSelected;
+      // let actionManager = new BABYLON.ActionManager(Scene);
+      // let PreviousMeshHover;
+      // let PreviousMeshSelected;
 
-      // Action for when the pointer enters the mesh (hover start)
-      actionManager.registerAction(
-        new BABYLON.ExecuteCodeAction(
-          BABYLON.ActionManager.OnPointerOverTrigger,
-          function (event) {
-            if (event.source && event.source.ShowOnHover)
-              for (let SHOW of event.source.ShowOnHover)
-                SHOW.isVisible = true;
-            if (PreviousMeshHover != null) HoverHighlight.removeMesh(PreviousMeshHover);
-            if (event.source == PreviousMeshSelected && PreviousMeshSelected != null) return;
-            PreviousMeshHover = event.source;
-            if (PreviousMeshHover != null) HoverHighlight.addMesh(PreviousMeshHover, BABYLON.Color3.Blue());
-          }
-        )
-      );
+      // // Action for when the pointer enters the mesh (hover start)
+      // actionManager.registerAction(
+      //   new BABYLON.ExecuteCodeAction(
+      //     BABYLON.ActionManager.OnPointerOverTrigger,
+      //     function (event) {
+      //       if (event.source && event.source.ShowOnHover)
+      //         for (let SHOW of event.source.ShowOnHover)
+      //           SHOW.isVisible = true;
+      //       if (PreviousMeshHover != null) HoverHighlight.removeMesh(PreviousMeshHover);
+      //       if (event.source == PreviousMeshSelected && PreviousMeshSelected != null) return;
+      //       PreviousMeshHover = event.source;
+      //       if (PreviousMeshHover != null) HoverHighlight.addMesh(PreviousMeshHover, BABYLON.Color3.Blue());
+      //     }
+      //   )
+      // );
 
-      // Action for when the pointer exits the mesh (hover end)
-      actionManager.registerAction(
-        new BABYLON.ExecuteCodeAction(
-          BABYLON.ActionManager.OnPointerOutTrigger,
-          function (event) {
-            if (event.source && event.source.ShowOnHover)
-              for (let SHOW of event.source.ShowOnHover)
-                SHOW.isVisible = false;
-            if (PreviousMeshHover == null) return;
-            HoverHighlight.removeMesh(PreviousMeshHover);
-            PreviousMeshHover = null;
-          }
-        )
-      );
+      // // Action for when the pointer exits the mesh (hover end)
+      // actionManager.registerAction(
+      //   new BABYLON.ExecuteCodeAction(
+      //     BABYLON.ActionManager.OnPointerOutTrigger,
+      //     function (event) {
+      //       if (event.source && event.source.ShowOnHover)
+      //         for (let SHOW of event.source.ShowOnHover)
+      //           SHOW.isVisible = false;
+      //       if (PreviousMeshHover == null) return;
+      //       HoverHighlight.removeMesh(PreviousMeshHover);
+      //       PreviousMeshHover = null;
+      //     }
+      //   )
+      // );
 
-      actionManager.registerAction(
-        new BABYLON.ExecuteCodeAction(
-          BABYLON.ActionManager.OnPickTrigger,
-          function (event) {
-            // Restore original material color
-            console.log("AAAAAAAAA");
-            // event.source.edgesColor = new BABYLON.Color4(1, 1, 1, 1);
-            // event.source.material.wireframe = true;
-            if (PreviousMeshSelected) PreviousMeshSelected.PanelAlt.isVisible = false;
-            if (PreviousMeshHover != null) HoverHighlight.removeMesh(PreviousMeshHover);
-            PreviousMeshHover = null;
-            if (PreviousMeshSelected != null) SelectionHighlight.removeMesh(PreviousMeshSelected);
-            PreviousMeshSelected = event.source;
-            if (PreviousMeshSelected == null) return;
-            SelectionHighlight.addMesh(PreviousMeshSelected, BABYLON.Color3.White());
-            PreviousMeshSelected.PanelAlt.isVisible = true;
-          }
-        )
-      );
+      // actionManager.registerAction(
+      //   new BABYLON.ExecuteCodeAction(
+      //     BABYLON.ActionManager.OnPickTrigger,
+      //     function (event) {
+      //       // Restore original material color
+      //       console.log("AAAAAAAAA");
+      //       // event.source.edgesColor = new BABYLON.Color4(1, 1, 1, 1);
+      //       // event.source.material.wireframe = true;
+      //       if (PreviousMeshSelected) PreviousMeshSelected.PanelAlt.isVisible = false;
+      //       if (PreviousMeshHover != null) HoverHighlight.removeMesh(PreviousMeshHover);
+      //       PreviousMeshHover = null;
+      //       if (PreviousMeshSelected != null) SelectionHighlight.removeMesh(PreviousMeshSelected);
+      //       PreviousMeshSelected = event.source;
+      //       if (PreviousMeshSelected == null) return;
+      //       SelectionHighlight.addMesh(PreviousMeshSelected, BABYLON.Color3.White());
+      //       PreviousMeshSelected.PanelAlt.isVisible = true;
+      //     }
+      //   )
+      // );
 
       // BABYLON.MeshDebugPluginMaterial.PrepareMeshForTrianglesAndVerticesMode(Polygon);
 
@@ -420,7 +421,7 @@ export default function RoofViewer3D({
       // let LAT = (37.4449703 + Math.random()); // .toFixed(5);
       // let LON = (-122.1391467 + Math.random()); // .toFixed(5);
 
-      let LAT = 37.44288953971293, LON = -122.13907401452673; // COMPLICATED HOUSE //
+      // let LAT = 37.44288953971293, LON = -122.13907401452673; // COMPLICATED HOUSE //
       // let LAT = 38.1265454, LON = -121.300558; // HOUSE //
       // let LAT = 37.4440563, LON = -122.1393081; // GIANT BUILDING //
       // let LAT = 37.44318785801852, LON = -122.13798024271368; // SIMPLER HOUSE //
@@ -443,8 +444,8 @@ export default function RoofViewer3D({
       //   Scene.render();
       // });
 
-      // // Watch for browser/RoofingEditor resize events
-      // window.addEventListener("resize", () => Engine.resize());
+      // Watch for browser/RoofingEditor resize events
+      window.addEventListener("resize", () => Engine.resize());
 
 
 
@@ -458,8 +459,9 @@ export default function RoofViewer3D({
       Editor.window = window;
       console.log("EDITOR WINDOW", window);
       let ActiveEditor = Editor.ActiveEditor = new Editor(Engine, Scene, Camera, RoofUI, window);
-      Editor.MapDebugging.CreateGoogleDebugMesh();
-      Editor.meshesRef = meshesRef;
+      Editor.ActiveEditor.RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString(selectedColor);
+      // Editor.MapDebugging.CreateGoogleDebugMesh();
+      // Editor.meshesRef = meshesRef;
 
 
 
@@ -475,51 +477,51 @@ export default function RoofViewer3D({
 
 
 
-      const makePanel = (name: string, side: "left" | "right") => {
-        const boxSettings = {
-          width: wTop,
-          height: thickness,
-          depth: slopedLen,
-          updatable: true,
-        };
-        const box = BABYLON.MeshBuilder.CreateBox(name, boxSettings, Scene);
-        boxSettings.instance = box;
-        box.material = panelMat;
-        Editor.meshesRef = meshesRef;
-        meshesRef.current.push([box, boxSettings, name]);
+      // const makePanel = (name: string, side: "left" | "right") => {
+      //   const boxSettings = {
+      //     width: wTop,
+      //     height: thickness,
+      //     depth: slopedLen,
+      //     updatable: true,
+      //   };
+      //   const box = BABYLON.MeshBuilder.CreateBox(name, boxSettings, Scene);
+      //   boxSettings.instance = box;
+      //   box.material = panelMat;
+      //   Editor.meshesRef = meshesRef;
+      //   meshesRef.current.push([box, boxSettings, name]);
 
-        const sign = side === "left" ? -1 : +1;
-        box.rotation.x = sign * slopeAngle;
+      //   const sign = side === "left" ? -1 : +1;
+      //   box.rotation.x = sign * slopeAngle;
 
-        const zEdge = (slopedLen / 2) * Math.cos(slopeAngle);
-        const yEdge = (slopedLen / 2) * Math.sin(slopeAngle);
-        box.position.z = sign * zEdge;
-        box.position.y = rise - yEdge;
-        box.parent = root;
-        return box;
-      };
+      //   const zEdge = (slopedLen / 2) * Math.cos(slopeAngle);
+      //   const yEdge = (slopedLen / 2) * Math.sin(slopeAngle);
+      //   box.position.z = sign * zEdge;
+      //   box.position.y = rise - yEdge;
+      //   box.parent = root;
+      //   return box;
+      // };
 
-      makePanel("panelL", "left");
-      makePanel("panelR", "right");
+      // makePanel("panelL", "left");
+      // makePanel("panelR", "right");
 
       // ridge cap
-      const ridge = BABYLON.MeshBuilder.CreateBox("ridge", {
-        width: wTop * 1.01,
-        height: Math.max(0.06, thickness * 1.2),
-        depth: 0.20,
-      }, Scene);
-      const ridgeMat = new BABYLON.PBRMetallicRoughnessMaterial("ridgeMat", Scene);
-      ridgeMat.baseColor = BABYLON.Color3.FromHexString("#374151");
-      ridgeMat.metallic = 1; ridgeMat.roughness = 0.3;
-      ridge.material = ridgeMat;
-      ridge.position.set(0, rise + ridge.getBoundingInfo().boundingBox.extendSize.y, 0);
-      ridge.parent = root;
+      // const ridge = BABYLON.MeshBuilder.CreateBox("ridge", {
+      //   width: wTop * 1.01,
+      //   height: Math.max(0.06, thickness * 1.2),
+      //   depth: 0.20,
+      // }, Scene);
+      // const ridgeMat = new BABYLON.PBRMetallicRoughnessMaterial("ridgeMat", Scene);
+      // ridgeMat.baseColor = BABYLON.Color3.FromHexString("#374151");
+      // ridgeMat.metallic = 1; ridgeMat.roughness = 0.3;
+      // ridge.material = ridgeMat;
+      // ridge.position.set(0, rise + ridge.getBoundingInfo().boundingBox.extendSize.y, 0);
+      // ridge.parent = root;
 
       // spin
       let rotationEnabled = isRotating;
       Scene.onBeforeRenderObservable.add(() => {
-        if (rotationEnabled) {
-          root.rotation.y += Engine.getDeltaTime() * 0.0006;
+        if (rotationEnabled) { // && Editor.ActiveEditor?.Root) {
+          Editor.ActiveEditor.Camera.alpha += Engine.getDeltaTime() * 0.0006;
         }
       });
 
@@ -527,7 +529,7 @@ export default function RoofViewer3D({
         rotationEnabled = enabled;
       };
 
-      [panelMat, ridgeMat].forEach(m => m.freeze?.());
+      // [panelMat, ridgeMat].forEach(m => m.freeze?.());
       Scene.blockMaterialDirtyMechanism = true;
 
       Engine.runRenderLoop(() => Scene.render());
@@ -543,17 +545,27 @@ export default function RoofViewer3D({
     return () => { disposed = true; };
   }, [dims, overhang, thickness, seamSpacing, spin]); // , selectedColor]);
 
-  // Update material color when selectedColor changes
   useEffect(() => {
-    if (panelMaterialRef.current) {
-      Editor.meshesRef = meshesRef;
-      panelMaterialRef.current.baseColor = BABYLON.Color3.FromHexString(selectedColor);
-      for (let Data of meshesRef.current) {
-        Data[0].material = panelMaterialRef.current; // .baseColor = BABYLON.Color3.FromHexString(selectedColor);
-        Data[0] = BABYLON.MeshBuilder.CreateBox(Data[2], Data[0].instance);
-        // Data[0].material
+    for (let Sketch of SketchLine.AllDrawings) {
+      for (let LineID in Sketch.Lines) {
+        Sketch.Lines[LineID].SketchExtrusionLines.SelectedProfile = panelProfile;
+        Sketch.Lines[LineID].SketchExtrusionLines.UpdatePanelMesh();
       }
     }
+  }, [panelProfile]);
+
+  // Update material color when selectedColor changes
+  useEffect(() => {
+    Editor.ActiveEditor.RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString(selectedColor);
+    // if (panelMaterialRef.current) {
+    //   // Editor.meshesRef = meshesRef;
+    //   // panelMaterialRef.current.baseColor = BABYLON.Color3.FromHexString(selectedColor);
+    //   // for (let Data of meshesRef.current) {
+    //   //   if (Data[0].instance) Data[0].instance.material = panelMaterialRef.current; // .baseColor = BABYLON.Color3.FromHexString(selectedColor);
+    //   //   // Data[0] = BABYLON.MeshBuilder.CreateBox(Data[2], Data[0].instance);
+    //   //   // Data[0].material
+    //   // }
+    // }
   }, [selectedColor]);
 
   // Update rotation when isRotating changes
@@ -569,8 +581,8 @@ export default function RoofViewer3D({
     const cam = cameraRef.current;
 
     const { run, rise } = dims;
-    const target = new BABYLON.Vector3(0, rise * 0.6, 0);
-    const radius = Math.max(width, run * 2) * 1.2;
+    const target = new BABYLON.Vector3(0, 0, 0);
+    const radius = 600; // Math.max(width, run * 2) * 1.2;
 
     switch (currentView) {
       case "top":
@@ -642,7 +654,7 @@ export default function RoofViewer3D({
           {/* Canvas */}
           <div ref={wrapRef} className="relative bg-gradient-to-br from-gray-100 via-gray-50 to-white dark:from-gray-900 dark:via-gray-950 dark:to-black" style={{ height: hideControls ? '100%' : '400px' }}>
             <canvas ref={canvasRef} className="block w-full h-full" />
-            <div id="flatmap" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, height: "2000px", width: "2000px", scale: 1 }}></div>
+            {/* <div id="flatmap" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, height: "2000px", width: "2000px", scale: 1 }}></div> */}
 
             {/* View Selector - Hidden when hideControls is true */}
             {!hideControls && (
