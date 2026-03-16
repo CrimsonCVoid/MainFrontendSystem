@@ -8,19 +8,19 @@ import { GridMaterial } from "@babylonjs/materials";
 // import { Scene, Camera, Engine, RoofUI } from "./roofedit.bl.js";
 // import { CFrame, Vector3 } from "./positioning";
 // import * from "./Editor.d.ts";
-// import { SketchLine } from "./drawings";
+import { SketchLine } from "./drawings";
 
 // import { CreateMarker } from "./editor-utils"; // SwitchMap
 
 import TestingConfig from "./EditorUI.json";
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
-// import { Test } from "./backend"; // DebuggingClass
+import { Test } from "./backend"; // DebuggingClass
 
 type xyz_Class = { x: number, y: number, z: number };
 
-async function Test() {
+// async function Test() {
 
-}
+// }
 
 type BABYLON_LineOptions = {
     points: BABYLON.Vector3[];
@@ -145,10 +145,10 @@ export class Editor {
         return pick?.hit ? pick.pickedPoint : null;
     }
 
-    LabelMarker(V3: xyz_Class, Text: string = "Vertex") {
+    LabelMarkerXYZ(X: number, Y: number, Z: number, Text: string = "Vertex") {
         let marker = BABYLON.MeshBuilder.CreateSphere("marker", { diameter: 0.01 }, this.Scene);
         marker.isVisible = false; // don’t show it
-        marker.position.set(V3.x, V3.z, V3.y);
+        marker.position.set(X, Y, Z);
         // marker.position.set(V3.X, V3.Y, V3.Z);
         let text = new BABYLON_UI.TextBlock();
         text.text = Text;
@@ -157,6 +157,10 @@ export class Editor {
         text.linkWithMesh(marker); // text follows invisible mesh
         text.color = "white"; // "Black";
         return marker;
+    }
+
+    LabelMarker(V3: xyz_Class, Text: string = "Vertex") {
+        return this.LabelMarkerXYZ(V3.x, V3.z, V3.y, Text);
     }
 
     CreateMarker(Name: string = "") {
@@ -184,11 +188,11 @@ export class Editor {
 
         let DesignGrid = this.DesignGrid = BABYLON.Mesh.CreateGround("ground", 10000, 10000, 10, Scene);
         var gridMaterial = new GridMaterial("gridMaterial", Scene);
-        // gridMaterial.mainColor = BABYLON.Color4.FromInts(230, 230, 235, 255);
-        // gridMaterial.lineColor = BABYLON.Color4.FromInts(25, 25, 30);
-        // gridMaterial.opacity = .8;
+        gridMaterial.mainColor = BABYLON.Color4.FromInts(230, 230, 235, 255);
+        gridMaterial.lineColor = BABYLON.Color4.FromInts(25, 25, 30);
+        gridMaterial.opacity = .8;
         DesignGrid.material = gridMaterial
-        DesignGrid.isVisible = false;
+        // DesignGrid.isVisible = false;
 
         // this.Root = new BABYLON.TransformNode("ROOT", Scene);
 
@@ -308,29 +312,29 @@ export class Editor {
 
         // mapContainer.appendChild(mapDiv);
 
-        // let RenderWidth = Engine.getRenderWidth();
-        // let RenderHeight = Engine.getRenderHeight();
+        let RenderWidth = Engine.getRenderWidth();
+        let RenderHeight = Engine.getRenderHeight();
 
-        // const updateOrtho = () => {
-        //     RenderWidth = Engine.getRenderWidth();
-        //     RenderHeight = Engine.getRenderHeight();
-        //     const ratio = RenderWidth / RenderHeight;
-        //     const zoom = Camera.radius / SketchLine.DrawingScale; // use radius as scale
+        const updateOrtho = () => {
+            RenderWidth = Engine.getRenderWidth();
+            RenderHeight = Engine.getRenderHeight();
+            const ratio = RenderWidth / RenderHeight;
+            const zoom = Camera.radius / SketchLine.DrawingScale; // use radius as scale
 
-        //     Camera.orthoLeft = -zoom * ratio;
-        //     Camera.orthoRight = zoom * ratio;
-        //     Camera.orthoBottom = -zoom;
-        //     Camera.orthoTop = zoom;
+            Camera.orthoLeft = -zoom * ratio;
+            Camera.orthoRight = zoom * ratio;
+            Camera.orthoBottom = -zoom;
+            Camera.orthoTop = zoom;
 
 
-        //     // console.log(zoom, 1500 / zoom)
-        //     let Scale = 1 / Camera.radius * SketchLine.DrawingScale / ratio * 1450; // zoom; // * .9366666; // 25; // * .9;
-        //     Editor.MapDebugging.FlatMapElement.style.scale = Scale.toString();
-        //     // console.log(Camera.orthoTop, Scale);
-        //     // May still not be perfect, but honestly, idrk anymore.
-        //     Editor.MapDebugging.FlatMapElement.style.left = -(Editor.MapDebugging.FlatMapElement.clientWidth - RenderWidth) / 2 + "px";
-        //     Editor.MapDebugging.FlatMapElement.style.top = -(Editor.MapDebugging.FlatMapElement.clientHeight - RenderHeight) / 2 + "px";
-        // };
+            // console.log(zoom, 1500 / zoom)
+            // let Scale = 1 / Camera.radius * SketchLine.DrawingScale / ratio * 1450; // zoom; // * .9366666; // 25; // * .9;
+            // Editor.MapDebugging.FlatMapElement.style.scale = Scale.toString();
+            // // console.log(Camera.orthoTop, Scale);
+            // // May still not be perfect, but honestly, idrk anymore.
+            // Editor.MapDebugging.FlatMapElement.style.left = -(Editor.MapDebugging.FlatMapElement.clientWidth - RenderWidth) / 2 + "px";
+            // Editor.MapDebugging.FlatMapElement.style.top = -(Editor.MapDebugging.FlatMapElement.clientHeight - RenderHeight) / 2 + "px";
+        };
 
         // Scene.onBeforeRenderObservable.add(() => {
         //     Editor.MapDebugging.FlatMapElement.style.rotate = Camera.alpha + "rad";
@@ -346,74 +350,71 @@ export class Editor {
 
         // console.log(Camera);
 
-        // updateOrtho();
+        updateOrtho();
 
-        // Camera.onViewMatrixChangedObservable.add(updateOrtho);
+        Camera.onViewMatrixChangedObservable.add(updateOrtho);
 
-        // window.addEventListener("resize", () => {
-        //     // Engine.resize();
-        //     updateOrtho();
-        // });
+        window.addEventListener("resize", () => {
+            // Engine.resize();
+            updateOrtho();
+        });
 
         // console.log(BABYLON.PointerEventTypes.POINTERDOWN);
         // console.log(BABYLON.PointerEventTypes.POINTERMOVE);
         // console.log(BABYLON.PointerEventTypes.POINTERUP);
 
-        // let HoldingShift = false;
-        // let ChangingPitch = false;
-        // let CanDraw = true;
-        // let FirstRotation = false;
+        let HoldingShift = false;
+        let ChangingPitch = false;
+        let CanDraw = true;
+        let FirstRotation = false;
 
-        // Scene.onPointerObservable.add((pi) => {
-        //     // if (this.RoofUI.isForegroundPicked) return; // Prevent drawing when interacting with GUI
-        //     // pi.pickInfo?
+        Scene.onPointerObservable.add((pi) => {
+            // if (this.RoofUI.isForegroundPicked) return; // Prevent drawing when interacting with GUI
+            // pi.pickInfo?
 
-        //     const p = this.pickOnGround(Scene.pointerX, Scene.pointerY);
-        //     if (!p) return;
-        //     DrawingCursor.position.x = Math.round(p.x);
-        //     DrawingCursor.position.y = Math.round(p.y);
-        //     DrawingCursor.position.z = Math.round(p.z);
-        //     // DesignGrid.rotationQuaternion.copyFrom(BABYLON.Quaternion.FromEulerAngles(0, Camera.rotation.y, 0));
-        //     // DesignGrid.rotate(BABYLON.Vector3.Up, Camera.rotation.y, BABYLON.Space.WORLD);
-        //     if (pi.type === BABYLON.PointerEventTypes.POINTERDOWN && CanDraw) {
-        //         if (pi.event.button !== 0) return;
-        //         if (SketchLine.ActiveSketch) {
-        //             if (SketchLine.ActiveSketch.Commit()) {
-        //                 console.log("COMMIT");
-        //                 SketchLine.ActiveSketch = null;
-        //                 // DesignGrid.position.y -= 20;
-        //                 return;
-        //             }
-        //             console.log("EXTRUDE");
-        //             // DesignGrid.rotation.y = -Camera.alpha;
-        //             FirstRotation = true;
-        //         } else {
-        //             // SketchLine.ActiveSketch = new SketchLine(Math.round(p.x), Math.round(p.z), Math.round(p.y));
-        //             if (!FirstRotation) {
-        //                 DesignGrid.position.x = p.x;
-        //                 DesignGrid.position.z = p.z;
-        //             };
-        //             SketchLine.ActiveSketch = new SketchLine(this, p.x, p.z, Math.round(p.y));
-        //             SketchLine.ActiveSketch.Start();
-        //         }
-        //     }
+            const p = this.pickOnGround(Scene.pointerX, Scene.pointerY);
+            if (!p) return;
+            DrawingCursor.position.x = Math.round(p.x);
+            DrawingCursor.position.y = Math.round(p.y);
+            DrawingCursor.position.z = Math.round(p.z);
+            // DesignGrid.rotationQuaternion.copyFrom(BABYLON.Quaternion.FromEulerAngles(0, Camera.rotation.y, 0));
+            // DesignGrid.rotate(BABYLON.Vector3.Up, Camera.rotation.y, BABYLON.Space.WORLD);
+            if (pi.type === BABYLON.PointerEventTypes.POINTERDOWN && CanDraw) {
+                if (pi.event.button !== 0) return;
+                if (SketchLine.ActiveSketch) {
+                    if (SketchLine.ActiveSketch.Commit()) {
+                        console.log("COMMIT");
+                        SketchLine.ActiveSketch = null;
+                        // DesignGrid.position.y -= 20;
+                        return;
+                    }
+                    console.log("EXTRUDE");
+                    // DesignGrid.rotation.y = -Camera.alpha;
+                    FirstRotation = true;
+                } else {
+                    // SketchLine.ActiveSketch = new SketchLine(Math.round(p.x), Math.round(p.z), Math.round(p.y));
+                    if (!FirstRotation) {
+                        DesignGrid.position.x = p.x;
+                        DesignGrid.position.z = p.z;
+                    };
+                    SketchLine.ActiveSketch = new SketchLine(this, p.x, Math.round(p.y), p.z);
+                    SketchLine.ActiveSketch.Start();
+                }
+            }
 
-        //     if (pi.type === BABYLON.PointerEventTypes.POINTERMOVE && SketchLine.ActiveSketch) {
-        //         SketchLine.ActiveSketch.SnapAngle = -DesignGrid.rotation.y; // Camera.alpha;
-        //         SketchLine.ActiveSketch.Update(p.x, p.z, HoldingShift);
-        //     }
+            if (pi.type === BABYLON.PointerEventTypes.POINTERMOVE && SketchLine.ActiveSketch) {
+                SketchLine.ActiveSketch.SnapAngle = -DesignGrid.rotation.y; // Camera.alpha;
+                SketchLine.ActiveSketch.Update(p.x, p.z, HoldingShift);
+            }
 
-        //     if (ChangingPitch && pi.type === BABYLON.PointerEventTypes.POINTERWHEEL && SketchLine.ActiveSketch) {
-        //         // console.log(pi);
-        //         // console.log(pi.event.wheelDelta);
-        //         let IncrementValue = (HoldingShift ? .5 : 1) * (pi.event.wheelDelta / 120);
-        //         SketchLine.ActiveSketch.Lines["0"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["0"].PITCH + IncrementValue);
-        //         SketchLine.ActiveSketch.Lines["1"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["1"].PITCH + IncrementValue);
-        //         SketchLine.ActiveSketch.Lines["A"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["A"].PITCH + IncrementValue);
-        //         SketchLine.ActiveSketch.Lines["B"].PITCH = Math.max(0, SketchLine.ActiveSketch.Lines["B"].PITCH + IncrementValue);
-        //         SketchLine.ActiveSketch.UpdateWithPointer(HoldingShift);
-        //     }
-        // });
+            if (ChangingPitch && pi.type === BABYLON.PointerEventTypes.POINTERWHEEL && SketchLine.ActiveSketch) {
+                // console.log(pi);
+                // console.log(pi.event.wheelDelta);
+                let IncrementValue = (HoldingShift ? .5 : 1) * (pi.event.wheelDelta / 120);
+                SketchLine.ActiveSketch.DrawLine.PITCH = Math.max(0, SketchLine.ActiveSketch.DrawLine.PITCH + IncrementValue);
+                SketchLine.ActiveSketch.UpdateWithPointer(HoldingShift);
+            }
+        });
 
         Camera.lowerBetaLimit = 0; // -Math.PI / 2;
         Camera.upperBetaLimit = Math.PI / 2;
@@ -421,24 +422,23 @@ export class Editor {
         var PanelViewCollapsed = true;
 
         Scene.onKeyboardObservable.add(async (kbInfo) => {
-            console.log(kbInfo.event.key)
             if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYDOWN) {
-                console.log(kbInfo.event.key)
+                // console.log(kbInfo.event.key)
                 switch (kbInfo.event.key) {
-                    // case "p":
-                    //     Camera.mode = Camera.mode == BABYLON.Camera.ORTHOGRAPHIC_CAMERA ? BABYLON.Camera.PERSPECTIVE_CAMERA : BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
-                    //     if (Camera.mode == BABYLON.Camera.ORTHOGRAPHIC_CAMERA) {
-                    //         // Editor.MapDebugging.SwitchMap(false);
-                    //         Camera.lowerBetaLimit = 0;
-                    //         Camera.upperBetaLimit = 0;
-                    //     } else {
-                    //         // Editor.MapDebugging.SwitchMap(true);
-                    //         Camera.lowerBetaLimit = 0; // -Math.PI / 2;
-                    //         Camera.upperBetaLimit = Math.PI / 2;
-                    //     }
-                    //     updateOrtho();
-                    //     // console.log("Pressed P");
-                    //     break;
+                    case "p":
+                        Camera.mode = Camera.mode == BABYLON.Camera.ORTHOGRAPHIC_CAMERA ? BABYLON.Camera.PERSPECTIVE_CAMERA : BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+                        if (Camera.mode == BABYLON.Camera.ORTHOGRAPHIC_CAMERA) {
+                            // Editor.MapDebugging.SwitchMap(false);
+                            Camera.lowerBetaLimit = 0;
+                            Camera.upperBetaLimit = 0;
+                        } else {
+                            // Editor.MapDebugging.SwitchMap(true);
+                            Camera.lowerBetaLimit = 0; // -Math.PI / 2;
+                            Camera.upperBetaLimit = Math.PI / 2;
+                        }
+                        updateOrtho();
+                        // console.log("Pressed P");
+                        break;
 
                     case "t":
                         // Camera.alpha = 0t;
@@ -447,25 +447,26 @@ export class Editor {
                         // Camera.upperBetaLimit = 0;
                         break;
 
-                    // case "q":
-                    //     SketchLine.ActiveSketch?.Delete();
-                    //     SketchLine.ActiveSketch = null;
-                    //     break;
+                    case "q":
+                        SketchLine.ActiveSketch?.Delete();
+                        SketchLine.ActiveSketch = null;
+                        break;
 
-                    // case "f":
-                    //     if (SketchLine.ActiveSketch && SketchLine.ActiveSketch.HasExtruded) SketchLine.ActiveSketch.DrawingMode = SketchLine.ActiveSketch.DrawingMode == "LINE" ? "EXTRUSION" : "LINE";
-                    //     SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                    //     break;
+                    case "f":
+                        if (SketchLine.ActiveSketch && SketchLine.ActiveSketch.HasExtruded) SketchLine.ActiveSketch.DrawingMode = SketchLine.ActiveSketch.DrawingMode == "LINE" ? "EXTRUSION" : "LINE";
+                        SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
+                        break;
 
 
 
                     case "o":
                         console.log("hi?")
-                        // await Test(40.26076924275762, -74.7981296370152); // JOHN HOUSE //
-                        await Test(37.443185078072716, -122.13801955359011); // ANGLED HOUSE //
+                        await Test(40.26076924275762, -74.7981296370152); // JOHN HOUSE //
+                        // await Test(37.443185078072716, -122.13801955359011); // ANGLED HOUSE //
                         // await Test(37.444938331695944, -122.13916635930947); // THE LIBRARY //
                         // await Test(37.44412278382237, -122.13891846157102); // GIANT BUILDING BELOW THE LIBRARY //
                         // await Test(36.278676208726246, -86.53094040983781); // STRANGE HOUSE IN NASHVILLE //
+                        // await Test(35.513601833943504, -80.63195040878824);
                         console.log("um?");
                         break;
 
@@ -474,37 +475,17 @@ export class Editor {
                     //     break;
 
 
-                    // case "e":
-                    //     ChangingPitch = true;
-                    //     Camera.lowerRadiusLimit = Camera.radius;
-                    //     Camera.upperRadiusLimit = Camera.radius;
-                    //     break;
+                    case "e":
+                        ChangingPitch = true;
+                        Camera.lowerRadiusLimit = Camera.radius;
+                        Camera.upperRadiusLimit = Camera.radius;
+                        break;
 
-                    // case "1":
-                    //     UI_Controls.Checkbox0.isChecked = !UI_Controls.Checkbox0.isChecked;
-                    //     SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                    //     break;
-
-                    // case "2":
-                    //     UI_Controls.Checkbox1.isChecked = !UI_Controls.Checkbox1.isChecked;
-                    //     SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                    //     break;
-
-                    // case "3":
-                    //     UI_Controls.Checkbox2.isChecked = !UI_Controls.Checkbox2.isChecked;
-                    //     SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                    //     break;
-
-                    // case "4":
-                    //     UI_Controls.Checkbox3.isChecked = !UI_Controls.Checkbox3.isChecked;
-                    //     SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                    //     break;
-
-                    // case "Shift":
-                    //     console.log("Shift is down");
-                    //     HoldingShift = true;
-                    //     SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                    //     break;
+                    case "Shift":
+                        console.log("Shift is down");
+                        HoldingShift = true;
+                        SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
+                        break;
 
                     // case "Escape":
                     //     PanelViewCollapsed = !PanelViewCollapsed;
@@ -523,21 +504,21 @@ export class Editor {
                 }
             }
 
-            // if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYUP) {
-            //     // console.log("Released:", kbInfo.event.key);
-            //     switch (kbInfo.event.key) {
-            //         case "Shift":
-            //             HoldingShift = false;
-            //             SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-            //             break;
+            if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYUP) {
+                // console.log("Released:", kbInfo.event.key);
+                switch (kbInfo.event.key) {
+                    case "Shift":
+                        HoldingShift = false;
+                        SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
+                        break;
 
-            //         case "e":
-            //             ChangingPitch = false;
-            //             Camera.lowerRadiusLimit = 10;
-            //             Camera.upperRadiusLimit = null;
-            //             break;
-            //     }
-            // }
+                    case "e":
+                        ChangingPitch = false;
+                        Camera.lowerRadiusLimit = 10;
+                        Camera.upperRadiusLimit = null;
+                        break;
+                }
+            }
         });
 
         // EditorUI.onControlPickedObservable.add(control => {
@@ -639,26 +620,6 @@ export class Editor {
         //     SketchLine.ActiveSketch.Lines["0"].PRIMARY = PrimaryText0.text;
         // });
 
-        // UI_Controls.Primary1.onPointerClickObservable.add(function (eventData, eventState) {
-        //     let TEXT = PrimaryText1.text;
-        //     PrimaryText1.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
-        //     if (!SketchLine.ActiveSketch) return;
-        //     SketchLine.ActiveSketch.Lines["1"].PRIMARY = PrimaryText1.text;
-        // });
-
-        // UI_Controls.Primary2.onPointerClickObservable.add(function (eventData, eventState) {
-        //     let TEXT = PrimaryText2.text;
-        //     PrimaryText2.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
-        //     if (!SketchLine.ActiveSketch) return;
-        //     SketchLine.ActiveSketch.Lines["A"].PRIMARY = PrimaryText2.text;
-        // });
-
-        // UI_Controls.Primary3.onPointerClickObservable.add(function (eventData, eventState) {
-        //     let TEXT = PrimaryText3.text;
-        //     PrimaryText3.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
-        //     if (!SketchLine.ActiveSketch) return;
-        //     SketchLine.ActiveSketch.Lines["B"].PRIMARY = PrimaryText3.text;
-        // });
         // // console.log(UI_Controls.Rise0);
         // // UI_Controls.Rise0.onTextChangedObservable.add(function (test) {
         // //     console.log("TEST", test.text == +test.text);
@@ -672,33 +633,5 @@ export class Editor {
         // //     console.log("EEE", test);
         // //     // console.log("TEST3", test.text == +test.text);
         // // });
-
-        // UI_Controls.Checkbox0.onIsCheckedChangedObservable.add(function (Value) {
-        //     UpdateDrawing();
-        //     if (!SketchLine.ActiveSketch) return;
-        //     SketchLine.ActiveSketch.Lines["0"].ENABLED = Value;
-        // });
-
-        // UI_Controls.Checkbox1.onIsCheckedChangedObservable.add(function (Value) {
-        //     UpdateDrawing();
-        //     if (!SketchLine.ActiveSketch) return;
-        //     SketchLine.ActiveSketch.Lines["1"].ENABLED = Value;
-        // });
-
-        // UI_Controls.Checkbox2.onIsCheckedChangedObservable.add(function (Value) {
-        //     UI_Controls.Checkbox3.isChecked = Value ? UI_Controls.Checkbox3.isChecked : true
-        //     UpdateDrawing();
-        //     if (!SketchLine.ActiveSketch) return;
-        //     SketchLine.ActiveSketch.Lines["B"].ENABLED = UI_Controls.Checkbox3.isChecked;
-        //     SketchLine.ActiveSketch.Lines["A"].ENABLED = Value;
-        // });
-
-        // UI_Controls.Checkbox3.onIsCheckedChangedObservable.add(function (Value) {
-        //     UI_Controls.Checkbox2.isChecked = Value ? UI_Controls.Checkbox2.isChecked : true;
-        //     UpdateDrawing();
-        //     if (!SketchLine.ActiveSketch) return;
-        //     SketchLine.ActiveSketch.Lines["A"].ENABLED = UI_Controls.Checkbox2.isChecked;
-        //     SketchLine.ActiveSketch.Lines["B"].ENABLED = Value;
-        // });
     }
 }

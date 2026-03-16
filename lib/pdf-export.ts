@@ -93,8 +93,8 @@ export class PDF_Exporter {
     DrawImage(ImageIndex: number, OffsetX = 0, OffsetY = 0) {
         let page = this.Pages[this.PageIndex];
         let pngImage = this.EmbedImages[ImageIndex];
-        const drawW = pngImage.width / this.Scale;
-        const drawH = pngImage.height / this.Scale;
+        const drawW = pngImage.width * this.Scale * 4;
+        const drawH = pngImage.height * this.Scale * 4;
 
         page.drawImage(pngImage, {
             x: (page.getWidth() - drawW) / 2 + OffsetX,
@@ -176,6 +176,7 @@ class DrawType {
     }
     AddDraw(SketchID: string, LineID: string, Text?: string, TextRotate?: number, ...Points: { x: number, z: number }[]) {
         let NewLine = new Draw(this, SketchID, LineID, Points);
+        // NewLine.Points = Points;
         NewLine.Text = Text;
         NewLine.TextRotate = TextRotate ?? 0;
         this.Draws.push(NewLine);

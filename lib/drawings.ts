@@ -147,114 +147,97 @@ export class ExtrudedLine {
     ID!: string;
     PRIMARY = "PITCH";
     ENABLED = true;
-    _PITCH = 1;
-    _RISE = 1;
-    _RUN = 1;
 
-    get PITCH() { return this._PITCH * 12; };
-    get RISE() { return this._RISE; };
-    get RUN() { return this.ENABLED ? this._RUN : 0; };
+    // FocusSketchLine: SketchLine;
 
-    set PITCH(value) {
-        this._PITCH = value / 12;
-        if (this.PRIMARY == "PITCH") {
-            let Length = (this._RISE ** 2 + this._RUN ** 2) ** .5;
-            let Angle = Math.atan2(value, 12);
-            this._RISE = Math.sin(Angle) * Length;
-            this._RUN = Math.cos(Angle) * Length;
-        } else if (this.PRIMARY == "RISE") {
-            this._RUN = this._PITCH == 0 ? 0 : this._RISE / this._PITCH;
-        } else if (this.PRIMARY == "RUN") {
-            this._RISE = this._PITCH * this._RUN;
-        }
-    };
-    set RISE(value) {
-        this._RISE = value;
-        if (this.PRIMARY == "PITCH") {
-            this._RUN = this._PITCH == 0 ? 0 : value / this._PITCH;
-        } else if (this.PRIMARY == "RISE") {
-            this._RUN = this._PITCH == 0 ? 0 : value / this._PITCH;
-            this._PITCH = this._RUN == 0 ? 0 : value / this._RUN;
-        } else if (this.PRIMARY == "RUN") {
-            this._PITCH = this._RUN == 0 ? 0 : value / this._RUN;
-        }
-    };
-    set RUN(value) {
-        this._RUN = value;
-        if (this.PRIMARY == "PITCH") {
-            this._RISE = this._PITCH * value;
-        } else if (this.PRIMARY == "RISE") {
-            this._PITCH = value == 0 ? 0 : this._RISE / value;
-        } else if (this.PRIMARY == "RUN") {
-            this._RISE = this._PITCH * value;
-            this._PITCH = value == 0 ? 0 : this._RISE / value;
-        }
-    };
+    // Length: number = 0;
+    // Angle: number = 0;
 
-    FocusSketchLine: SketchLine;
-    FocusPoint0: "V0" | "V1";
-    FocusPoint1: "V0" | "V1";
-    // IsParallel = true; // PERPENDICULAR | PARALLEL
-
-    // ExtrudeA = 0;
-    // ExtrudeB = 0;
-
-    get ExtrudeA() {
-        if (!this.LineConnectA) return 0;
-        return this.LineConnectA.RUN;
-    };
-    get ExtrudeB() {
-        if (!this.LineConnectB) return 0;
-        return this.LineConnectB.RUN;
-    };
-
-    LineConnectA!: ExtrudedLine;
-    LineConnectB!: ExtrudedLine;
-
-    Length: number = 0;
-    Angle: number = 0;
-
-    LineSettings: LineSettingsPeanut;
-    Line: BABYLON.LinesMesh;
-
-    // SketchExtrusionLines: ExtrusionLines;
-
-    LineA: BABYLON.LinesMesh;
-    LineB: BABYLON.LinesMesh;
+    InnerFocusLineSettings: LineSettingsPeanut = { points: [new BABYLON.Vector3(), new BABYLON.Vector3(), new BABYLON.Vector3()], updatable: true };
+    MiddleFocusLineSettings: LineSettingsPeanut = { points: [new BABYLON.Vector3(), new BABYLON.Vector3(), new BABYLON.Vector3()], updatable: true };
+    OuterFocusLineSettings: LineSettingsPeanut = { points: [new BABYLON.Vector3(), new BABYLON.Vector3(), new BABYLON.Vector3()], updatable: true };
+    TopLineSettings: LineSettingsPeanut = { points: [new BABYLON.Vector3(), new BABYLON.Vector3()], updatable: true };
+    BottomLineSettings: LineSettingsPeanut = { points: [new BABYLON.Vector3(), new BABYLON.Vector3()], updatable: true };
     LineASettings: LineSettingsPeanut;
     LineBSettings: LineSettingsPeanut;
 
-    Polygon: BABYLON.Mesh;
+    Polygon!: BABYLON.Mesh;
     PolygonSettings: PolygonSettingsPeanut;
 
     PanelSettings: ExtrudedPolygonSettingsPeanut;
 
-    // Panels: ExtrudedPolygonSettingsPeanut[] = [];
+    DistIntersection(OtherLine: ExtrudedLine, Outer: boolean = false) {
+        let CenterDifference = Outer ? OtherLine._OuterFocusCenter.TranslateSub(this._OuterFocusCenter) : OtherLine._InnerFocusCenter.TranslateSub(this._InnerFocusCenter);
+        let Denom = Math.sin(OtherLine._Angle - this._Angle); if (Math.abs(Denom) < 1e-10) return null;
+        return (CenterDifference.X * Math.sin(OtherLine._Angle) + CenterDifference.Z * Math.cos(OtherLine._Angle)) / Denom;
+    }
 
-    FocusCF: CFrame;
+    UpdateData() {
+        if (this._LineConnectA) {
+            let ConnectAIntersectDist = this.DistIntersection(this._LineConnectA);
+            if (!ConnectAIntersectDist) ConnectAIntersectDist = 0;
+            this.V3A0.X = this._InnerFocusCenter.X + Math.cos(this._Angle) * ConnectAIntersectDist;
+            this.V3A0.Z = this._InnerFocusCenter.Z - Math.sin(this._Angle) * ConnectAIntersectDist;
+        } else {
+            this.V3A0.X = this._InnerFocusPointA.X;
+            this.V3A0.Z = this._InnerFocusPointA.Z;
+        }
+        if (this._LineConnectB) {
+            let ConnectBIntersectDist = this.DistIntersection(this._LineConnectB);
+            if (!ConnectBIntersectDist) ConnectBIntersectDist = 0;
+            this.V3B0.X = this._InnerFocusCenter.X + Math.cos(this._Angle) * ConnectBIntersectDist;
+            this.V3B0.Z = this._InnerFocusCenter.Z - Math.sin(this._Angle) * ConnectBIntersectDist;
+        } else {
+            this.V3B0.X = this._InnerFocusPointB.X;
+            this.V3B0.Z = this._InnerFocusPointB.Z;
+        }
+        this.V3A0.Y = this._InnerFocusCenter.Y;
+        this.V3B0.Y = this._InnerFocusCenter.Y;
+        this._TopLength = this.V3A0.DistanceFromPointXZ(this.V3B0);
 
-    constructor(FocusSketchLine: SketchLine, FocusPoint0: "V0" | "V1", FocusPoint1: "V0" | "V1", Angle = 0) { // IsParallel = true) {
+        this.V3A1 = CFrame.Angles(0, this._Angle, 0).TranslateAdd(this.V3A0).ToWorldSpace(CFrame.fromXYZ(-this.ExtrudeA, -this._RISE, -this.RUN)).Position;
+        this.V3B1 = CFrame.Angles(0, this._Angle, 0).TranslateAdd(this.V3B0).ToWorldSpace(CFrame.fromXYZ(this.ExtrudeB, -this._RISE, -this.RUN)).Position;
+        this._BottomLength = this.V3A1.DistanceFromPointXZ(this.V3B1);
+
+        this.Update();
+    }
+
+    constructor(FocusSketchLine: SketchLine, FocusPointA: Vector3, FocusPointB: Vector3, Angle = 0) { // IsParallel = true) {
         this.ActiveEditor = FocusSketchLine.ActiveEditor;
-        this.FocusSketchLine = FocusSketchLine;
-        this.FocusPoint0 = FocusPoint0;
-        this.FocusPoint1 = FocusPoint1;
-        this.Angle = Angle; // - 90;
+        // this.FocusSketchLine = FocusSketchLine;
 
-        this.LineSettings = { points: [new BABYLON.Vector3(), new BABYLON.Vector3()], updatable: true };
-        this.LineSettings.instance = this.Line = BABYLON.MeshBuilder.CreateLines("LINE", this.LineSettings, this.ActiveEditor.Scene);
-        this.Line.color = new BABYLON.Color3(0, 1, 0);
-        this.Line.isVisible = false;
+        this._Angle = Angle;
+        this._Length = FocusPointA.DistanceFromPoint(FocusPointB);
+        let Averaged = FocusPointA.Average(FocusPointB);
+        this.CenterHeight = Averaged.Y;
+        this.InnerFocusCenter = Averaged;
 
-        let V0 = FocusSketchLine.LineSettings.points[FocusPoint0 == "V0" ? 0 : 1];
-        let V1 = FocusSketchLine.LineSettings.points[FocusPoint1 == "V0" ? 0 : 1];
+        this.InnerFocusLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.InnerFocusLineSettings, this.ActiveEditor.Scene);
+        this.InnerFocusLineSettings.instance.color = new BABYLON.Color3(.5, .5, 1);
 
-        this.LineASettings = { points: [FocusPoint0 == "V0" ? V1 : V0, this.LineSettings.points[FocusPoint0 == "V0" ? 1 : 0]], updatable: true };
-        this.LineASettings.instance = this.LineA = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings, this.ActiveEditor.Scene);
-        this.LineA.color = new BABYLON.Color3(0, 1, 1);
+        this.MiddleFocusLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.MiddleFocusLineSettings, this.ActiveEditor.Scene);
+        this.MiddleFocusLineSettings.instance.color = new BABYLON.Color3(.5, 1, 1);
 
-        this.LineBSettings = { points: [FocusPoint0 == "V0" ? V0 : V1, this.LineSettings.points[FocusPoint0 == "V0" ? 0 : 1]], updatable: true };
-        this.LineBSettings.instance = this.LineB = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings, this.ActiveEditor.Scene);
-        this.LineB.color = new BABYLON.Color3(0, 1, 1);
+        this.OuterFocusLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.OuterFocusLineSettings, this.ActiveEditor.Scene);
+        this.OuterFocusLineSettings.instance.color = new BABYLON.Color3(.5, 1, .5);
+
+        // this.TopLineSettings.points[0] = this.V3A; // this.FocusPointA; // 
+        // this.TopLineSettings.points[1] = this.V3B; // this.FocusPointB; // 
+        this.TopLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.TopLineSettings, this.ActiveEditor.Scene);
+        this.TopLineSettings.instance.color = new BABYLON.Color3(0, 0, 1);
+
+
+        this.BottomLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.BottomLineSettings, this.ActiveEditor.Scene);
+        this.BottomLineSettings.instance.color = new BABYLON.Color3(0, 1, 0);
+        // this.LineSettings.instance.isVisible = false;
+
+        this.LineASettings = { points: [this.TopLineSettings.points[0], this.BottomLineSettings.points[0]], updatable: true };
+        this.LineASettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings, this.ActiveEditor.Scene);
+        this.LineASettings.instance.color = new BABYLON.Color3(0, 1, 1);
+
+        this.LineBSettings = { points: [this.TopLineSettings.points[1], this.BottomLineSettings.points[1]], updatable: true };
+        this.LineBSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings, this.ActiveEditor.Scene);
+        this.LineBSettings.instance.color = new BABYLON.Color3(0, 1, 1);
 
         this.PolygonSettings = { sideOrientation: BABYLON.Mesh.DOUBLESIDE, shape: [this.LineASettings.points[0], this.LineASettings.points[1], this.LineBSettings.points[1], this.LineBSettings.points[0]], updatable: true };
         this.PanelSettings = {
@@ -269,53 +252,43 @@ export class ExtrudedLine {
             sideOrientation: BABYLON.Mesh.DOUBLESIDE, // DEFAULTSIDE,
             updatable: true,
         };
-        // Editor.meshesRef.current.push([this.PanelSettings, "PANEL"]);
 
         this.MAT = new BABYLON.StandardMaterial("material", this.ActiveEditor.Scene);
+        this.Update();
     }
 
     SelectedProfile: string = "standing-seam";
 
     UpdatePanelMesh() {
-        this.LineA = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings);
-        this.LineB = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings);
+        if (this.LineASettings) this.LineASettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings);
+        if (this.LineBSettings) this.LineBSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings);
         this.Polygon?.dispose();
 
-        {
-            let MainLength = this.Length;
-
-            let ANGLE = Math.atan2(this.RISE, this.RUN);
-            let RoofAngle = CFrame.Angles(ANGLE, 0, 0);
-
-            let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
-
-            let FlattenedPoints = [
-                new Vector3(),
-                new Vector3(this.ExtrudeA, 0, ExtrudeLength),
-                new Vector3(-MainLength - this.ExtrudeB, 0, ExtrudeLength),
-                new Vector3(-MainLength, 0, 0),
-            ];
-
-            let FocusCF = this.CF0.ToWorldSpace(CFrame.Angles(0, Math.PI, 0)).ToWorldSpace(RoofAngle);
-
-            this.PolygonSettings.shape = FlattenedPoints;
-
-            this.FocusCF = FocusCF;
-            let BBL = FocusCF.ToBabylon(); // I had to name this variable BBL. LOL
-            this.BBL = BBL;
-        }
-        // if (true) return;
-        if (!this.ENABLED) {
-            this.Polygon = BABYLON.MeshBuilder.CreatePolygon("POLY", this.PolygonSettings, null, BABYLON_EARCUT.earcut);
-            this.Polygon.material = this.MAT; // Editor.ActiveEditor.RoofPBR_Material;
-            this.Polygon.position.copyFrom(this.BBL[0]);
-            this.Polygon.rotationQuaternion = this.BBL[1];
-            this.PanelSettings?.instance?.dispose();
-            return;
-        };
-        let MainLength = this.Length;
-        let BottomLength = MainLength + this.ExtrudeA + this.ExtrudeB;
+        let MainLength = this.TopLength; // this.V3A.DistanceFromPointXZ(this.V3B); // this.Length;
+        let BottomLength = this._BottomLength; // MainLength + this.ExtrudeA + this.ExtrudeB;
         let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
+        let RoofAngle = CFrame.Angles(Math.atan2(this.RISE, this.RUN), 0, 0);
+        let FocusCF = this.CF_A0.ToWorldSpace(CFrame.Angles(0, Math.PI, 0)).ToWorldSpace(RoofAngle);
+
+        if (!this.PolygonSettings) return;
+
+        this.PolygonSettings.shape = [
+            new BABYLON.Vector3(),
+            new BABYLON.Vector3(this.ExtrudeA, 0, ExtrudeLength),
+            new BABYLON.Vector3(-MainLength - this.ExtrudeB, 0, ExtrudeLength),
+            new BABYLON.Vector3(-MainLength, 0, 0),
+        ];
+
+        // if (true) return;
+        // if (!this.ENABLED) {
+        let BBL = FocusCF.ToBabylon(); // I had to name this variable BBL. LOL
+        this.Polygon = BABYLON.MeshBuilder.CreatePolygon("POLY", this.PolygonSettings, null, BABYLON_EARCUT.earcut);
+        this.Polygon.material = this.MAT; // Editor.ActiveEditor.RoofPBR_Material;
+        this.Polygon.position.copyFrom(BBL[0]);
+        this.Polygon.rotationQuaternion = BBL[1];
+        this.PanelSettings?.instance?.dispose();
+        return;
+        // };
 
         let PanelThickness = 0 * .0179;
         // shape.push(new BABYLON.Vector3(-X, 0, 0));
@@ -327,7 +300,7 @@ export class ExtrudedLine {
         let shape = []; // new BABYLON.Vector3(0, 0, 0)];
 
         let X = SelectedPanelData.Overlap; // 0; // -PBR_Panel[0][0] / 2;
-        let Y = PanelThickness + 0;  // .1;
+        let Y = PanelThickness; // + .1;
 
         for (let i = 0; i < MaxPanels; i++) {
             for (let P of SelectedPanelData.Shape) {
@@ -359,21 +332,11 @@ export class ExtrudedLine {
 
         this.PanelSettings?.instance?.dispose();
         delete this.PanelSettings?.instance;
-        // this.PanelSettings = {
         this.PanelSettings.shape = shape;
         this.PanelSettings.capFunction = (shapePath: BABYLON.Vector3[]) => shapePath.map((v) => new BABYLON.Vector3(v.x, v.y + PanelThickness, -this.GetHeightAtX(v.x)));
-        // cap: BABYLON.Mesh.CAP_END,
-        // sideOrientation: BABYLON.Mesh.DOUBLESIDE, // DEFAULTSIDE,
-        // updatable: true,
-        // };
+
         let Panel = this.PanelSettings.instance = BABYLON.MeshBuilder.ExtrudeShape(`PANEL`, this.PanelSettings, this.ActiveEditor.Scene).convertToFlatShadedMesh(); // this.ActiveEditor.Scene);
 
-        // Panel.position.set(i * 36, i * 36, 0);
-        // i * 36 - this.ExtrudeA
-        // let P_BBL = FocusCF.ToWorldSpace(CFrame.fromXYZ(this.ExtrudeA, PanelThickness, ExtrudeLength)).ToBabylon();
-        let ANGLE = Math.atan2(this.RISE, this.RUN);
-        let RoofAngle = CFrame.Angles(ANGLE, 0, 0);
-        let FocusCF = this.CF0.ToWorldSpace(CFrame.Angles(0, Math.PI, 0)).ToWorldSpace(RoofAngle);
         let P_BBL = FocusCF.ToWorldSpace(CFrame.fromXYZ(-this.ExtrudeB - MainLength, PanelThickness, ExtrudeLength)).ToBabylon();
         Panel.position.set(P_BBL[0].x, P_BBL[0].y, P_BBL[0].z);
         Panel.rotationQuaternion = P_BBL[1]; //.copyFrom(this.BBL[1]);
@@ -383,7 +346,7 @@ export class ExtrudedLine {
     Zonings: Vector3[][] = [];
 
     UpdateForZonings() {
-        if (!this.Line) return;
+        // if (!this.LineSettings.instance) return;
         // TEMP //
         if (this.Zonings.length == 0) return;
         this.UpdatePanelMesh();
@@ -391,7 +354,7 @@ export class ExtrudedLine {
 
     GetHeightAtX(X: number, Raw = false) {
         // return this.GetBottomAtX(X);
-        let MainLength = this.Length;
+        let MainLength = this.TopLength;
         let BottomLength = MainLength + this.ExtrudeA + this.ExtrudeB;
         let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
         let Height = 0;
@@ -417,37 +380,49 @@ export class ExtrudedLine {
         return Height;
     }
 
-    CF0!: CFrame;
-    CF1!: CFrame;
+    CF_A0!: CFrame;
+    CF_B0!: CFrame;
 
-    CF_A!: CFrame;
-    CF_B!: CFrame;
+    CF_A1!: CFrame;
+    CF_B1!: CFrame;
 
     Update() {
-        if (!this.Line) return;
-        this.CF0 = CFrame.fromVector3(this.FocusSketchLine[this.FocusPoint0]).ToWorldSpace(CFrame.Angles(0, -this.FocusSketchLine.Angle + (this.Angle + 90) * Math.PI / 180, 0));
+        // if (!this.LineSettings.instance) return;
+        this.CF_A0 = CFrame.Angles(0, this._Angle, 0).TranslateAdd(this.V3A0);
         // this.CF1 = CFrame.fromVector3(this.FocusSketchLine[this.FocusPoint1]).ToWorldSpace(CFrame.Angles(0, this.FocusSketchLine.Angle + (this.Angle + 180 - 90) * Math.PI / 180, 0));
-        this.CF1 = this.CF0.ToWorldSpace(CFrame.fromXYZ(this.Length, 0, 0)); // .ToWorldSpace(CFrame.Angles(0, Math.PI, 0));
+        this.CF_B0 = CFrame.Angles(0, this._Angle, 0).TranslateAdd(this.V3B0); // this.CF_A0.ToWorldSpace(CFrame.fromXYZ(this.Length, 0, 0)); // .ToWorldSpace(CFrame.Angles(0, Math.PI, 0));
 
         let RUN = this.RUN;
         let RISE = this._RISE;
 
-        let CF_A = this.CF_A = this.CF0.ToWorldSpace(CFrame.fromXYZ(-this.ExtrudeA, -RISE, -RUN));
-        let CF_B = this.CF_B = this.CF1.ToWorldSpace(CFrame.fromXYZ(this.ExtrudeB, -RISE, -RUN));
-        this.LineSettings.points[0].set(CF_A.X, CF_A.Y, CF_A.Z);
-        this.LineSettings.points[1].set(CF_B.X, CF_B.Y, CF_B.Z);
+        let CF_A1 = this.CF_A1 = this.CF_A0.ToWorldSpace(CFrame.fromXYZ(-this.ExtrudeA, -RISE, -RUN));
+        let CF_B1 = this.CF_B1 = this.CF_B0.ToWorldSpace(CFrame.fromXYZ(this.ExtrudeB, -RISE, -RUN));
+        // let CF_A1 = this.CF_A1 = this.CF_A0.ToWorldSpace(CFrame.fromXYZ(-RUN, -RISE, -this.ExtrudeA));
+        // let CF_B1 = this.CF_B1 = this.CF_B0.ToWorldSpace(CFrame.fromXYZ(-RUN, -RISE, this.ExtrudeB));
+        this.BottomLineSettings.points[0].set(CF_A1.X, CF_A1.Y, CF_A1.Z);
+        this.BottomLineSettings.points[1].set(CF_B1.X, CF_B1.Y, CF_B1.Z);
+        // this.TopLineSettings.points[0].set(this.V3A.X, this.V3A.Y, this.V3A.Z);
+        // this.TopLineSettings.points[1].set(this.V3B.X, this.V3B.Y, this.V3B.Z);
+        this.TopLineSettings.points[0].set(this.CF_A0.X, this.CF_A0.Y, this.CF_A0.Z);
+        this.TopLineSettings.points[1].set(this.CF_B0.X, this.CF_B0.Y, this.CF_B0.Z);
 
         this.UpdatePanelMesh();
-        this.Line = BABYLON.MeshBuilder.CreateLines("LINE", this.LineSettings);
+
+        this.InnerFocusLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.InnerFocusLineSettings);
+        this.MiddleFocusLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.MiddleFocusLineSettings);
+        this.OuterFocusLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.OuterFocusLineSettings);
+        this.TopLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.TopLineSettings);
+        // this.BottomLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.BottomLineSettings);
     }
 
-    // GetTopY() { return this.FocusSketchLine.Z1 + (this.FocusSketchLine.AnchorPoint) * this.RISE; }
-    // GetBottomY() { return this.FocusSketchLine.Z1 + (this.FocusSketchLine.AnchorPoint - 1) * this.RISE; }
-
     Delete() {
-        this.Line?.dispose();
-        this.LineA?.dispose();
-        this.LineB?.dispose();
+        this.InnerFocusLineSettings.instance?.dispose();
+        this.MiddleFocusLineSettings.instance?.dispose();
+        this.OuterFocusLineSettings.instance?.dispose();
+        this.TopLineSettings.instance?.dispose();
+        this.BottomLineSettings.instance?.dispose();
+        this.LineASettings.instance?.dispose();
+        this.LineBSettings.instance?.dispose();
         this.Polygon?.dispose();
         this.PanelSettings?.instance?.dispose();
         delete this.PanelSettings?.instance;
@@ -456,10 +431,294 @@ export class ExtrudedLine {
         // for (let PanelSettings of this.Panels) PanelSettings.instance?.dispose();
         // delete this;
     }
+
+    get ExtrudeA() {
+        if (!this.LineConnectA) return 0;
+        return this.LineConnectA.RUN;
+    };
+    get ExtrudeB() {
+        if (!this.LineConnectB) return 0;
+        return this.LineConnectB.RUN;
+    };
+
+    _LineConnectA!: ExtrudedLine; get LineConnectA() { return this._LineConnectA; };
+    _LineConnectB!: ExtrudedLine; get LineConnectB() { return this._LineConnectB; };
+
+    set LineConnectA(value: ExtrudedLine) {
+        this._LineConnectA = value;
+        this.UpdateData();
+    };
+    set LineConnectB(value: ExtrudedLine) {
+        this._LineConnectB = value;
+        this.UpdateData();
+    };
+
+    _DrawFromPoint: Vector3 = new Vector3(); get DrawFromPoint() { return this._DrawFromPoint; };
+
+    UpdateXZ(OverrideLengthAnchor?: -1 | 0 | 1, OverrideRunAnchor?: -1 | 0 | 1) {
+        this.DrawMatrix(this._DrawFromPoint.X, this._DrawFromPoint.Z, OverrideLengthAnchor ?? this.LengthAnchor, OverrideRunAnchor ?? this.RunAnchor);
+    }
+
+    RiseAnchor: -1 | 0 | 1 = -1;
+    // DrawFrom: "A" | "C" | "B" = "A";
+    LengthAnchor: -1 | 0 | 1 = -1; // Might need to change to Get/Set to update _DrawFromPoint.
+    RunAnchor: -1 | 0 | 1 = -1;
+
+    DrawMatrix(X: number, Z: number, ABFactor: number, InnerOuterFactor: number) {
+        // this.LengthAnchor = ABFactor;
+        // this.RunAnchor = InnerOuterFactor;
+        let LengthX = Math.cos(this._Angle) * this._Length / 2, LengthZ = -Math.sin(this._Angle) * this._Length / 2;
+        let RunX = -Math.sin(this._Angle) * this._RUN / 2, RunZ = -Math.cos(this._Angle) * this._RUN / 2;
+
+        this._InnerFocusPointA.X = X + LengthX * (-1 - ABFactor) + RunX * (-1 - InnerOuterFactor);
+        this._InnerFocusPointA.Z = Z + LengthZ * (-1 - ABFactor) + RunZ * (-1 - InnerOuterFactor);
+        this._InnerFocusCenter.X = X + LengthX * (0 - ABFactor) + RunX * (-1 - InnerOuterFactor);
+        this._InnerFocusCenter.Z = Z + LengthZ * (0 - ABFactor) + RunZ * (-1 - InnerOuterFactor);
+        this._InnerFocusPointB.X = X + LengthX * (1 - ABFactor) + RunX * (-1 - InnerOuterFactor);
+        this._InnerFocusPointB.Z = Z + LengthZ * (1 - ABFactor) + RunZ * (-1 - InnerOuterFactor);
+
+        this._MiddleFocusPointA.X = X + LengthX * (-1 - ABFactor) + RunX * (0 - InnerOuterFactor);
+        this._MiddleFocusPointA.Z = Z + LengthZ * (-1 - ABFactor) + RunZ * (0 - InnerOuterFactor);
+        this._MiddleFocusCenter.X = X + LengthX * (0 - ABFactor) + RunX * (0 - InnerOuterFactor);
+        this._MiddleFocusCenter.Z = Z + LengthZ * (0 - ABFactor) + RunZ * (0 - InnerOuterFactor);
+        this._MiddleFocusPointB.X = X + LengthX * (1 - ABFactor) + RunX * (0 - InnerOuterFactor);
+        this._MiddleFocusPointB.Z = Z + LengthZ * (1 - ABFactor) + RunZ * (0 - InnerOuterFactor);
+
+        this._OuterFocusPointA.X = X + LengthX * (-1 - ABFactor) + RunX * (1 - InnerOuterFactor);
+        this._OuterFocusPointA.Z = Z + LengthZ * (-1 - ABFactor) + RunZ * (1 - InnerOuterFactor);
+        this._OuterFocusCenter.X = X + LengthX * (0 - ABFactor) + RunX * (1 - InnerOuterFactor);
+        this._OuterFocusCenter.Z = Z + LengthZ * (0 - ABFactor) + RunZ * (1 - InnerOuterFactor);
+        this._OuterFocusPointB.X = X + LengthX * (1 - ABFactor) + RunX * (1 - InnerOuterFactor);
+        this._OuterFocusPointB.Z = Z + LengthZ * (1 - ABFactor) + RunZ * (1 - InnerOuterFactor);
+
+        this._DrawFromPoint.X = X;
+        this._DrawFromPoint.Z = Z;
+
+        this.UpdateData();
+        this.UpdateFocusLine();
+    }
+
+    _InnerFocusPointA: Vector3 = new Vector3(); get InnerFocusPointA() { return this._InnerFocusPointA; };
+    _InnerFocusPointB: Vector3 = new Vector3(); get InnerFocusPointB() { return this._InnerFocusPointB; };
+    _InnerFocusCenter: Vector3 = new Vector3(); get InnerFocusCenter() { return this._InnerFocusCenter; };
+
+    _MiddleFocusPointA: Vector3 = new Vector3(); get MiddleFocusPointA() { return this._MiddleFocusPointA; };
+    _MiddleFocusPointB: Vector3 = new Vector3(); get MiddleFocusPointB() { return this._MiddleFocusPointB; };
+    _MiddleFocusCenter: Vector3 = new Vector3(); get MiddleFocusCenter() { return this._MiddleFocusCenter; };
+
+    _OuterFocusPointA: Vector3 = new Vector3(); get OuterFocusPointA() { return this._OuterFocusPointA; };
+    _OuterFocusPointB: Vector3 = new Vector3(); get OuterFocusPointB() { return this._OuterFocusPointB; };
+    _OuterFocusCenter: Vector3 = new Vector3(); get OuterFocusCenter() { return this._OuterFocusCenter; };
+
+    set InnerFocusPointA(value: Vector3) { this.DrawMatrix(value.X, value.Z, -1, -1); };
+    set InnerFocusPointB(value: Vector3) { this.DrawMatrix(value.X, value.Z, 0, -1); };
+    set InnerFocusCenter(value: Vector3) { this.DrawMatrix(value.X, value.Z, 1, -1); };
+
+    set MiddleFocusPointA(value: Vector3) { this.DrawMatrix(value.X, value.Z, -1, 0); };
+    set MiddleFocusPointB(value: Vector3) { this.DrawMatrix(value.X, value.Z, 0, 0); };
+    set MiddleFocusCenter(value: Vector3) { this.DrawMatrix(value.X, value.Z, 1, 0); };
+
+    set OuterFocusPointA(value: Vector3) { this.DrawMatrix(value.X, value.Z, -1, 1); };
+    set OuterFocusPointB(value: Vector3) { this.DrawMatrix(value.X, value.Z, 0, 1); };
+    set OuterFocusCenter(value: Vector3) { this.DrawMatrix(value.X, value.Z, 1, 1); };
+
+
+    UpdateFocusLine() {
+        this.InnerFocusLineSettings.points[0].set(this._InnerFocusPointA.X, this._InnerFocusPointA.Y, this._InnerFocusPointA.Z);
+        this.InnerFocusLineSettings.points[1].set(this._InnerFocusCenter.X, this._InnerFocusCenter.Y, this._InnerFocusCenter.Z);
+        this.InnerFocusLineSettings.points[2].set(this._InnerFocusPointB.X, this._InnerFocusPointB.Y, this._InnerFocusPointB.Z);
+
+        this.MiddleFocusLineSettings.points[0].set(this._MiddleFocusPointA.X, this._MiddleFocusPointA.Y, this._MiddleFocusPointA.Z);
+        this.MiddleFocusLineSettings.points[1].set(this._MiddleFocusCenter.X, this._MiddleFocusCenter.Y, this._MiddleFocusCenter.Z);
+        this.MiddleFocusLineSettings.points[2].set(this._MiddleFocusPointB.X, this._MiddleFocusPointB.Y, this._MiddleFocusPointB.Z);
+
+        this.OuterFocusLineSettings.points[0].set(this._OuterFocusPointA.X, this._OuterFocusPointA.Y, this._OuterFocusPointA.Z);
+        this.OuterFocusLineSettings.points[1].set(this._OuterFocusCenter.X, this._OuterFocusCenter.Y, this._OuterFocusCenter.Z);
+        this.OuterFocusLineSettings.points[2].set(this._OuterFocusPointB.X, this._OuterFocusPointB.Y, this._OuterFocusPointB.Z);
+    }
+
+    _TopHeight = 0;
+    get TopHeight() { return this._TopHeight; };
+    set TopHeight(value: number) {
+        this._TopHeight = value;
+        this._CenterHeight = value - this._RISE / 2;
+        this._BottomHeight = value - this._RISE;
+        this._InnerFocusCenter.Y = this._InnerFocusPointA.Y = this._InnerFocusPointB.Y = this._TopHeight;
+        this._MiddleFocusCenter.Y = this._MiddleFocusPointA.Y = this._MiddleFocusPointB.Y = this._CenterHeight;
+        this._OuterFocusCenter.Y = this._OuterFocusPointA.Y = this._OuterFocusPointB.Y = this._BottomHeight;
+        this.UpdateXZ();
+    };
+
+    _CenterHeight = 0;
+    get CenterHeight() { return this._CenterHeight; };
+    set CenterHeight(value: number) {
+        this._TopHeight = value + this._RISE / 2;
+        this._CenterHeight = value;
+        this._BottomHeight = value - this._RISE / 2;
+        this._InnerFocusCenter.Y = this._InnerFocusPointA.Y = this._InnerFocusPointB.Y = this._TopHeight;
+        this._MiddleFocusCenter.Y = this._MiddleFocusPointA.Y = this._MiddleFocusPointB.Y = this._CenterHeight;
+        this._OuterFocusCenter.Y = this._OuterFocusPointA.Y = this._OuterFocusPointB.Y = this._BottomHeight;
+        this.UpdateXZ();
+    };
+
+    _BottomHeight = 0;
+    get BottomHeight() { return this._BottomHeight; };
+    set BottomHeight(value: number) {
+        this._TopHeight = value + this._RISE;
+        this._CenterHeight = value + this._RISE / 2;
+        this._BottomHeight = value;
+        this._InnerFocusCenter.Y = this._InnerFocusPointA.Y = this._InnerFocusPointB.Y = this._TopHeight;
+        this._MiddleFocusCenter.Y = this._MiddleFocusPointA.Y = this._MiddleFocusPointB.Y = this._CenterHeight;
+        this._OuterFocusCenter.Y = this._OuterFocusPointA.Y = this._OuterFocusPointB.Y = this._BottomHeight;
+        this.UpdateXZ();
+    };
+
+
+    _PITCH = 1;
+    _RISE = 1;
+    _RUN = 1;
+
+    get PITCH() { return this._PITCH * 12; };
+    get RISE() { return this._RISE; };
+    get RUN() { return this.ENABLED ? this._RUN : 0; };
+
+    set PITCH(value) {
+        this._PITCH = value / 12;
+        if (this.PRIMARY == "PITCH") {
+            let Length = (this._RISE ** 2 + this._RUN ** 2) ** .5;
+            let Angle = Math.atan2(value, 12);
+            this._RISE = Math.sin(Angle) * Length;
+            this._RUN = Math.cos(Angle) * Length;
+        } else if (this.PRIMARY == "RISE") {
+            this._RUN = this._PITCH == 0 ? 0 : this._RISE / this._PITCH;
+        } else if (this.PRIMARY == "RUN") {
+            this._RISE = this._PITCH * this._RUN;
+        }
+        this.UpdateXZ();
+        this._TopHeight = this._CenterHeight + this._RISE / 2;
+        this._BottomHeight = this._CenterHeight - this._RISE / 2;
+        this._InnerFocusCenter.Y = this._InnerFocusPointA.Y = this._InnerFocusPointB.Y = this._TopHeight;
+        this._MiddleFocusCenter.Y = this._MiddleFocusPointA.Y = this._MiddleFocusPointB.Y = this._CenterHeight;
+        this._OuterFocusCenter.Y = this._OuterFocusPointA.Y = this._OuterFocusPointB.Y = this._BottomHeight;
+    };
+    set RISE(value) {
+        this._RISE = value;
+        if (this.PRIMARY == "PITCH") {
+            this._RUN = this._PITCH == 0 ? 0 : value / this._PITCH;
+        } else if (this.PRIMARY == "RISE") {
+            this._RUN = this._PITCH == 0 ? 0 : value / this._PITCH;
+            this._PITCH = this._RUN == 0 ? 0 : value / this._RUN;
+        } else if (this.PRIMARY == "RUN") {
+            this._PITCH = this._RUN == 0 ? 0 : value / this._RUN;
+        }
+        this.UpdateXZ();
+        this._TopHeight = this._CenterHeight + this._RISE / 2;
+        this._BottomHeight = this._CenterHeight - this._RISE / 2;
+        this._InnerFocusCenter.Y = this._InnerFocusPointA.Y = this._InnerFocusPointB.Y = this._TopHeight;
+        this._MiddleFocusCenter.Y = this._MiddleFocusPointA.Y = this._MiddleFocusPointB.Y = this._CenterHeight;
+        this._OuterFocusCenter.Y = this._OuterFocusPointA.Y = this._OuterFocusPointB.Y = this._BottomHeight;
+    };
+    set RUN(value) {
+        this._RUN = value;
+        if (this.PRIMARY == "PITCH") {
+            this._RISE = this._PITCH * value;
+        } else if (this.PRIMARY == "RISE") {
+            this._PITCH = value == 0 ? 0 : this._RISE / value;
+        } else if (this.PRIMARY == "RUN") {
+            this._RISE = this._PITCH * value;
+            this._PITCH = value == 0 ? 0 : this._RISE / value;
+        }
+        this.UpdateXZ();
+
+        this._TopHeight = this._CenterHeight + this._RISE / 2;
+        this._BottomHeight = this._CenterHeight - this._RISE / 2;
+        this._InnerFocusCenter.Y = this._InnerFocusPointA.Y = this._InnerFocusPointB.Y = this._TopHeight;
+        this._MiddleFocusCenter.Y = this._MiddleFocusPointA.Y = this._MiddleFocusPointB.Y = this._CenterHeight;
+        this._OuterFocusCenter.Y = this._OuterFocusPointA.Y = this._OuterFocusPointB.Y = this._BottomHeight;
+    };
+
+    // _InnerRUN = 0;
+    // get InnerRUN() { return this._InnerRUN; }; // RUN FROM INNER \\
+    // set InnerRUN(value: number) {
+    //     this._InnerRUN = value;
+    //     this._CenterRUN = value - this._RUN / 2;
+    //     this._OuterRUN = value - this._RUN;
+    //     this.UpdateData();
+    //     this.UpdateFocusLine();
+    // };
+
+    // _CenterRUN = 0;
+    // get CenterRUN() { return this._CenterRUN; };
+    // set CenterRUN(value: number) {
+    //     this._InnerRUN = value + this._RUN / 2;
+    //     this._CenterRUN = value;
+    //     this._OuterRUN = value - this._RUN / 2;
+    //     this.UpdateData();
+    //     this.UpdateFocusLine();
+    // };
+
+    // _OuterRUN = 0;
+    // get OuterRUN() { return this._OuterRUN; };
+    // set OuterRUN(value: number) {
+    //     this._InnerRUN = value + this._RUN;
+    //     this._CenterRUN = value + this._RUN / 2;
+    //     this._OuterRUN = value;
+    //     this.UpdateData();
+    //     this.UpdateFocusLine();
+    // };
+
+    _TopLength = 0;
+    get TopLength() { return this._TopLength; };
+    set TopLength(value: number) {
+        this._TopLength = value; // Length
+    };
+
+    _BottomLength = 0;
+    get BottomLength() { return this._BottomLength; };
+    set BottomLength(value: number) {
+        this._BottomLength = value;
+    };
+
+    _Length = 0;
+    get Length() { return this._Length; };
+    set Length(value: number) {
+        this._Length = value;
+        this.UpdateXZ();
+    };
+
+    _Angle = 0;
+    get Angle() { return this._Angle; };
+    set Angle(value: number) {
+        this._Angle = value;
+        this.UpdateXZ();
+    };
+
+    // CF0 = new CFrame();
+    // CF1 = new CFrame();
+
+
+
+
+    get V3A0() { return this._V3A0; }; _V3A0 = new Vector3();
+    get V3B0() { return this._V3B0; }; _V3B0 = new Vector3();
+    set V3A0(value: Vector3) {
+        this._V3A0.x = value.x; this._V3A0.y = value.y + 0 * this.RISE; this._V3A0.z = value.z;
+    };
+    set V3B0(value: Vector3) {
+        this._V3B0.x = value.x; this._V3B0.y = value.y + 0 * this.RISE; this._V3B0.z = value.z;
+    };
+
+    get V3A1() { return this._V3A1; }; _V3A1 = new Vector3();
+    get V3B1() { return this._V3B1; }; _V3B1 = new Vector3();
+    set V3A1(value: Vector3) {
+        this._V3A1.x = value.x; this._V3A1.y = value.y + 0 * this.RISE; this._V3A1.z = value.z;
+    };
+    set V3B1(value: Vector3) {
+        this._V3B1.x = value.x; this._V3B1.y = value.y + 0 * this.RISE; this._V3B1.z = value.z;
+    };
 }
 
 export class SketchLine {
-    // [x: string]: Vector3 | any;
     ActiveEditor: Editor;
 
     static ActiveSketch?: SketchLine | null;
@@ -469,170 +728,33 @@ export class SketchLine {
 
     ID = Math.floor(Math.random() * 0xff_ff_ff_ff);
 
-    set X0(value: number) {
-        this._X0 = value;
-        this.V0.X = value;
-        this.LineSettings.points[0].x = value;
-        if (this.DrawFrom == "0") this.UpdateXY();
-    };
-    set X1(value: number) {
-        this._X1 = value;
-        this.V1.X = value;
-        this.LineSettings.points[1].x = value;
-        if (this.DrawFrom == "1") this.UpdateXY();
-    };
-    // XY0(X0: number, Y0: number) {
-    //     this._X0 = X0;
-    //     this._Y0 = Y0;
-    //     this.V0.X = X0;
-    //     this.V0.Z = Y0;
-    //     this.LineSettings.points[0].x = X0;
-    //     this.LineSettings.points[0].z = Y0;
-    // };
+    _Pointer: Vector3;
 
-    set Y0(value: number) {
-        this._Y0 = value;
-        this.V0.Z = value;
-        this.LineSettings.points[0].z = value;
-        if (this.DrawFrom == "0") this.UpdateXY();
-    };
-    set Y1(value: number) {
-        this._Y1 = value;
-        this.V1.Z = value;
-        this.LineSettings.points[1].z = value;
-        if (this.DrawFrom == "1") this.UpdateXY();
-    };
-    set Z0(value: number) {
-        this._Z0 = value;
-        // this.V0.Y = value;
-        // this.LineSettings.points[0].y = value;
-    };
-    set Z1(value: number) {
-        this._Z1 = value;
-        this.V0.Y = value;
-        this.V1.Y = value;
-        this.LineSettings.points[0].y = value;
-        this.LineSettings.points[1].y = value;
-    };
-
-    _Length = 0;
-    get Length() { return this._Length; };
-    set Length(value: number) {
-        this._Length = value;
-        if (this.Lines["A"] != null)
-            this.Lines["A"].Length = this.Lines["B"].Length = value;
-        this.UpdateXY();
-    };
-
-    _Width = 0;
-    get Width() { return this._Length; };
-    set Width(value: number) {
-        this._Width = value;
-        if (this.Lines["0"] != null)
-            this.Lines["0"].Length = this.Lines["1"].Length = value;
-        this.UpdateXY();
-    };
-
-    _Angle = 0;
-    get Angle() { return this._Angle; };
-    set Angle(value: number) {
-        this._Angle = value;
-        this.UpdateXY();
-    };
-
-    UpdateXY(Override?: "0" | "C" | "1") {
-        switch (Override ?? this.DrawFrom) {
-            case "0":
-                this.X1 = this._X0 + Math.cos(this._Angle) * this._Length;
-                this.Y1 = this._Y0 + Math.sin(this._Angle) * this._Length;
-                break;
-            case "1":
-                this.X0 = this._X1 - Math.cos(this._Angle) * this._Length;
-                this.Y0 = this._Y1 - Math.sin(this._Angle) * this._Length;
-            case "C":
-                let XCenter = (this._X0 + this._X1) / 2;
-                let YCenter = (this._Y0 + this._Y1) / 2;
-                this.X0 = XCenter - Math.cos(this._Angle) * this._Length / 2;
-                this.Y0 = YCenter - Math.sin(this._Angle) * this._Length / 2;
-                this.X1 = XCenter + Math.cos(this._Angle) * this._Length / 2;
-                this.Y1 = YCenter + Math.sin(this._Angle) * this._Length / 2;
-                break;
-            default:
-                break;
-        }
-    }
-
-    get X0() { return this._X0; };
-    get X1() { return this._X1; };
-    get Y0() { return this._Y0; };
-    get Y1() { return this._Y1; };
-    get Z0() { return this._Z0; };
-    get Z1() { return this._Z1; };
-
-    _X0 = 0; _Y0 = 0;
-    _X1 = 0; _Y1 = 0;
-    _Z0 = 0; _Z1 = 0; // Lower | Upper \\
-
-    CF0 = new CFrame();
-    CF1 = new CFrame();
-
-    V0 = new Vector3();
-    V1 = new Vector3();
-    _Pointer: CFrame;
-
-    DrawFrom: "0" | "C" | "1" = "0";
-
-    constructor(ActiveEditor: Editor, X: number, Y: number, Z: number) {
+    constructor(ActiveEditor: Editor, X: number, Y: number, Z: number, Automatic: boolean = false) {
         this.ActiveEditor = ActiveEditor;
 
-        this.X0 = X; this.X1 = X;
-        this.Y0 = Y; this.Y1 = Y;
-        this.Z0 = Z; this.Z1 = Z;
-        this._Pointer = CFrame.fromXYZ(this.X1, this.Z1, this.Y1);
-        // this.CF0 = CFrame.lookAt(this.V0, this.V1);
-        // this.CF1 = CFrame.lookAt(this.V1, this.V0);
-        this.CF0 = CFrame.fromVector3(this.V0).ToWorldSpace(CFrame.Angles(0, this.Angle, 0));
-        this.CF1 = CFrame.fromVector3(this.V1).ToWorldSpace(CFrame.Angles(0, this.Angle + Math.PI, 0));
-        // this.LineSettings = { points: [new BABYLON.Vector3(), new BABYLON.Vector3(0, 1e-10, 0)], updatable: true };
-        this.LineSettings.instance = this.Line = BABYLON.MeshBuilder.CreateLines("LINE", this.LineSettings, ActiveEditor.Scene);
-        // this.LineSettings.instance.parent = ActiveEditor.Root;
-        this.Line.color = new BABYLON.Color3(0, 0, 1);
-        // this.Line.isVisible = false;
+        this.DrawLine = new ExtrudedLine(this, new Vector3(X, Y, Z), new Vector3(X, Y, Z))
+        this._Pointer = new Vector3(X, Y, Z);
+        this.Automatic = Automatic;
     }
 
-    /*
-        1
-      A2 B3
-        0
-    */
-
+    Automatic = false;
     DrawingMode = "LINE"; // LINE | EXTRUSION \\
-    HasLine = false;
+    // HasLine = false;
     HasExtruded = false;
 
-    LineSettings: LineSettingsPeanut = { points: [new BABYLON.Vector3(), new BABYLON.Vector3(0, 1e-10, 0)], updatable: true };;
-    Line: BABYLON.LinesMesh;
-
-    Lines: {
-        [ID: string]: ExtrudedLine;
-    } = {};
-    // Line0!: ExtrudedLine;
-    // Line1!: ExtrudedLine;
-    // LineA!: ExtrudedLine;
-    // LineB!: ExtrudedLine;
+    DrawLine: ExtrudedLine;
 
     SnapAngle: number = 0;
-    AnchorPoint: number = 1;
 
-    Format(X: number) {
-        return (Math.round(X * 100) / 100).toString();
-    }
+    Format(X: number) { return (Math.round(X * 100) / 100).toString(); }
 
     Start() {
-        this.ActiveEditor.UI_Controls.LiveXLineSettings.points[0].copyFrom(this.LineSettings.points[0]);
-        this.ActiveEditor.UI_Controls.LiveXLineSettings.points[1].copyFrom(this.LineSettings.points[1]);
-        this.ActiveEditor.UI_Controls.LiveYLineSettings.points[0].copyFrom(this.LineSettings.points[0]);
-        this.ActiveEditor.UI_Controls.LiveYLineSettings.points[1].copyFrom(this.LineSettings.points[1]);
+        if (this.Automatic) return;
+        this.ActiveEditor.UI_Controls.LiveXLineSettings.points[0].copyFrom(this.DrawLine.TopLineSettings.points[0]);
+        this.ActiveEditor.UI_Controls.LiveXLineSettings.points[1].copyFrom(this.DrawLine.TopLineSettings.points[1]);
+        this.ActiveEditor.UI_Controls.LiveYLineSettings.points[0].copyFrom(this.DrawLine.TopLineSettings.points[0]);
+        this.ActiveEditor.UI_Controls.LiveYLineSettings.points[1].copyFrom(this.DrawLine.TopLineSettings.points[1]);
         this.ActiveEditor.UI_Controls.LiveXData.Marker.position.copyFrom(this.ActiveEditor.UI_Controls.LiveXLineSettings.points[0]);
         this.ActiveEditor.UI_Controls.LiveYData.Marker.position.copyFrom(this.ActiveEditor.UI_Controls.LiveYLineSettings.points[0]);
     }
@@ -643,196 +765,126 @@ export class SketchLine {
     }
     // Shift+Drag (Moves V0 in Draw and Extrusion mode)
     // CTRL+Shift+Mouse (Rotates V1 referenced to V0 in Extrusion mode)
-    Update(X: number, Y: number, Shift = false) {
+    Update(X: number, Z: number, Shift = false) {
+        if (this.Automatic) return;
         // this._Pointer.set(X, this.Z1, Y);
         this._Pointer.X = X;
-        this._Pointer.Z = Y;
+        this._Pointer.Z = Z;
         switch (this.DrawingMode) {
             case "EXTRUSION": {
-                let LocalPosition = (this.CF0.Distance(this._Pointer) < this.CF1.Distance(this._Pointer) ? this.CF0 : this.CF1).ToObjectSpace(this._Pointer);
-                let AbsX = Math.max(0, -LocalPosition.Z); // Math.abs(this.LineSettings.points[1].x - X);
-                let AbsY = Math.abs(LocalPosition.X); // Math.abs(this.LineSettings.points[1].z - Y);
-                // let DEGG = Math.atan2(AbsX, AbsY) * 180 / Math.PI; // Dan Reynolds Egg
-                if (!Shift) /*if (DEGG <= 0) AbsX = 0; else*/ if (AbsX > AbsY) AbsY = AbsX; else AbsX = AbsY;
-                AbsX = Math.round(AbsX);
-                AbsY = Math.round(AbsY);
-
-                this.Lines["0"].RUN = AbsX;
-                this.Lines["1"].RUN = AbsX;
-                this.Lines["A"].RUN = AbsY;
-                this.Lines["B"].RUN = AbsY;
-
-                this.Lines["0"].RISE = this.Lines["A"].RISE;
-                this.Lines["1"].RISE = this.Lines["0"].RISE;
+                let LocalPosition = (this.DrawLine._DrawFromPoint.DistanceFromPointXZ(this._Pointer) < this.DrawLine._DrawFromPoint.DistanceFromPointXZ(this._Pointer) ? this.DrawLine.CF_A0 : this.DrawLine.CF_B0).ToObjectSpace(this._Pointer.ToCFrame());
+                this.DrawLine.RUN = Math.max(0, -LocalPosition.Z);
                 break;
             }
             case "LINE": {
-                let DistanceFromPointer = this._Pointer.Distance(this.V0);
-                let LookVector = CFrame.lookAt(this.V0, this._Pointer.Position).LookVector; // let LookCFrame = (DistanceFromPointer <= .1 ? CFrame.identity : CFrame.lookAt(this.V0, this._Pointer.Position));
+                // let DrawingFromPoint
+                let DistanceFromPointer = this._Pointer.DistanceFromPointXZ(this.DrawLine._DrawFromPoint);
+                let LookVector = CFrame.lookAt(this.DrawLine._DrawFromPoint, this._Pointer).LookVector; // let LookCFrame = (DistanceFromPointer <= .1 ? CFrame.identity : CFrame.lookAt(this.V0, this._Pointer.Position));
                 let X1D = LookVector.X; let Y1D = LookVector.Z;
                 if (!Shift) {
-                    let E2 = CFrame.Angles(0, -this.SnapAngle, 0).ToObjectSpace(CFrame.fromVector3(this.V0).ToObjectSpace(this._Pointer));
+                    let E2 = CFrame.Angles(0, -this.SnapAngle, 0).ToObjectSpace(this.DrawLine._DrawFromPoint.ToCFrame().ToObjectSpace(this._Pointer.ToCFrame()));
                     if (Math.abs(E2.X) < Math.abs(E2.Z)) { DistanceFromPointer = Math.abs(E2.Z); X1D = -Math.sin(this.SnapAngle) * Math.sign(E2.Z); Y1D = Math.cos(this.SnapAngle) * Math.sign(E2.Z); }
                     else { DistanceFromPointer = Math.abs(E2.X); X1D = Math.cos(this.SnapAngle) * Math.sign(E2.X); Y1D = Math.sin(this.SnapAngle) * Math.sign(E2.X); }
                 }
-                this.Length = Math.round(DistanceFromPointer);
-                this.Angle = Math.atan2(Y1D, X1D);
-                // let DistanceFromPointer = this._Pointer.Distance(this.V0);
-                // let LookVector = CFrame.lookAt(this.V0, this._Pointer.Position).LookVector; // let LookCFrame = (DistanceFromPointer <= .1 ? CFrame.identity : CFrame.lookAt(this.V0, this._Pointer.Position));
-                // let X1D = LookVector.X; let Y1D = LookVector.Z;
-                // if (!Shift) {
-                //     let E2 = CFrame.Angles(0, -this.SnapAngle, 0).ToObjectSpace(CFrame.fromVector3(this.V0).ToObjectSpace(this._Pointer));
-                //     if (Math.abs(E2.X) < Math.abs(E2.Z)) { DistanceFromPointer = E2.Z; X1D = -Math.sin(this.SnapAngle); Y1D = Math.cos(this.SnapAngle); }
-                //     else { DistanceFromPointer = E2.X; X1D = Math.cos(this.SnapAngle); Y1D = Math.sin(this.SnapAngle); }
-                // }
-                // this.X1 = this.X0 + X1D * Math.round(DistanceFromPointer);
-                // this.Y1 = this.Y0 + Y1D * Math.round(DistanceFromPointer);
+                this.DrawLine.Length = Math.round(DistanceFromPointer);
+                this.DrawLine.Angle = Math.atan2(-Y1D, X1D);
                 break;
             }
         }
 
+        this.DrawLine.Update();
         this.UpdateLines();
 
-        // this.ActiveEditor.UI_Controls.LineLength.text = this.Format(((this.X0 - this.X1) ** 2 + (this.Y0 - this.Y1) ** 2 + (this.Z0 - this.Z1) ** 2) ** .5);
-        this.ActiveEditor.UI_Controls.LineLength.text = this.Format(((this.X0 - this.X1) ** 2 + (this.Y0 - this.Y1) ** 2) ** .5);
-        this.ActiveEditor.UI_Controls.Info1.text = this.Format(this.Z1);
+        this.ActiveEditor.UI_Controls.LineLength.text = this.Format(this.DrawLine.Length);
+        this.ActiveEditor.UI_Controls.Info1.text = this.Format(this.DrawLine._InnerFocusCenter.Y);
 
-        if (!this.HasLine) return;
+        // if (!this.HasLine) return;
 
-        this.ActiveEditor.UI_Controls.Info2.text = this.Format(this.AnchorPoint * Math.max(this.Lines["0"].RISE, this.Lines["1"].RISE, this.Lines["A"].RISE, this.Lines["B"].RISE));
+        this.ActiveEditor.UI_Controls.Info2.text = this.Format(this.DrawLine.RiseAnchor * this.DrawLine.RISE);
 
-        this.ActiveEditor.UI_Controls.LiveXData.Marker.position.copyFrom(this.Lines["1"].LineSettings.points[0].add(this.Lines["1"].LineSettings.points[1]).scale(.5));
-        this.ActiveEditor.UI_Controls.LiveYData.Marker.position.copyFrom(this.Lines["B"].LineSettings.points[0].add(this.Lines["B"].LineSettings.points[1]).scale(.5));
-        let AltPitch = this.Lines["B"].RISE / this.Lines["0"].ExtrudeB * 12; let AltPitchRounded = this.Format(AltPitch);
-        let Line1Length = this.Format(this.Lines["1"].LineSettings.points[1].subtract(this.Lines["1"].LineSettings.points[0]).length());
-        this.ActiveEditor.UI_Controls.LiveXData.Label.text = this.Lines["0"].ExtrudeB == 0 ? Line1Length : `${AltPitchRounded != this.Format(AltPitch) ? `~${AltPitchRounded}` : AltPitch}\n${Line1Length}\n+${this.Format(this.Lines["0"].ExtrudeB)}`;
-        this.ActiveEditor.UI_Controls.LiveYData.Label.text = `${this.Lines["B"].PITCH}\n${this.Format(this.Lines["B"].LineSettings.points[1].subtract(this.Lines["B"].LineSettings.points[0]).length())}\n-${this.Format(this.Lines["B"].RISE)}`;
-
-        this.ActiveEditor.UI_Controls.Pitch0.text = this.Format(this.Lines["0"].PITCH);
-        this.ActiveEditor.UI_Controls.Pitch1.text = this.Format(this.Lines["1"].PITCH);
-        this.ActiveEditor.UI_Controls.Pitch2.text = this.Format(this.Lines["A"].PITCH);
-        this.ActiveEditor.UI_Controls.Pitch3.text = this.Format(this.Lines["B"].PITCH);
-
-        this.ActiveEditor.UI_Controls.Run0.text = this.Format(this.Lines["0"].RUN);
-        this.ActiveEditor.UI_Controls.Run1.text = this.Format(this.Lines["1"].RUN);
-        this.ActiveEditor.UI_Controls.Run2.text = this.Format(this.Lines["A"].RUN);
-        this.ActiveEditor.UI_Controls.Run3.text = this.Format(this.Lines["B"].RUN);
-
-        this.ActiveEditor.UI_Controls.Rise0.text = this.Format(this.Lines["0"].RISE);
-        this.ActiveEditor.UI_Controls.Rise1.text = this.Format(this.Lines["1"].RISE);
-        this.ActiveEditor.UI_Controls.Rise2.text = this.Format(this.Lines["A"].RISE);
-        this.ActiveEditor.UI_Controls.Rise3.text = this.Format(this.Lines["B"].RISE);
+        this.ActiveEditor.UI_Controls.LiveXData.Marker.position.copyFrom(this.DrawLine.BottomLineSettings.points[0].add(this.DrawLine.BottomLineSettings.points[1]).scale(.5));
+        this.ActiveEditor.UI_Controls.LiveYData.Marker.position.copyFrom(this.DrawLine.BottomLineSettings.points[0].add(this.DrawLine.BottomLineSettings.points[1]).scale(.5));
+        let AltPitch = this.DrawLine.RISE / this.DrawLine.RUN * 12; let AltPitchRounded = this.Format(AltPitch);
+        let Line1Length = this.Format(this.DrawLine.BottomLineSettings.points[1].subtract(this.DrawLine.BottomLineSettings.points[0]).length());
+        this.ActiveEditor.UI_Controls.LiveXData.Label.text = this.DrawLine.ExtrudeB == 0 ? Line1Length : `${AltPitchRounded != this.Format(AltPitch) ? `~${AltPitchRounded}` : AltPitch}\n${Line1Length}\n+${this.Format(this.DrawLine.ExtrudeB)}`;
+        this.ActiveEditor.UI_Controls.LiveYData.Label.text = `${this.DrawLine.PITCH}\n${this.Format(this.DrawLine.Length)}\n-${this.Format(this.DrawLine.RISE)}`;
 
         // }
     }
     UpdateLines() {
+        if (this.Automatic) return;
         if (this.DrawingMode == "LINE") {
-            this.Line = BABYLON.MeshBuilder.CreateLines("LINE", this.LineSettings);
-            this.ActiveEditor.UI_Controls.LiveDistanceData.Label.text = `${Math.round(((this.X0 - this.X1) ** 2 + (this.Y0 - this.Y1) ** 2 + (this.Z0 - this.Z1) ** 2) ** .5 * 100) / 100}`;
-            this.ActiveEditor.UI_Controls.LiveDistanceData.Marker.position.copyFrom(this.LineSettings.points[0].add(this.LineSettings.points[1]).scale(.5));
+            // this.LineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.LineSettings);
+            this.ActiveEditor.UI_Controls.LiveDistanceData.Label.text = `${Math.round(this.DrawLine.Length * 100) / 100}`;
+            this.ActiveEditor.UI_Controls.LiveDistanceData.Marker.position.copyFrom(this.DrawLine.InnerFocusCenter.ToBabylon());
         }
-        // if (this.DrawingMode == "EXTRUSION") {
-        if (!this.HasLine) return;
-        let YYY = this.AnchorPoint * Math.max(this.Lines["0"].RISE, this.Lines["1"].RISE, this.Lines["A"].RISE, this.Lines["B"].RISE);
-        this.V0.Y = this.V1.Y = this.Z1 + YYY;
-        this.LineSettings.points[0].y = this.LineSettings.points[1].y = this.Z1 + YYY;
-        this.ActiveEditor.UI_Controls.LiveDistanceData.Marker.position.copyFrom(this.LineSettings.points[0].add(this.LineSettings.points[1]).scale(.5));
-        this.Line = BABYLON.MeshBuilder.CreateLines("LINE", this.LineSettings);
-        // this.CF0 = CFrame.lookAt(this.V0, this.V1);
-        // this.CF1 = CFrame.lookAt(this.V1, this.V0);
-        this.CF0 = CFrame.fromVector3(this.V0).ToWorldSpace(CFrame.Angles(0, this.Angle, 0));
-        this.CF1 = CFrame.fromVector3(this.V1).ToWorldSpace(CFrame.Angles(0, this.Angle + Math.PI, 0));
-
-        this.Lines["0"].Update();
-        this.Lines["1"].Update();
-        this.Lines["A"].Update();
-        this.Lines["B"].Update();
     }
     UpdateInterceptions() {
-        for (let Sketch2 of SketchLine.AllDrawings) {
-            if (this == Sketch2) continue;
-            this.SketchOverlap(Sketch2);
-        };
-        for (let Relation of SketchLine.AllRelations) {
-            // Relation.Sketch1
-        }
+        let ClosestSketches = SketchLine.AllDrawings.map((Sketch2) => {
+            let InnerDist = this.DrawLine.DistIntersection(Sketch2.DrawLine);
+            // let OuterDist = this.DrawLine.DistIntersection(Sketch2.DrawLine, true);
+
+            let InterceptionX = this.DrawLine._InnerFocusCenter.X + Math.cos(this.DrawLine.Angle) * (InnerDist ?? 0);
+            let InterceptionZ = this.DrawLine._InnerFocusCenter.Z - Math.sin(this.DrawLine.Angle) * (InnerDist ?? 0);
+
+            let DistFromA = ((this.DrawLine._InnerFocusPointA.X - InterceptionX) ** 2 + (this.DrawLine._InnerFocusPointA.Z - InterceptionZ) ** 2) ** .5;
+            let DistFromB = ((this.DrawLine._InnerFocusPointB.X - InterceptionX) ** 2 + (this.DrawLine._InnerFocusPointB.Z - InterceptionZ) ** 2) ** .5;
+
+            let InnerDistFromOther = Sketch2.DrawLine.DistIntersection(this.DrawLine); // ((Sketch2.DrawLine._InnerFocusCenter.X - InterceptionX) ** 2 + (Sketch2.DrawLine._InnerFocusCenter.Z - InterceptionZ) ** 2) ** .5; // this.DrawLine._InnerFocusCenter.DistanceFromPointXZ(Sketch2.DrawLine._InnerFocusCenter);
+
+            return [Sketch2, DistFromA, DistFromB, InnerDist, InnerDistFromOther];
+        }).filter((X: any[]) => {
+            if (X[3] == null || X[0] == this) return false;
+            if (X[0].DrawLine._BottomHeight > this.DrawLine._CenterHeight || this.DrawLine._CenterHeight > X[0].DrawLine._TopHeight) return false;
+            if (Math.abs(X[3]) > this.DrawLine.Length / 2) return false;
+            if (Math.abs(X[4]) > X[0].DrawLine.Length / 2) return false;
+
+            // if (Math.abs(X[2]) > this.DrawLine.Length) return false;
+            // if (Math.abs(X[1]) > this.DrawLine.Length) return false;
+
+            return true;
+        });
+        console.log(this.ID, ClosestSketches);
+        if (ClosestSketches.length == 0) return;
+
+        ClosestSketches = ClosestSketches.sort((A: any, B: any) => Math.abs(A[1]) - Math.abs(B[1]));
+        if (Math.abs(ClosestSketches[0][1]) <= this.DrawLine.Length)
+            this.DrawLine.LineConnectA = (ClosestSketches[0][0] as SketchLine).DrawLine;
+
+        ClosestSketches = ClosestSketches.sort((A: any, B: any) => Math.abs(A[2]) - Math.abs(B[2]));
+        if (Math.abs(ClosestSketches[0][2]) <= this.DrawLine.Length)
+            this.DrawLine.LineConnectB = (ClosestSketches[0][0] as SketchLine).DrawLine;
+
+
+        // if (ClosestSketches[0][1] < ClosestSketches[0][2]) {
+        //     // Editor.ActiveEditor.LabelMarkerXYZ(InterceptionX, 0, InterceptionZ, "A");
+        //     this.DrawLine.LineConnectA = Closest.DrawLine;
+        // } else {
+        //     // Editor.ActiveEditor.LabelMarkerXYZ(InterceptionX, 0, InterceptionZ, "B");
+        //     this.DrawLine.LineConnectB = Closest.DrawLine;
+        // }
+
+        // let DistFromClosest = ClosestSketches[0][1] as number;
+        // let ThisCenter = this.DrawLine._InnerFocusCenter;
+        // let InterceptionX = ThisCenter.X + Math.cos(this.DrawLine.Angle) * DistFromClosest;
+        // let InterceptionZ = ThisCenter.Z - Math.sin(this.DrawLine.Angle) * DistFromClosest;
+        // if (ClosestSketches[0][1] < ClosestSketches[0][2]) { // (this.DrawLine._InnerFocusPointA.X - InterceptionX) ** 2 + (this.DrawLine._InnerFocusPointA.Z - InterceptionZ) ** 2 < (this.DrawLine._InnerFocusPointB.X - InterceptionX) ** 2 + (this.DrawLine._InnerFocusPointB.Z - InterceptionZ) ** 2) { // DistFromClosest < 0) { // ((InterceptionX - this.DrawLine.XA) ** 2 + (InterceptionZ - this.DrawLine.ZA) ** 2) ** .5 < ((InterceptionX - this.DrawLine.XB) ** 2 + (InterceptionZ - this.DrawLine.ZB) ** 2) ** .5) {
+        //     // Editor.ActiveEditor.LabelMarkerXYZ(InterceptionX, 0, InterceptionZ, "A");
+        //     this.DrawLine.LineConnectA = Closest.DrawLine;
+        // } else {
+        //     // Editor.ActiveEditor.LabelMarkerXYZ(InterceptionX, 0, InterceptionZ, "B");
+        //     this.DrawLine.LineConnectB = Closest.DrawLine;
+        // }
+
     }
     Commit() {
-        // this.CF0 = CFrame.lookAt(this.V0, this.V1);
-        // this.CF1 = CFrame.lookAt(this.V1, this.V0);
-        this.CF0 = CFrame.fromVector3(this.V0).ToWorldSpace(CFrame.Angles(0, this.Angle, 0));
-        this.CF1 = CFrame.fromVector3(this.V1).ToWorldSpace(CFrame.Angles(0, this.Angle + Math.PI, 0));
         this.ActiveEditor.UI_Controls.LiveXData.Label.text = "";
         this.ActiveEditor.UI_Controls.LiveYData.Label.text = "";
         if (this.HasExtruded) {
             this.ActiveEditor.UI_Controls.LiveDistanceData.Label.text = "";
             SketchLine.AllDrawings.push(this);
-            this.UpdateInterceptions();
-            // console.log("ALL RELATIONS", SketchLine.AllRelations);
-            // for (let SketchRelations of SketchLine.AllRelations) {
-            //     // Relation.Find()
-            //     if (SketchRelations.Sketch1 != this && SketchRelations.Sketch2 != this) continue;
-            //     console.log(SketchRelations);
-            //     let OtherSketch = SketchRelations.Sketch1 == this ? SketchRelations.Sketch2 : SketchRelations.Sketch1;
-            //     // let OtherRelationList = SketchRelations.ListForType(OtherSketch.ID, "INTERSECT");
-            //     let RelationList = SketchRelations.ListForType(this.ID, "WITHIN");
-            //     console.log("RL", RelationList);
-            //     for (let Result of RelationList) {
-            //         let Postfix = Result[0] as "1" | "2"; // Might need to flip.
-            //         let OtherPostfix = Postfix == "1" ? "2" : "1";
-            //         let Relation = Result[1] as RELATION;
-            //         let SideA = Relation[("Side" + Postfix) as ("Side1" | "Side2")];
-            //         let TypeA = Relation[("Type" + Postfix) as ("Type1" | "Type2")];
-            //         let SideB = Relation[("Side" + OtherPostfix) as ("Side1" | "Side2")];
-            //         let TypeB = Relation[("Type" + OtherPostfix) as ("Type1" | "Type2")];
-            //         let ID_A = SketchRelations[("Sketch" + Postfix) as ("Sketch1" | "Sketch2")].ID;
-            //         let ID_B = SketchRelations[("Sketch" + OtherPostfix) as ("Sketch1" | "Sketch2")].ID;
-
-            //         if (Relation.Data == 2) { // && OtherValue.SIDE == "B") {
-            //             this.Lines[SideA].ENABLED = false;
-            //             // this.Line
-
-            //             let ConnectA = SketchRelations.List(this.ID, this.Lines[SideA].LineConnectA.ID, "INTERSECT")[0][1].Data;
-            //             let ConnectB = SketchRelations.List(this.ID, this.Lines[SideA].LineConnectB.ID, "INTERSECT")[0][1].Data;
-
-            //             console.log("CONNECTIONS", ConnectA, ConnectB);
-
-            //             let BoundInter2D = ConnectA; // Relation.Data;
-            //             if (!BoundInter2D) continue;
-
-            //             let Coincide1 = BoundInter2D.p1.Lerp(BoundInter2D.p2, BoundInter2D.t1), Coincide2 = BoundInter2D.p3.Lerp(BoundInter2D.p4, BoundInter2D.t2);
-            //             // Possibly try normalization and stuff with FocusCF of that plane.
-            //             // this.ActiveEditor.DrawLine([BoundInter2D.p1.Lerp(BoundInter2D.p2, BoundInter2D.t1), BoundInter2D.p3.Lerp(BoundInter2D.p4, BoundInter2D.t2)]);
-            //             // this.ActiveEditor.DrawLine([Coincide1, BoundInter2D.t1 <= .5 ? BoundInter2D.p1 : BoundInter2D.p2]);
-            //             // this.ActiveEditor.DrawLine([Coincide2, BoundInter2D.t2 <= .5 ? BoundInter2D.p3 : BoundInter2D.p4]);
-            //             let Lerped1 = Coincide1.DistanceFromPoint(BoundInter2D.t1 <= .5 ? BoundInter2D.p1 : BoundInter2D.p2);
-            //             let Lerped2 = Coincide2.DistanceFromPoint(BoundInter2D.t2 <= .5 ? BoundInter2D.p3 : BoundInter2D.p4);
-            //             // SketchRelations.Relations.map((Value: RELATION, index: number) => {
-            //             //     return Value.Value1.
-            //             // });
-            //             this.ActiveEditor.DrawLine([Coincide1, BoundInter2D.t1 <= .5 ? BoundInter2D.p1 : BoundInter2D.p2, (BoundInter2D.t1 <= .5 ? BoundInter2D.p1 : BoundInter2D.p2).add(new BABYLON.Vector3(0, OtherSketch.Lines[SideB].RISE / OtherSketch.Lines[SideB].RUN * Lerped1))]);
-            //             // this.ActiveEditor.DrawLine([Coincide2, BoundInter2D.t2 <= .5 ? BoundInter2D.p3 : BoundInter2D.p4, (BoundInter2D.t2 <= .5 ? BoundInter2D.p3 : BoundInter2D.p4).add(new BABYLON.Vector3(0, Math.tan(Math.atan2(1, 1)) * Lerped2))]).color = new BABYLON.Color3(0, .5, 1);
-            //             let WITHIN_BOUND = SketchRelations.Find(SideA, "WITHIN", SideB, "BOUND");
-            //             if (WITHIN_BOUND == ID_A) { // this.Sketch1.ID) { // RelationValue.ID) { // SketchRelations.Sketch1.ID) {
-            //                 this.ActiveEditor.LabelMarker(BoundInter2D.point, `INTERSECT (${Math.round(Lerped1)})`);
-            //             } else if (WITHIN_BOUND == ID_B) { // this.Sketch2.ID) { // OtherValue.ID) { // SketchRelations.Sketch2.ID) {
-            //                 this.ActiveEditor.LabelMarker(BoundInter2D.point, `INTERSECT (${Math.round(Lerped2)})`);
-            //             }
-
-            //             console.log(SideA, TypeA, SideB, TypeB);
-            //             console.log(this.Length, this.Z1, this.Z0);
-            //             // this.Length += this.Lines[SideA].RISE * OtherSketch.Lines[SideB].RUN / OtherSketch.Lines[SideB].RISE; // BoundInter2D.point.DistanceFromPointXZ(BoundInter2D.t2 <= .5 ? BoundInter2D.p3 : BoundInter2D.p4);
-            //             console.log(this.Length);
-
-            //             this.UpdateLines();
-            //         }
-            //     }
-            //     console.log(SketchRelations);
-            //     // if (Relation.Sketch1 == this) {
-            //     //     if (Relation.Relations)
-            //     // }
-            //     // this.
-            // }
+            for (let Sketch of SketchLine.AllDrawings) Sketch.UpdateInterceptions();
+            // this.UpdateInterceptions();
             return true;
         }
         if (this.DrawingMode == "EXTRUSION") {
@@ -840,301 +892,170 @@ export class SketchLine {
             this.ActiveEditor.UI_Controls.LiveDistanceData.Label.text = "";
         } else if (this.DrawingMode == "LINE") {
             this.DrawingMode = "EXTRUSION";
-            this.HasLine = true; // Going to get rid of this in a bit and set the position to the pointer upon switching.
+            // this.HasLine = true; // Going to get rid of this in a bit and set the position to the pointer upon switching.
 
-
-
-
-            // let V0 = new Vector3(this.X0, this.Z0, this.Y0);
-            // let V1 = new Vector3(this.X1, this.Z0, this.Y1);
-            // this.CF0 = CFrame.lookAt(V0, V1);
-            // this.CF1 = CFrame.lookAt(V1, V0);
             this.ActiveEditor.UI_Controls.LiveXData.Label.text = "";
             this.ActiveEditor.UI_Controls.LiveYData.Label.text = "";
             // LiveDistanceData.Label.text = "";
             if (this.HasExtruded) return;
             this.HasExtruded = true;
-
-            this.Lines["0"] = new ExtrudedLine(this, "V0", "V0", 0);
-            this.Lines["A"] = new ExtrudedLine(this, "V1", "V0", 90);
-            this.Lines["1"] = new ExtrudedLine(this, "V1", "V1", 180);
-            this.Lines["B"] = new ExtrudedLine(this, "V0", "V1", 270);
-            this.Lines["A"].Length = this.Lines["B"].Length = this.Length;
-
-            this.Lines["0"].PRIMARY = this.ActiveEditor.UI_Controls.PrimaryText0.text; // "RUN";
-            this.Lines["1"].PRIMARY = this.ActiveEditor.UI_Controls.PrimaryText1.text; // "RUN";
-            this.Lines["A"].PRIMARY = this.ActiveEditor.UI_Controls.PrimaryText2.text;
-            this.Lines["B"].PRIMARY = this.ActiveEditor.UI_Controls.PrimaryText3.text;
-
-            this.Lines["0"].ID = "0";
-            this.Lines["1"].ID = "1";
-            this.Lines["A"].ID = "A";
-            this.Lines["B"].ID = "B";
-
-            this.Lines["0"].LineConnectA = this.Lines["A"];
-            this.Lines["0"].LineConnectB = this.Lines["B"];
-
-            this.Lines["B"].LineConnectA = this.Lines["0"];
-            this.Lines["B"].LineConnectB = this.Lines["1"];
-
-            this.Lines["1"].LineConnectA = this.Lines["B"];
-            this.Lines["1"].LineConnectB = this.Lines["A"];
-
-            this.Lines["A"].LineConnectA = this.Lines["1"];
-            this.Lines["A"].LineConnectB = this.Lines["0"];
-
-            // this.Lines["0"].ENABLED = this.ActiveEditor.UI_Controls.Checkbox0.isChecked;
-            // this.Lines["1"].ENABLED = this.ActiveEditor.UI_Controls.Checkbox1.isChecked;
-            // this.Lines["A"].ENABLED = this.ActiveEditor.UI_Controls.Checkbox2.isChecked;
-            // this.Lines["B"].ENABLED = this.ActiveEditor.UI_Controls.Checkbox3.isChecked;
         }
     }
     Delete() {
-        this.Line?.dispose();
-        this.Lines["0"]?.Delete();
-        this.Lines["1"]?.Delete();
-        this.Lines["A"]?.Delete();
-        this.Lines["B"]?.Delete();
+        this.DrawLine?.Delete();
+        if (this.Automatic) return;
         this.ActiveEditor.UI_Controls.LiveXData.Label.text = "";
         this.ActiveEditor.UI_Controls.LiveYData.Label.text = "";
         this.ActiveEditor.UI_Controls.LiveDistanceData.Label.text = "";
         // delete this;
     }
 
-    SketchOverlap(Sketch2: SketchLine) {
-        let Sketch1 = this;
-        let SketchRelations = GetRelations(Sketch1, Sketch2);
+    // SketchOverlap(Sketch2: SketchLine) {
+    //     let Sketch1 = this;
+    //     let SketchRelations = GetRelations(Sketch1, Sketch2);
 
-        let Sketch1Points = [
-            Sketch1.Lines["0"].LineASettings.points[0], // 0
-            Sketch1.Lines["0"].LineASettings.points[1], // 1
-            Sketch1.Lines["0"].LineBSettings.points[1], // 2
-            Sketch1.Lines["0"].LineBSettings.points[0], // 3
+    //     let Sketch1Points = [
+    //         Sketch1.Lines["0"].LineASettings.points[0], // 0
+    //         Sketch1.Lines["0"].LineASettings.points[1], // 1
+    //         Sketch1.Lines["0"].LineBSettings.points[1], // 2
+    //         Sketch1.Lines["0"].LineBSettings.points[0], // 3
 
-            Sketch1.Lines["B"].LineASettings.points[0], // 4
-            Sketch1.Lines["B"].LineASettings.points[1], // 5
-            Sketch1.Lines["B"].LineBSettings.points[1], // 6
-            Sketch1.Lines["B"].LineBSettings.points[0], // 7
+    //         Sketch1.Lines["B"].LineASettings.points[0], // 4
+    //         Sketch1.Lines["B"].LineASettings.points[1], // 5
+    //         Sketch1.Lines["B"].LineBSettings.points[1], // 6
+    //         Sketch1.Lines["B"].LineBSettings.points[0], // 7
 
-            Sketch1.Lines["1"].LineASettings.points[0], // 8
-            Sketch1.Lines["1"].LineASettings.points[1], // 9
-            Sketch1.Lines["1"].LineBSettings.points[1], // 10
-            Sketch1.Lines["1"].LineBSettings.points[0], // 11
+    //         Sketch1.Lines["1"].LineASettings.points[0], // 8
+    //         Sketch1.Lines["1"].LineASettings.points[1], // 9
+    //         Sketch1.Lines["1"].LineBSettings.points[1], // 10
+    //         Sketch1.Lines["1"].LineBSettings.points[0], // 11
 
-            Sketch1.Lines["A"].LineASettings.points[0], // 12
-            Sketch1.Lines["A"].LineASettings.points[1], // 13
-            Sketch1.Lines["A"].LineBSettings.points[1], // 14
-            Sketch1.Lines["A"].LineBSettings.points[0], // 15
-        ];
+    //         Sketch1.Lines["A"].LineASettings.points[0], // 12
+    //         Sketch1.Lines["A"].LineASettings.points[1], // 13
+    //         Sketch1.Lines["A"].LineBSettings.points[1], // 14
+    //         Sketch1.Lines["A"].LineBSettings.points[0], // 15
+    //     ];
 
-        let Sketch2Points = [
-            Sketch2.Lines["0"].LineASettings.points[0], // 0
-            Sketch2.Lines["0"].LineASettings.points[1], // 1
-            Sketch2.Lines["0"].LineBSettings.points[1], // 2
-            Sketch2.Lines["0"].LineBSettings.points[0], // 3
+    //     let Sketch2Points = [
+    //         Sketch2.Lines["0"].LineASettings.points[0], // 0
+    //         Sketch2.Lines["0"].LineASettings.points[1], // 1
+    //         Sketch2.Lines["0"].LineBSettings.points[1], // 2
+    //         Sketch2.Lines["0"].LineBSettings.points[0], // 3
 
-            Sketch2.Lines["B"].LineASettings.points[0], // 4
-            Sketch2.Lines["B"].LineASettings.points[1], // 5
-            Sketch2.Lines["B"].LineBSettings.points[1], // 6
-            Sketch2.Lines["B"].LineBSettings.points[0], // 7
+    //         Sketch2.Lines["B"].LineASettings.points[0], // 4
+    //         Sketch2.Lines["B"].LineASettings.points[1], // 5
+    //         Sketch2.Lines["B"].LineBSettings.points[1], // 6
+    //         Sketch2.Lines["B"].LineBSettings.points[0], // 7
 
-            Sketch2.Lines["1"].LineASettings.points[0], // 8
-            Sketch2.Lines["1"].LineASettings.points[1], // 9
-            Sketch2.Lines["1"].LineBSettings.points[1], // 10
-            Sketch2.Lines["1"].LineBSettings.points[0], // 11
+    //         Sketch2.Lines["1"].LineASettings.points[0], // 8
+    //         Sketch2.Lines["1"].LineASettings.points[1], // 9
+    //         Sketch2.Lines["1"].LineBSettings.points[1], // 10
+    //         Sketch2.Lines["1"].LineBSettings.points[0], // 11
 
-            Sketch2.Lines["A"].LineASettings.points[0], // 12
-            Sketch2.Lines["A"].LineASettings.points[1], // 13
-            Sketch2.Lines["A"].LineBSettings.points[1], // 14
-            Sketch2.Lines["A"].LineBSettings.points[0], // 15
-        ];
+    //         Sketch2.Lines["A"].LineASettings.points[0], // 12
+    //         Sketch2.Lines["A"].LineASettings.points[1], // 13
+    //         Sketch2.Lines["A"].LineBSettings.points[1], // 14
+    //         Sketch2.Lines["A"].LineBSettings.points[0], // 15
+    //     ];
 
-        // function TESTBS(S1P1, S1P2, S2P1, S2P2) {
-        //     let BoundAInter2D = segmentIntersection2D(S1P1, S1P2, S2P1, S2P2);
-        //     if (BoundAInter2D && (0 <= BoundAInter2D.t1 && BoundAInter2D.t1 <= 1 && 0 <= BoundAInter2D.t2 && BoundAInter2D.t2 <= 1)) {
-        //         DrawLine([S1P1, S1P2]);
-        //         DrawLine([S2P1, S2P2]);
-        //     }
-        // }
+    //     // function TESTBS(S1P1, S1P2, S2P1, S2P2) {
+    //     //     let BoundAInter2D = segmentIntersection2D(S1P1, S1P2, S2P1, S2P2);
+    //     //     if (BoundAInter2D && (0 <= BoundAInter2D.t1 && BoundAInter2D.t1 <= 1 && 0 <= BoundAInter2D.t2 && BoundAInter2D.t2 <= 1)) {
+    //     //         DrawLine([S1P1, S1P2]);
+    //     //         DrawLine([S2P1, S2P2]);
+    //     //     }
+    //     // }
 
-        for (let S1I = 0; S1I < 4; S1I++) {
-            let Side1 = S1I == 0 ? "0" : S1I == 1 ? "B" : S1I == 2 ? "1" : S1I == 3 ? "A" : S1I.toString();
-            let Polygon1 = [Sketch1Points[S1I * 4], Sketch1Points[S1I * 4 + 1], Sketch1Points[S1I * 4 + 2], Sketch1Points[S1I * 4 + 3]];
-            for (let S2I = 0; S2I < 4; S2I++) {
-                let Side2 = S2I == 0 ? "0" : S2I == 1 ? "B" : S2I == 2 ? "1" : S2I == 3 ? "A" : S2I.toString();
-                let Polygon2 = [Sketch2Points[S2I * 4], Sketch2Points[S2I * 4 + 1], Sketch2Points[S2I * 4 + 2], Sketch2Points[S2I * 4 + 3]];
-                let P1W2 = 0;
-                let P2W1 = 0;
-                for (let Offset = 0; Offset < 4; Offset++) {
-                    let Polygon1Within2 = Sketch1Points[S1I * 4 + Offset].PointInPolygon(Polygon2);
-                    let Polygon2Within1 = Sketch2Points[S2I * 4 + Offset].PointInPolygon(Polygon1);
-                    // if (Polygon1Within2) {
-                    //     this.ActiveEditor.DrawLine(Polygon1).color = new BABYLON.Color3(1, .5, 0);
-                    //     this.ActiveEditor.DrawLine(Polygon2).color = new BABYLON.Color3(1, 1, 0);
-                    // }
-                    // if (Polygon2Within1) {
-                    //     this.ActiveEditor.DrawLine(Polygon1).color = new BABYLON.Color3(1, 1, 0);
-                    //     this.ActiveEditor.DrawLine(Polygon2).color = new BABYLON.Color3(1, .5, 0);
-                    // }
-                    if (Polygon1Within2) P1W2++;
-                    if (Polygon2Within1) P2W1++;
-                }
-                if (P1W2 > 0) SketchRelations.Add(Sketch1.ID, Side1, "WITHIN", Sketch2.ID, Side2, "BOUND", P1W2);
-                if (P2W1 > 0) SketchRelations.Add(Sketch1.ID, Side1, "BOUND", Sketch2.ID, Side2, "WITHIN", P2W1);
+    //     for (let S1I = 0; S1I < 4; S1I++) {
+    //         let Side1 = S1I == 0 ? "0" : S1I == 1 ? "B" : S1I == 2 ? "1" : S1I == 3 ? "A" : S1I.toString();
+    //         let Polygon1 = [Sketch1Points[S1I * 4], Sketch1Points[S1I * 4 + 1], Sketch1Points[S1I * 4 + 2], Sketch1Points[S1I * 4 + 3]];
+    //         for (let S2I = 0; S2I < 4; S2I++) {
+    //             let Side2 = S2I == 0 ? "0" : S2I == 1 ? "B" : S2I == 2 ? "1" : S2I == 3 ? "A" : S2I.toString();
+    //             let Polygon2 = [Sketch2Points[S2I * 4], Sketch2Points[S2I * 4 + 1], Sketch2Points[S2I * 4 + 2], Sketch2Points[S2I * 4 + 3]];
+    //             let P1W2 = 0;
+    //             let P2W1 = 0;
+    //             for (let Offset = 0; Offset < 4; Offset++) {
+    //                 let Polygon1Within2 = Sketch1Points[S1I * 4 + Offset].PointInPolygon(Polygon2);
+    //                 let Polygon2Within1 = Sketch2Points[S2I * 4 + Offset].PointInPolygon(Polygon1);
+    //                 // if (Polygon1Within2) {
+    //                 //     this.ActiveEditor.DrawLine(Polygon1).color = new BABYLON.Color3(1, .5, 0);
+    //                 //     this.ActiveEditor.DrawLine(Polygon2).color = new BABYLON.Color3(1, 1, 0);
+    //                 // }
+    //                 // if (Polygon2Within1) {
+    //                 //     this.ActiveEditor.DrawLine(Polygon1).color = new BABYLON.Color3(1, 1, 0);
+    //                 //     this.ActiveEditor.DrawLine(Polygon2).color = new BABYLON.Color3(1, .5, 0);
+    //                 // }
+    //                 if (Polygon1Within2) P1W2++;
+    //                 if (Polygon2Within1) P2W1++;
+    //             }
+    //             if (P1W2 > 0) SketchRelations.Add(Sketch1.ID, Side1, "WITHIN", Sketch2.ID, Side2, "BOUND", P1W2);
+    //             if (P2W1 > 0) SketchRelations.Add(Sketch1.ID, Side1, "BOUND", Sketch2.ID, Side2, "WITHIN", P2W1);
 
-                let BoundInter2D = segmentIntersection2D(Sketch1Points[S1I * 4 + 1], Sketch1Points[S1I * 4 + 2], Sketch2Points[S2I * 4 + 1], Sketch2Points[S2I * 4 + 2]);
-                if (BoundInter2D && (0 <= BoundInter2D.t1 && BoundInter2D.t1 <= 1 && 0 <= BoundInter2D.t2 && BoundInter2D.t2 <= 1)) {
-                    // this.ActiveEditor.DrawLine([Sketch1Points[S1I * 4 + 1], Sketch1Points[S1I * 4 + 2]]);
-                    // this.ActiveEditor.DrawLine([Sketch2Points[S2I * 4 + 1], Sketch2Points[S2I * 4 + 2]]);
-                    // BoundInter2D.point
+    //             let BoundInter2D = segmentIntersection2D(Sketch1Points[S1I * 4 + 1], Sketch1Points[S1I * 4 + 2], Sketch2Points[S2I * 4 + 1], Sketch2Points[S2I * 4 + 2]);
+    //             if (BoundInter2D && (0 <= BoundInter2D.t1 && BoundInter2D.t1 <= 1 && 0 <= BoundInter2D.t2 && BoundInter2D.t2 <= 1)) {
+    //                 // this.ActiveEditor.DrawLine([Sketch1Points[S1I * 4 + 1], Sketch1Points[S1I * 4 + 2]]);
+    //                 // this.ActiveEditor.DrawLine([Sketch2Points[S2I * 4 + 1], Sketch2Points[S2I * 4 + 2]]);
+    //                 // BoundInter2D.point
 
-                    // let Coincide1 = BoundInter2D.p1.Lerp(BoundInter2D.p2, BoundInter2D.t1), Coincide2 = BoundInter2D.p3.Lerp(BoundInter2D.p4, BoundInter2D.t2);
-                    // // Possibly try normalization and stuff with FocusCF of that plane.
-                    // // this.ActiveEditor.DrawLine([BoundInter2D.p1.Lerp(BoundInter2D.p2, BoundInter2D.t1), BoundInter2D.p3.Lerp(BoundInter2D.p4, BoundInter2D.t2)]);
-                    // // this.ActiveEditor.DrawLine([Coincide1, BoundInter2D.t1 <= .5 ? BoundInter2D.p1 : BoundInter2D.p2]);
-                    // // this.ActiveEditor.DrawLine([Coincide2, BoundInter2D.t2 <= .5 ? BoundInter2D.p3 : BoundInter2D.p4]);
-                    // let Lerped1 = Coincide1.DistanceFromPoint(BoundInter2D.t1 <= .5 ? BoundInter2D.p1 : BoundInter2D.p2);
-                    // let Lerped2 = Coincide2.DistanceFromPoint(BoundInter2D.t2 <= .5 ? BoundInter2D.p3 : BoundInter2D.p4);
-                    // // SketchRelations.Relations.map((Value: RELATION, index: number) => {
-                    // //     return Value.Value1.
-                    // // });
-                    // this.ActiveEditor.DrawLine([Coincide1, BoundInter2D.t1 <= .5 ? BoundInter2D.p1 : BoundInter2D.p2, (BoundInter2D.t1 <= .5 ? BoundInter2D.p1 : BoundInter2D.p2).add(new BABYLON.Vector3(0, Math.tan(Math.atan2(1, 1)) * Lerped1))]);
-                    // // this.ActiveEditor.DrawLine([Coincide2, BoundInter2D.t2 <= .5 ? BoundInter2D.p3 : BoundInter2D.p4, (BoundInter2D.t2 <= .5 ? BoundInter2D.p3 : BoundInter2D.p4).add(new BABYLON.Vector3(0, Math.tan(Math.atan2(1, 1)) * Lerped2))]).color = new BABYLON.Color3(0, .5, 1);
-                    // let WITHIN_BOUND = SketchRelations.Find(Side1, "WITHIN", Side2, "BOUND");
-                    // if (WITHIN_BOUND == SketchRelations.Sketch1.ID) {
-                    //     this.ActiveEditor.LabelMarker(BoundInter2D.point, `INTERSECT (${Math.round(Lerped1)})`);
-                    // } else if (WITHIN_BOUND == SketchRelations.Sketch2.ID) {
-                    //     this.ActiveEditor.LabelMarker(BoundInter2D.point, `INTERSECT (${Math.round(Lerped2)})`);
-                    // }
+    //                 // let Coincide1 = BoundInter2D.p1.Lerp(BoundInter2D.p2, BoundInter2D.t1), Coincide2 = BoundInter2D.p3.Lerp(BoundInter2D.p4, BoundInter2D.t2);
+    //                 // // Possibly try normalization and stuff with FocusCF of that plane.
+    //                 // // this.ActiveEditor.DrawLine([BoundInter2D.p1.Lerp(BoundInter2D.p2, BoundInter2D.t1), BoundInter2D.p3.Lerp(BoundInter2D.p4, BoundInter2D.t2)]);
+    //                 // // this.ActiveEditor.DrawLine([Coincide1, BoundInter2D.t1 <= .5 ? BoundInter2D.p1 : BoundInter2D.p2]);
+    //                 // // this.ActiveEditor.DrawLine([Coincide2, BoundInter2D.t2 <= .5 ? BoundInter2D.p3 : BoundInter2D.p4]);
+    //                 // let Lerped1 = Coincide1.DistanceFromPoint(BoundInter2D.t1 <= .5 ? BoundInter2D.p1 : BoundInter2D.p2);
+    //                 // let Lerped2 = Coincide2.DistanceFromPoint(BoundInter2D.t2 <= .5 ? BoundInter2D.p3 : BoundInter2D.p4);
+    //                 // // SketchRelations.Relations.map((Value: RELATION, index: number) => {
+    //                 // //     return Value.Value1.
+    //                 // // });
+    //                 // this.ActiveEditor.DrawLine([Coincide1, BoundInter2D.t1 <= .5 ? BoundInter2D.p1 : BoundInter2D.p2, (BoundInter2D.t1 <= .5 ? BoundInter2D.p1 : BoundInter2D.p2).add(new BABYLON.Vector3(0, Math.tan(Math.atan2(1, 1)) * Lerped1))]);
+    //                 // // this.ActiveEditor.DrawLine([Coincide2, BoundInter2D.t2 <= .5 ? BoundInter2D.p3 : BoundInter2D.p4, (BoundInter2D.t2 <= .5 ? BoundInter2D.p3 : BoundInter2D.p4).add(new BABYLON.Vector3(0, Math.tan(Math.atan2(1, 1)) * Lerped2))]).color = new BABYLON.Color3(0, .5, 1);
+    //                 // let WITHIN_BOUND = SketchRelations.Find(Side1, "WITHIN", Side2, "BOUND");
+    //                 // if (WITHIN_BOUND == SketchRelations.Sketch1.ID) {
+    //                 //     this.ActiveEditor.LabelMarker(BoundInter2D.point, `INTERSECT (${Math.round(Lerped1)})`);
+    //                 // } else if (WITHIN_BOUND == SketchRelations.Sketch2.ID) {
+    //                 //     this.ActiveEditor.LabelMarker(BoundInter2D.point, `INTERSECT (${Math.round(Lerped2)})`);
+    //                 // }
 
-                    SketchRelations.Add(Sketch1.ID, Side1, "INTERSECT", Sketch2.ID, Side2, "INTERSECT", BoundInter2D);
-                    // console.log(S1I, S2I, BoundInter2D);
-                }
+    //                 SketchRelations.Add(Sketch1.ID, Side1, "INTERSECT", Sketch2.ID, Side2, "INTERSECT", BoundInter2D);
+    //                 // console.log(S1I, S2I, BoundInter2D);
+    //             }
 
-                if (!SketchRelations.Applied) continue;
+    //             if (!SketchRelations.Applied) continue;
 
-                let CenterAInter2D = segmentIntersection2D(Sketch1Points[S1I * 4 + 1], Sketch1Points[S1I * 4 + 2], Sketch2Points[S2I * 4 + 0], Sketch2Points[S2I * 4 + 3]);
-                if (CenterAInter2D && (0 <= CenterAInter2D.t1 && CenterAInter2D.t1 <= 1 && 0 <= CenterAInter2D.t2 && CenterAInter2D.t2 <= 1)) {
-                    // this.ActiveEditor.DrawLine([Sketch1Points[S1I * 4 + 1], Sketch1Points[S1I * 4 + 2]]);
-                    // this.ActiveEditor.DrawLine([Sketch2Points[S2I * 4 + 0], Sketch2Points[S2I * 4 + 3]]);
-                    // this.ActiveEditor.DrawLine([Sketch1Points[S1I * 4 + 1].Lerp(Sketch1Points[S1I * 4 + 2], CenterAInter2D.t1), Sketch2Points[S2I * 4 + 0].Lerp(Sketch2Points[S2I * 4 + 3], CenterAInter2D.t2)]);
-                    SketchRelations.Add(Sketch1.ID, Side1, "A-CINTERSECT", Sketch2.ID, Side2, "CINTERSECT");
-                    // console.log(S1I, S2I, CenterAInter2D);
-                }
+    //             let CenterAInter2D = segmentIntersection2D(Sketch1Points[S1I * 4 + 1], Sketch1Points[S1I * 4 + 2], Sketch2Points[S2I * 4 + 0], Sketch2Points[S2I * 4 + 3]);
+    //             if (CenterAInter2D && (0 <= CenterAInter2D.t1 && CenterAInter2D.t1 <= 1 && 0 <= CenterAInter2D.t2 && CenterAInter2D.t2 <= 1)) {
+    //                 // this.ActiveEditor.DrawLine([Sketch1Points[S1I * 4 + 1], Sketch1Points[S1I * 4 + 2]]);
+    //                 // this.ActiveEditor.DrawLine([Sketch2Points[S2I * 4 + 0], Sketch2Points[S2I * 4 + 3]]);
+    //                 // this.ActiveEditor.DrawLine([Sketch1Points[S1I * 4 + 1].Lerp(Sketch1Points[S1I * 4 + 2], CenterAInter2D.t1), Sketch2Points[S2I * 4 + 0].Lerp(Sketch2Points[S2I * 4 + 3], CenterAInter2D.t2)]);
+    //                 SketchRelations.Add(Sketch1.ID, Side1, "A-CINTERSECT", Sketch2.ID, Side2, "CINTERSECT");
+    //                 // console.log(S1I, S2I, CenterAInter2D);
+    //             }
 
-                let CenterBInter2D = segmentIntersection2D(Sketch1Points[S1I * 4 + 0], Sketch1Points[S1I * 4 + 3], Sketch2Points[S2I * 4 + 1], Sketch2Points[S2I * 4 + 2]);
-                if (CenterBInter2D && (0 <= CenterBInter2D.t1 && CenterBInter2D.t1 <= 1 && 0 <= CenterBInter2D.t2 && CenterBInter2D.t2 <= 1)) {
-                    // this.ActiveEditor.DrawLine([Sketch1Points[S1I * 4 + 0], Sketch1Points[S1I * 4 + 3]]);
-                    // this.ActiveEditor.DrawLine([Sketch2Points[S2I * 4 + 1], Sketch2Points[S2I * 4 + 2]]);
-                    SketchRelations.Add(Sketch1.ID, Side1, "CINTERSECT", Sketch2.ID, Side2, "B-CINTERSECT");
-                    // console.log(S1I, S2I, CenterBInter2D);
-                }
+    //             let CenterBInter2D = segmentIntersection2D(Sketch1Points[S1I * 4 + 0], Sketch1Points[S1I * 4 + 3], Sketch2Points[S2I * 4 + 1], Sketch2Points[S2I * 4 + 2]);
+    //             if (CenterBInter2D && (0 <= CenterBInter2D.t1 && CenterBInter2D.t1 <= 1 && 0 <= CenterBInter2D.t2 && CenterBInter2D.t2 <= 1)) {
+    //                 // this.ActiveEditor.DrawLine([Sketch1Points[S1I * 4 + 0], Sketch1Points[S1I * 4 + 3]]);
+    //                 // this.ActiveEditor.DrawLine([Sketch2Points[S2I * 4 + 1], Sketch2Points[S2I * 4 + 2]]);
+    //                 SketchRelations.Add(Sketch1.ID, Side1, "CINTERSECT", Sketch2.ID, Side2, "B-CINTERSECT");
+    //                 // console.log(S1I, S2I, CenterBInter2D);
+    //             }
 
-                let CenterInter2D = segmentIntersection2D(Sketch1Points[S1I * 4 + 0], Sketch1Points[S1I * 4 + 3], Sketch2Points[S2I * 4 + 0], Sketch2Points[S2I * 4 + 3]);
-                if (CenterInter2D && (0 <= CenterInter2D.t1 && CenterInter2D.t1 <= 1 && 0 <= CenterInter2D.t2 && CenterInter2D.t2 <= 1)) {
-                    // this.ActiveEditor.DrawLine([Sketch1Points[S1I * 4 + 0], Sketch1Points[S1I * 4 + 3]]).color = new BABYLON.Color3(1, 1, 1);
-                    // this.ActiveEditor.DrawLine([Sketch2Points[S2I * 4 + 0], Sketch2Points[S2I * 4 + 3]]).color = new BABYLON.Color3(1, 1, 1);
-                    SketchRelations.Add(Sketch1.ID, Side1, "CINTERSECT", Sketch2.ID, Side2, "CINTERSECT");
-                    // console.log(S1I, S2I, CenterInter2D);
-                }
+    //             let CenterInter2D = segmentIntersection2D(Sketch1Points[S1I * 4 + 0], Sketch1Points[S1I * 4 + 3], Sketch2Points[S2I * 4 + 0], Sketch2Points[S2I * 4 + 3]);
+    //             if (CenterInter2D && (0 <= CenterInter2D.t1 && CenterInter2D.t1 <= 1 && 0 <= CenterInter2D.t2 && CenterInter2D.t2 <= 1)) {
+    //                 // this.ActiveEditor.DrawLine([Sketch1Points[S1I * 4 + 0], Sketch1Points[S1I * 4 + 3]]).color = new BABYLON.Color3(1, 1, 1);
+    //                 // this.ActiveEditor.DrawLine([Sketch2Points[S2I * 4 + 0], Sketch2Points[S2I * 4 + 3]]).color = new BABYLON.Color3(1, 1, 1);
+    //                 SketchRelations.Add(Sketch1.ID, Side1, "CINTERSECT", Sketch2.ID, Side2, "CINTERSECT");
+    //                 // console.log(S1I, S2I, CenterInter2D);
+    //             }
 
-                if (SketchRelations.Applied) continue;
-            }
-        }
-
-
-    }
-}
-
-// class PseudoSketch {
-//     [RelatedSketchID: number]: {
-//         [Side: "0" | "1" | "A" | "B"]: {
-//             [Type: "INTERSECT" | "WITHIN" | "BOUND"]: {
-
-//             }
-//         };
-//         ["0"]: {
-
-//         };
-//         ["1"]: {
-//             ["B"]: {
-//                 ["BOUND"]: true;
-//             };
-//         };
-//         ["A"]: {
-//             ["B"]: {
-//                 ["BOUND"]: true;
-//                 ["INTERSECT"]: true;
-//             };
-//         };
-//         ["B"]: {
-//             ["B"]: {
-//                 ["BOUND"]: true;
-//                 ["WITHIN"]: true;
-//                 ["INTERSECT"]: true;
-//             };
-//             ["1"]: {
-//                 ["WITHIN"]: true;
-//             };
-//             ["A"]: {
-//                 ["WITHIN"]: true;
-//                 ["INTERSECT"]: true;
-//             };
-//         };
+    //             if (SketchRelations.Applied) continue;
+    //         }
+    //     }
 
 
-
-
-//         ["1"]: {
-//             ["B"]: {
-//                 ["BOUND"]: true;
-//             };
-//         };
-//         ["A"]: {
-//             ["B"]: {
-//                 ["BOUND"]: true;
-//                 ["INTERSECT"]: true;
-//             };
-//         };
-//         ["B"]: {
-//             ["B"]: {
-//                 ["BOUND"]: true;
-//                 ["INTERSECT"]: true;
-//             };
-//         };
-
-
-
-//         ["B"]: {
-//             ["B"]: {
-//                 ["WITHIN"]: true;
-//                 ["INTERSECT"]: true;
-//             };
-//             ["1"]: {
-//                 ["WITHIN"]: true;
-//             };
-//             ["A"]: {
-//                 ["WITHIN"]: true;
-//                 ["INTERSECT"]: true;
-//             };
-//         };
-//     };
-// }
-
-class RELATION_VALUE {
-    ID: number;
-    SIDE: string;
-    TYPE: string;
-    constructor(ID: number, SIDE: string, TYPE: string) {
-        this.ID = ID;
-        this.SIDE = SIDE;
-        this.TYPE = TYPE;
-    }
+    // }
 }
 
 type RELATION = {
-    // Value1: RELATION_VALUE;
-    // Value2: RELATION_VALUE;
     Side1: string;
     Type1: string;
 
