@@ -12,3 +12,5 @@ build/
  netlify.toml
 lib/pdf-export
 lib/backend
+lib/testing
+lib/testing-mansion

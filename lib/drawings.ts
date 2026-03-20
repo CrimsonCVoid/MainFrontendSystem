@@ -148,7 +148,7 @@ export class ExtrudedLine {
     PRIMARY = "PITCH";
     ENABLED = true;
 
-    // FocusSketchLine: SketchLine;
+    FocusSketchLine: SketchLine;
 
     // Length: number = 0;
     // Angle: number = 0;
@@ -167,50 +167,138 @@ export class ExtrudedLine {
     PanelSettings: ExtrudedPolygonSettingsPeanut;
 
     DistIntersection(OtherLine: ExtrudedLine, Outer: boolean = false) {
-        let CenterDifference = Outer ? OtherLine._OuterFocusCenter.TranslateSub(this._OuterFocusCenter) : OtherLine._InnerFocusCenter.TranslateSub(this._InnerFocusCenter);
+        return this.IntersectionDist(OtherLine, Outer ? OtherLine._OuterFocusCenter.TranslateSub(this._OuterFocusCenter) : OtherLine._InnerFocusCenter.TranslateSub(this._InnerFocusCenter));
+    }
+
+    IntersectionDist3D(OtherLine: ExtrudedLine, CenterDifference: Vector3) {
+        const thisDirX = -Math.cos(this._Angle);
+        const thisDirZ = Math.sin(this._Angle);
+
+        const thisRiseX = -Math.sin(this._Angle);
+        const thisRiseZ = Math.cos(this._Angle);
+
+        const otherRiseX = -Math.sin(OtherLine._Angle);
+        const otherRiseZ = Math.cos(OtherLine._Angle);
+
+        const dx0 = CenterDifference.X;
+        const dz0 = CenterDifference.Z;
+        const dy0 = CenterDifference.Y;
+
+        // Height on this roof along its own centerline usually stays constant
+        // because movement is along line direction, not rise direction.
+        // Height on other roof changes depending on how this line cuts across its rise direction.
+
+        const otherRunAtT =
+            (dx0 + thisDirX) * otherRiseX +
+            (dz0 + thisDirZ) * otherRiseZ;
+
+        const otherRunAt0 =
+            dx0 * otherRiseX +
+            dz0 * otherRiseZ;
+
+        const dOtherRunDt = otherRunAtT - otherRunAt0;
+
+        const denom = OtherLine.PITCH * dOtherRunDt;
+
+        if (Math.abs(denom) < 1e-10) return null;
+
+        return (dy0 - OtherLine.PITCH * otherRunAt0) / denom;
+    }
+
+    IntersectionDist(OtherLine: ExtrudedLine, CenterDifference: Vector3) {
+        // let CenterDifference = Outer ? OtherLine._OuterFocusCenter.TranslateSub(this._OuterFocusCenter) : OtherLine._InnerFocusCenter.TranslateSub(this._InnerFocusCenter);
         let Denom = Math.sin(OtherLine._Angle - this._Angle); if (Math.abs(Denom) < 1e-10) return null;
         return (CenterDifference.X * Math.sin(OtherLine._Angle) + CenterDifference.Z * Math.cos(OtherLine._Angle)) / Denom;
     }
 
+    get ExtrudeA() {
+        if (!this.LineConnectA) return 0;
+        // return this._TopLength;
+
+        return this._OffsetInnerA - this._OffsetOuterA;
+        // return this.LineConnectA.RUN * -Math.sign(this._OffsetInnerA - this._OffsetOuterA);
+        return this.LineConnectA.RUN;
+        // if (Math.sign(this._OffsetOuterA - this._OffsetInnerA) < 0) return 0;
+        // return this.LineConnectA.RUN;
+    };
+    get ExtrudeB() {
+        if (!this.LineConnectB) return 0;
+        // return (this._OffsetOuterB + this._OffsetInnerB);
+        return -(this._OffsetInnerB - this._OffsetOuterB);
+        // return this.LineConnectB.RUN * Math.sign(this._OffsetOuterB + this._OffsetInnerB);
+        // return this.LineConnectB.RUN;
+        // return this.LineConnectB.RUN;
+    };
+
+    _OffsetInnerA: number = 0; get OffsetInnerA() { return this._OffsetInnerA; };
+    set OffsetInnerA(value: number) {
+        this._OffsetInnerA = value;
+        this.V3A0.X = this._InnerFocusPointA.X + Math.cos(this._Angle) * value;
+        this.V3A0.Z = this._InnerFocusPointA.Z - Math.sin(this._Angle) * value;
+        this.V3A0.Y = this._InnerFocusPointA.Y;
+        // this.V3A0.Y = this._LineConnectA ? Math.max(this._InnerFocusPointA.Y, this._LineConnectA._InnerFocusPointB.Y) : this._InnerFocusPointA.Y;
+    };
+
+    _OffsetInnerB: number = 0; get OffsetInnerB() { return this._OffsetInnerB; };
+    set OffsetInnerB(value: number) {
+        this._OffsetInnerB = value;
+        this.V3B0.X = this._InnerFocusPointB.X + Math.cos(this._Angle) * value;
+        this.V3B0.Z = this._InnerFocusPointB.Z - Math.sin(this._Angle) * value;
+        this.V3B0.Y = this._InnerFocusPointB.Y;
+        // this.V3B0.Y = this._LineConnectB ? Math.max(this._InnerFocusPointB.Y, this._LineConnectB._InnerFocusPointA.Y) : this._InnerFocusPointB.Y;
+    };
+
+    _OffsetOuterA: number = 0; get OffsetOuterA() { return this._OffsetOuterA; };
+    set OffsetOuterA(value: number) {
+        this._OffsetOuterA = value;
+        this.V3A1.X = this._OuterFocusPointA.X + Math.cos(this._Angle) * value;
+        this.V3A1.Z = this._OuterFocusPointA.Z - Math.sin(this._Angle) * value;
+        this.V3A1.Y = this._OuterFocusPointA.Y;
+        // this.V3A1.Y = this._LineConnectA ? Math.min(this._OuterFocusPointA.Y, this._LineConnectA._OuterFocusPointB.Y) : this._OuterFocusPointA.Y;
+    };
+
+    _OffsetOuterB: number = 0; get OffsetOuterB() { return this._OffsetOuterB; };
+    set OffsetOuterB(value: number) {
+        this._OffsetOuterB = value;
+        this.V3B1.X = this._OuterFocusPointB.X + Math.cos(this._Angle) * value;
+        this.V3B1.Z = this._OuterFocusPointB.Z - Math.sin(this._Angle) * value;
+        this.V3B1.Y = this._OuterFocusPointB.Y;
+        // this.V3B1.Y = this._LineConnectB ? Math.min(this._OuterFocusPointB.Y, this._LineConnectB._OuterFocusPointA.Y) : this._OuterFocusPointB.Y;
+    };
+
     UpdateData() {
         if (this._LineConnectA) {
-            let ConnectAIntersectDist = this.DistIntersection(this._LineConnectA);
-            if (!ConnectAIntersectDist) ConnectAIntersectDist = 0;
-            this.V3A0.X = this._InnerFocusCenter.X + Math.cos(this._Angle) * ConnectAIntersectDist;
-            this.V3A0.Z = this._InnerFocusCenter.Z - Math.sin(this._Angle) * ConnectAIntersectDist;
+            this.OffsetInnerA = this.IntersectionDist(this._LineConnectA, this._LineConnectA._InnerFocusCenter.TranslateSub(this._InnerFocusPointA)) ?? 0;
+            this.OffsetOuterA = this.IntersectionDist(this._LineConnectA, this._LineConnectA._OuterFocusCenter.TranslateSub(this._OuterFocusPointA)) ?? 0;
         } else {
-            this.V3A0.X = this._InnerFocusPointA.X;
-            this.V3A0.Z = this._InnerFocusPointA.Z;
+            this.OffsetInnerA = 0;
+            this.OffsetOuterA = 0;
         }
         if (this._LineConnectB) {
-            let ConnectBIntersectDist = this.DistIntersection(this._LineConnectB);
-            if (!ConnectBIntersectDist) ConnectBIntersectDist = 0;
-            this.V3B0.X = this._InnerFocusCenter.X + Math.cos(this._Angle) * ConnectBIntersectDist;
-            this.V3B0.Z = this._InnerFocusCenter.Z - Math.sin(this._Angle) * ConnectBIntersectDist;
+            this.OffsetInnerB = this.IntersectionDist(this._LineConnectB, this._LineConnectB._InnerFocusCenter.TranslateSub(this._InnerFocusPointB)) ?? 0;
+            this.OffsetOuterB = this.IntersectionDist(this._LineConnectB, this._LineConnectB._OuterFocusCenter.TranslateSub(this._OuterFocusPointB)) ?? 0;
         } else {
-            this.V3B0.X = this._InnerFocusPointB.X;
-            this.V3B0.Z = this._InnerFocusPointB.Z;
+            this.OffsetInnerB = 0;
+            this.OffsetOuterB = 0;
         }
-        this.V3A0.Y = this._InnerFocusCenter.Y;
-        this.V3B0.Y = this._InnerFocusCenter.Y;
-        this._TopLength = this.V3A0.DistanceFromPointXZ(this.V3B0);
 
-        this.V3A1 = CFrame.Angles(0, this._Angle, 0).TranslateAdd(this.V3A0).ToWorldSpace(CFrame.fromXYZ(-this.ExtrudeA, -this._RISE, -this.RUN)).Position;
-        this.V3B1 = CFrame.Angles(0, this._Angle, 0).TranslateAdd(this.V3B0).ToWorldSpace(CFrame.fromXYZ(this.ExtrudeB, -this._RISE, -this.RUN)).Position;
-        this._BottomLength = this.V3A1.DistanceFromPointXZ(this.V3B1);
+        this._TopLength = this.V3A0.DistanceFromPointXZ(this.V3B0);
+        this._BottomLength = this.V3A1.DistanceFromPointXZ(this.V3B1); // this._TopLength + this.ExtrudeA + this.ExtrudeB; // this.V3A1.DistanceFromPointXZ(this.V3B1);
 
         this.Update();
     }
 
     constructor(FocusSketchLine: SketchLine, FocusPointA: Vector3, FocusPointB: Vector3, Angle = 0) { // IsParallel = true) {
         this.ActiveEditor = FocusSketchLine.ActiveEditor;
-        // this.FocusSketchLine = FocusSketchLine;
+        this.FocusSketchLine = FocusSketchLine;
 
         this._Angle = Angle;
         this._Length = FocusPointA.DistanceFromPoint(FocusPointB);
         let Averaged = FocusPointA.Average(FocusPointB);
         this.CenterHeight = Averaged.Y;
         this.InnerFocusCenter = Averaged;
+
+        this.Modify = Editor.ActiveEditor.LabelMarkerXYZ(Averaged.X, Averaged.Y, Averaged.Z, FocusSketchLine.ID)
 
         this.InnerFocusLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.InnerFocusLineSettings, this.ActiveEditor.Scene);
         this.InnerFocusLineSettings.instance.color = new BABYLON.Color3(.5, .5, 1);
@@ -264,19 +352,40 @@ export class ExtrudedLine {
         if (this.LineBSettings) this.LineBSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings);
         this.Polygon?.dispose();
 
-        let MainLength = this.TopLength; // this.V3A.DistanceFromPointXZ(this.V3B); // this.Length;
-        let BottomLength = this._BottomLength; // MainLength + this.ExtrudeA + this.ExtrudeB;
+        let ExtrudeA = this.ExtrudeA;
+        let ExtrudeB = this.ExtrudeB;
+        let MainLength = this.TopLength;
         let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
-        let RoofAngle = CFrame.Angles(Math.atan2(this.RISE, this.RUN), 0, 0);
-        let FocusCF = this.CF_A0.ToWorldSpace(CFrame.Angles(0, Math.PI, 0)).ToWorldSpace(RoofAngle);
+        let DrawLength = MainLength + Math.max(0, ExtrudeA) + Math.max(0, ExtrudeB);
+
+        // let X_L = -Math.min(0, ExtrudeA);
+        // let X_EA = Math.max(0, ExtrudeA);
+        // let X_EB = X_EA + MainLength;
+        // let X_R = X_EB + ExtrudeB;
+
+        let X_L = - ExtrudeA;
+        let X_EA = 0;
+        let X_EB = X_EA + MainLength;
+        let X_R = X_EB + ExtrudeB;
+
+        let RoofAngle = CFrame.Angles(Math.atan2(-this.RISE, this.RUN), 0, 0);
+        let FocusCF = this.CF_A0.ToWorldSpace(RoofAngle); // .ToWorldSpace(CFrame.Angles(0, Math.PI, 0)); // .ToWorldSpace(RoofAngle);
 
         if (!this.PolygonSettings) return;
 
+
+        // this.PolygonSettings.shape = [
+        //     new BABYLON.Vector3(),
+        //     new BABYLON.Vector3(this.ExtrudeA, 0, ExtrudeLength),
+        //     new BABYLON.Vector3(-MainLength - this.ExtrudeB, 0, ExtrudeLength),
+        //     new BABYLON.Vector3(-MainLength, 0, 0),
+        // ];
+
         this.PolygonSettings.shape = [
-            new BABYLON.Vector3(),
-            new BABYLON.Vector3(this.ExtrudeA, 0, ExtrudeLength),
-            new BABYLON.Vector3(-MainLength - this.ExtrudeB, 0, ExtrudeLength),
-            new BABYLON.Vector3(-MainLength, 0, 0),
+            new BABYLON.Vector3(X_L, 0, -ExtrudeLength),
+            new BABYLON.Vector3(X_EA, 0, 0),
+            new BABYLON.Vector3(X_EB, 0, 0),
+            new BABYLON.Vector3(X_R, 0, -ExtrudeLength),
         ];
 
         // if (true) return;
@@ -295,7 +404,7 @@ export class ExtrudedLine {
 
         let SelectedPanelData = PanelProfiles[this.SelectedProfile] ?? PanelProfiles["standing-seam"]; // SelectedProfile];
         let PanelLength = SelectedPanelData.PanelLength; // 36;
-        let MaxPanels = Math.ceil(BottomLength / PanelLength);
+        let MaxPanels = Math.ceil(DrawLength / PanelLength);
 
         let shape = []; // new BABYLON.Vector3(0, 0, 0)];
 
@@ -308,25 +417,25 @@ export class ExtrudedLine {
                 let Extrude = P.length > 1 ? P[1] : 0;
                 let Inner = P.length > 2 ? P[2] : 0;
                 let ExtrudeUndo = P.length > 3 ? P[3] : Extrude;
-                if (X >= BottomLength) break;
+                if (X >= DrawLength) break;
 
                 X += Outer / 2 - Inner / 2;
                 Y += Extrude;
                 shape.push(new BABYLON.Vector3(X, Y, 0));
-                if (X >= BottomLength) break;
+                if (X >= DrawLength) break;
 
                 X += Inner;
                 if (Inner != 0) shape.push(new BABYLON.Vector3(X, Y, 0));
-                if (X >= BottomLength) break;
+                if (X >= DrawLength) break;
 
                 X += Outer / 2 - Inner / 2;
                 Y -= ExtrudeUndo;
                 if (ExtrudeUndo != 0 || (Outer - Inner) != 0) shape.push(new BABYLON.Vector3(X, Y, 0));
-                if (X >= BottomLength) break;
+                if (X >= DrawLength) break;
             };
         };
 
-        if (shape.length != 0) shape[shape.length - 1].x = BottomLength; // Could handle the slope and stuff properly...
+        if (shape.length != 0) shape[shape.length - 1].x = DrawLength; // Could handle the slope and stuff properly...
 
         PanelLength *= MaxPanels;
 
@@ -352,31 +461,79 @@ export class ExtrudedLine {
         this.UpdatePanelMesh();
     }
 
+    // GetHeightAtX(X: number, Raw = false) {
+    //     // return this.GetBottomAtX(X);
+    //     let MainLength = this.TopLength;
+    //     let BottomLength = MainLength + this.ExtrudeA + this.ExtrudeB; // this.BottomLength; // MainLength + this.ExtrudeA + this.ExtrudeB;
+    //     let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
+    //     let Height = 0;
+    //     if (X <= this.ExtrudeB && this.ExtrudeB != 0) {
+    //         Height = X / this.ExtrudeB * ExtrudeLength;
+    //         if (!Raw)
+    //             for (let ZoningPoint of this.Zonings) {
+    //                 let Actual1X = -ZoningPoint[1].X + this.ExtrudeB + MainLength;
+    //                 if (Actual1X > X) continue;
+    //                 Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
+    //             }
+    //     } else if (X <= this.ExtrudeB + MainLength) {
+    //         Height = ExtrudeLength;
+    //     } else if (this.ExtrudeA != 0) {
+    //         Height = (BottomLength - X) / this.ExtrudeA * ExtrudeLength;
+    //         if (!Raw)
+    //             for (let ZoningPoint of this.Zonings) {
+    //                 let Actual1X = -ZoningPoint[1].X + this.ExtrudeB + MainLength;
+    //                 if (Actual1X < X) continue;
+    //                 Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
+    //             }
+    //     } // else Height = ExtrudeLength;
+    //     return Height;
+    // }
+
     GetHeightAtX(X: number, Raw = false) {
         // return this.GetBottomAtX(X);
+        // let ExtrudeA = Math.max(0, this.ExtrudeA);
+        // let ExtrudeB = Math.max(0, this.ExtrudeB);
+        // let MainLength = this.TopLength;
+        // let DrawLength = MainLength + ExtrudeA + ExtrudeB; // this.BottomLength; // MainLength + this.ExtrudeA + this.ExtrudeB;
+        // let BottomLength = this.BottomLength;
+        // let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
+        // let Height = 0;
+        // if (X <= ExtrudeB && ExtrudeB != 0) {
+        //     Height = X / this.ExtrudeB * ExtrudeLength;
+        // } else if (X <= ExtrudeB + MainLength) {
+        //     Height = ExtrudeLength;
+        // } else if (ExtrudeA != 0) {
+        //     Height = (BottomLength - X) / ExtrudeA * ExtrudeLength;
+        // }
+        // if (!Raw)
+        //     for (let ZoningPoint of this.Zonings) {
+        //         let Actual1X = -ZoningPoint[1].X + this.ExtrudeB + MainLength;
+        //         if (Actual1X < X) continue; // Make this work according to the difference of ZoningPoint[0] and ZoningPoint[1].
+        //         Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
+        //     }
+        let ExtrudeA = this.ExtrudeA;
+        let ExtrudeB = this.ExtrudeB;
         let MainLength = this.TopLength;
-        let BottomLength = MainLength + this.ExtrudeA + this.ExtrudeB;
         let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
+        let DrawLength = MainLength + Math.max(0, ExtrudeA) + Math.max(0, ExtrudeB);
+
+        let X_L = -Math.min(0, ExtrudeA);
+        let X_EA = Math.max(0, ExtrudeA);
+        let X_EB = X_EA + MainLength;
+        let X_R = X_EB + ExtrudeB;
+
         let Height = 0;
-        if (X <= this.ExtrudeB && this.ExtrudeB != 0) {
-            Height = X / this.ExtrudeB * ExtrudeLength;
-            if (!Raw)
-                for (let ZoningPoint of this.Zonings) {
-                    let Actual1X = -ZoningPoint[1].X + this.ExtrudeB + MainLength;
-                    if (Actual1X > X) continue;
-                    Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
-                }
-        } else if (X <= this.ExtrudeB + MainLength) {
+
+        if (X_L <= X && X <= X_EA && X_L != X_EA) {
+            Height = ExtrudeLength * (X - X_L) / (X_EA - X_L);
+        } else if (X_EA <= X && X <= X_EB) {
             Height = ExtrudeLength;
-        } else if (this.ExtrudeA != 0) {
-            Height = (BottomLength - X) / this.ExtrudeA * ExtrudeLength;
-            if (!Raw)
-                for (let ZoningPoint of this.Zonings) {
-                    let Actual1X = -ZoningPoint[1].X + this.ExtrudeB + MainLength;
-                    if (Actual1X < X) continue;
-                    Height = Math.max(Height, ExtrudeLength - ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5));
-                }
-        } // else Height = ExtrudeLength;
+        } else if (X_EB <= X && X <= X_R && X_EB != X_R) {
+            Height = ExtrudeLength - ExtrudeLength * (X - X_EB) / (X_R - X_EB);
+        }
+
+        // if (Height != Height) console.log("WTF IS WRONG", X, X_L, X_EA, X_EB, X_R, this)
+
         return Height;
     }
 
@@ -392,11 +549,11 @@ export class ExtrudedLine {
         // this.CF1 = CFrame.fromVector3(this.FocusSketchLine[this.FocusPoint1]).ToWorldSpace(CFrame.Angles(0, this.FocusSketchLine.Angle + (this.Angle + 180 - 90) * Math.PI / 180, 0));
         this.CF_B0 = CFrame.Angles(0, this._Angle, 0).TranslateAdd(this.V3B0); // this.CF_A0.ToWorldSpace(CFrame.fromXYZ(this.Length, 0, 0)); // .ToWorldSpace(CFrame.Angles(0, Math.PI, 0));
 
-        let RUN = this.RUN;
-        let RISE = this._RISE;
+        // let RUN = this.RUN;
+        // let RISE = this._RISE;
 
-        let CF_A1 = this.CF_A1 = this.CF_A0.ToWorldSpace(CFrame.fromXYZ(-this.ExtrudeA, -RISE, -RUN));
-        let CF_B1 = this.CF_B1 = this.CF_B0.ToWorldSpace(CFrame.fromXYZ(this.ExtrudeB, -RISE, -RUN));
+        let CF_A1 = this.CF_A1 = CFrame.Angles(0, this._Angle, 0).TranslateAdd(this.V3A1); // this.CF_A0.ToWorldSpace(CFrame.fromXYZ(-this.ExtrudeA, -RISE, -RUN));
+        let CF_B1 = this.CF_B1 = CFrame.Angles(0, this._Angle, 0).TranslateAdd(this.V3B1); // this.CF_B0.ToWorldSpace(CFrame.fromXYZ(this.ExtrudeB, -RISE, -RUN));
         // let CF_A1 = this.CF_A1 = this.CF_A0.ToWorldSpace(CFrame.fromXYZ(-RUN, -RISE, -this.ExtrudeA));
         // let CF_B1 = this.CF_B1 = this.CF_B0.ToWorldSpace(CFrame.fromXYZ(-RUN, -RISE, this.ExtrudeB));
         this.BottomLineSettings.points[0].set(CF_A1.X, CF_A1.Y, CF_A1.Z);
@@ -406,13 +563,15 @@ export class ExtrudedLine {
         this.TopLineSettings.points[0].set(this.CF_A0.X, this.CF_A0.Y, this.CF_A0.Z);
         this.TopLineSettings.points[1].set(this.CF_B0.X, this.CF_B0.Y, this.CF_B0.Z);
 
+        if (this.Modify) this.Modify[1].text = `${this.FocusSketchLine.ID}\n${this._Length}\nTL: ${this._TopLength}\nBL: ${this._BottomLength}\n${this.ExtrudeA}-${this.ExtrudeB}`;
+
         this.UpdatePanelMesh();
 
         this.InnerFocusLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.InnerFocusLineSettings);
         this.MiddleFocusLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.MiddleFocusLineSettings);
         this.OuterFocusLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.OuterFocusLineSettings);
         this.TopLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.TopLineSettings);
-        // this.BottomLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.BottomLineSettings);
+        this.BottomLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.BottomLineSettings);
     }
 
     Delete() {
@@ -431,15 +590,6 @@ export class ExtrudedLine {
         // for (let PanelSettings of this.Panels) PanelSettings.instance?.dispose();
         // delete this;
     }
-
-    get ExtrudeA() {
-        if (!this.LineConnectA) return 0;
-        return this.LineConnectA.RUN;
-    };
-    get ExtrudeB() {
-        if (!this.LineConnectB) return 0;
-        return this.LineConnectB.RUN;
-    };
 
     _LineConnectA!: ExtrudedLine; get LineConnectA() { return this._LineConnectA; };
     _LineConnectB!: ExtrudedLine; get LineConnectB() { return this._LineConnectB; };
@@ -498,30 +648,15 @@ export class ExtrudedLine {
         this.UpdateFocusLine();
     }
 
-    _InnerFocusPointA: Vector3 = new Vector3(); get InnerFocusPointA() { return this._InnerFocusPointA; };
-    _InnerFocusPointB: Vector3 = new Vector3(); get InnerFocusPointB() { return this._InnerFocusPointB; };
-    _InnerFocusCenter: Vector3 = new Vector3(); get InnerFocusCenter() { return this._InnerFocusCenter; };
-
-    _MiddleFocusPointA: Vector3 = new Vector3(); get MiddleFocusPointA() { return this._MiddleFocusPointA; };
-    _MiddleFocusPointB: Vector3 = new Vector3(); get MiddleFocusPointB() { return this._MiddleFocusPointB; };
-    _MiddleFocusCenter: Vector3 = new Vector3(); get MiddleFocusCenter() { return this._MiddleFocusCenter; };
-
-    _OuterFocusPointA: Vector3 = new Vector3(); get OuterFocusPointA() { return this._OuterFocusPointA; };
-    _OuterFocusPointB: Vector3 = new Vector3(); get OuterFocusPointB() { return this._OuterFocusPointB; };
-    _OuterFocusCenter: Vector3 = new Vector3(); get OuterFocusCenter() { return this._OuterFocusCenter; };
-
-    set InnerFocusPointA(value: Vector3) { this.DrawMatrix(value.X, value.Z, -1, -1); };
-    set InnerFocusPointB(value: Vector3) { this.DrawMatrix(value.X, value.Z, 0, -1); };
-    set InnerFocusCenter(value: Vector3) { this.DrawMatrix(value.X, value.Z, 1, -1); };
-
-    set MiddleFocusPointA(value: Vector3) { this.DrawMatrix(value.X, value.Z, -1, 0); };
-    set MiddleFocusPointB(value: Vector3) { this.DrawMatrix(value.X, value.Z, 0, 0); };
-    set MiddleFocusCenter(value: Vector3) { this.DrawMatrix(value.X, value.Z, 1, 0); };
-
-    set OuterFocusPointA(value: Vector3) { this.DrawMatrix(value.X, value.Z, -1, 1); };
-    set OuterFocusPointB(value: Vector3) { this.DrawMatrix(value.X, value.Z, 0, 1); };
-    set OuterFocusCenter(value: Vector3) { this.DrawMatrix(value.X, value.Z, 1, 1); };
-
+    set InnerFocusPointA(value: Vector3) { this.DrawMatrix(value.X, value.Z, -1, -1); }; _InnerFocusPointA: Vector3 = new Vector3(); get InnerFocusPointA() { return this._InnerFocusPointA; };
+    set InnerFocusPointB(value: Vector3) { this.DrawMatrix(value.X, value.Z, 0, -1); }; _InnerFocusPointB: Vector3 = new Vector3(); get InnerFocusPointB() { return this._InnerFocusPointB; };
+    set InnerFocusCenter(value: Vector3) { this.DrawMatrix(value.X, value.Z, 1, -1); }; _InnerFocusCenter: Vector3 = new Vector3(); get InnerFocusCenter() { return this._InnerFocusCenter; };
+    set MiddleFocusPointA(value: Vector3) { this.DrawMatrix(value.X, value.Z, -1, 0); }; _MiddleFocusPointA: Vector3 = new Vector3(); get MiddleFocusPointA() { return this._MiddleFocusPointA; };
+    set MiddleFocusPointB(value: Vector3) { this.DrawMatrix(value.X, value.Z, 0, 0); }; _MiddleFocusPointB: Vector3 = new Vector3(); get MiddleFocusPointB() { return this._MiddleFocusPointB; };
+    set MiddleFocusCenter(value: Vector3) { this.DrawMatrix(value.X, value.Z, 1, 0); }; _MiddleFocusCenter: Vector3 = new Vector3(); get MiddleFocusCenter() { return this._MiddleFocusCenter; };
+    set OuterFocusPointA(value: Vector3) { this.DrawMatrix(value.X, value.Z, -1, 1); }; _OuterFocusPointA: Vector3 = new Vector3(); get OuterFocusPointA() { return this._OuterFocusPointA; };
+    set OuterFocusPointB(value: Vector3) { this.DrawMatrix(value.X, value.Z, 0, 1); }; _OuterFocusPointB: Vector3 = new Vector3(); get OuterFocusPointB() { return this._OuterFocusPointB; };
+    set OuterFocusCenter(value: Vector3) { this.DrawMatrix(value.X, value.Z, 1, 1); }; _OuterFocusCenter: Vector3 = new Vector3(); get OuterFocusCenter() { return this._OuterFocusCenter; };
 
     UpdateFocusLine() {
         this.InnerFocusLineSettings.points[0].set(this._InnerFocusPointA.X, this._InnerFocusPointA.Y, this._InnerFocusPointA.Z);
@@ -696,26 +831,10 @@ export class ExtrudedLine {
     // CF0 = new CFrame();
     // CF1 = new CFrame();
 
-
-
-
-    get V3A0() { return this._V3A0; }; _V3A0 = new Vector3();
-    get V3B0() { return this._V3B0; }; _V3B0 = new Vector3();
-    set V3A0(value: Vector3) {
-        this._V3A0.x = value.x; this._V3A0.y = value.y + 0 * this.RISE; this._V3A0.z = value.z;
-    };
-    set V3B0(value: Vector3) {
-        this._V3B0.x = value.x; this._V3B0.y = value.y + 0 * this.RISE; this._V3B0.z = value.z;
-    };
-
-    get V3A1() { return this._V3A1; }; _V3A1 = new Vector3();
-    get V3B1() { return this._V3B1; }; _V3B1 = new Vector3();
-    set V3A1(value: Vector3) {
-        this._V3A1.x = value.x; this._V3A1.y = value.y + 0 * this.RISE; this._V3A1.z = value.z;
-    };
-    set V3B1(value: Vector3) {
-        this._V3B1.x = value.x; this._V3B1.y = value.y + 0 * this.RISE; this._V3B1.z = value.z;
-    };
+    set V3A0(value: Vector3) { this._V3A0.ApplyXYZ(value.x, value.y, value.z); }; get V3A0() { return this._V3A0; }; _V3A0 = new Vector3();
+    set V3B0(value: Vector3) { this._V3B0.ApplyXYZ(value.x, value.y, value.z); }; get V3B0() { return this._V3B0; }; _V3B0 = new Vector3();
+    set V3A1(value: Vector3) { this._V3A1.ApplyXYZ(value.x, value.y, value.z); }; get V3A1() { return this._V3A1; }; _V3A1 = new Vector3();
+    set V3B1(value: Vector3) { this._V3B1.ApplyXYZ(value.x, value.y, value.z); }; get V3B1() { return this._V3B1; }; _V3B1 = new Vector3();
 }
 
 export class SketchLine {
@@ -820,41 +939,169 @@ export class SketchLine {
         }
     }
     UpdateInterceptions() {
+        // let ClosestSketches = SketchLine.AllDrawings.map((Sketch2) => {
+        //     let OffsetInnerA = this.DrawLine.IntersectionDist(Sketch2.DrawLine, Sketch2.DrawLine._MiddleFocusCenter.TranslateSub(this.DrawLine._MiddleFocusPointA));
+        //     let OffsetInnerB = this.DrawLine.IntersectionDist(Sketch2.DrawLine, Sketch2.DrawLine._MiddleFocusCenter.TranslateSub(this.DrawLine._MiddleFocusPointB));
+
+        //     let OffsetFromOtherInnerA = Sketch2.DrawLine.IntersectionDist(this.DrawLine, this.DrawLine._MiddleFocusCenter.TranslateSub(Sketch2.DrawLine._MiddleFocusPointA));
+        //     let OffsetFromOtherInnerB = Sketch2.DrawLine.IntersectionDist(this.DrawLine, this.DrawLine._MiddleFocusCenter.TranslateSub(Sketch2.DrawLine._MiddleFocusPointB));
+
+        //     return [
+        //         Sketch2,
+        //         OffsetInnerA, OffsetInnerB, // +X -> -X // A+X -> B+X // 1-2 or 3-4 //
+
+        //         OffsetFromOtherInnerA, OffsetFromOtherInnerB,
+        //     ];
+        // }).filter((X: any[]) => {
+        //     if (X[3] == null || X[0] == this) return false;
+        //     if (X[0].DrawLine._BottomHeight > this.DrawLine._CenterHeight || this.DrawLine._CenterHeight > X[0].DrawLine._TopHeight) return false;
+        //     if (Math.abs(X[1]) > this.DrawLine.Length && Math.abs(X[3]) > this.DrawLine.Length) return false;
+        //     if (Math.abs(X[2]) > this.DrawLine.Length && Math.abs(X[4]) > this.DrawLine.Length) return false;
+
+        //     return true;
+        // });
+        // console.log(this.ID, this.DrawLine.Length, ClosestSketches);
+        // if (ClosestSketches.length == 0) return;
+
+        // let ClosestToA = [];
+        // let ClosestToB = [];
+
+        // for (let Data of ClosestSketches) {
+        //     if (Math.abs(Data[1]) < Math.abs(Data[2])) {
+        //         if (Math.abs(Data[1]) <= this.DrawLine.Length)
+        //             if (Math.abs(Data[3]) <= Data[0].DrawLine.Length)
+        //                 ClosestToA.push(Data);
+        //     } else {
+        //         if (Math.abs(Data[2]) <= this.DrawLine.Length)
+        //             if (Math.abs(Data[4]) <= Data[0].DrawLine.Length)
+        //                 ClosestToB.push(Data);
+        //     }
+        // }
+
+        // console.log(ClosestToA, ClosestToB);
+
+        // ClosestToA = ClosestToA.sort((A: any, B: any) => Math.abs(A[1]) - Math.abs(B[1]));
+        // if (ClosestToA[0])
+        //     this.DrawLine.LineConnectA = (ClosestToA[0][0] as SketchLine).DrawLine;
+
+        // ClosestToB = ClosestToB.sort((A: any, B: any) => Math.abs(A[2]) - Math.abs(B[2]));
+        // if (ClosestToB[0])
+        //     this.DrawLine.LineConnectB = (ClosestToB[0][0] as SketchLine).DrawLine;
+
+
+
         let ClosestSketches = SketchLine.AllDrawings.map((Sketch2) => {
-            let InnerDist = this.DrawLine.DistIntersection(Sketch2.DrawLine);
-            // let OuterDist = this.DrawLine.DistIntersection(Sketch2.DrawLine, true);
+            let OffsetInnerA = this.DrawLine.IntersectionDist(Sketch2.DrawLine, Sketch2.DrawLine._InnerFocusCenter.TranslateSub(this.DrawLine._InnerFocusPointA));
+            let OffsetInnerB = this.DrawLine.IntersectionDist(Sketch2.DrawLine, Sketch2.DrawLine._InnerFocusCenter.TranslateSub(this.DrawLine._InnerFocusPointB));
+            let OffsetOuterA = this.DrawLine.IntersectionDist(Sketch2.DrawLine, Sketch2.DrawLine._OuterFocusCenter.TranslateSub(this.DrawLine._OuterFocusPointA));
+            let OffsetOuterB = this.DrawLine.IntersectionDist(Sketch2.DrawLine, Sketch2.DrawLine._OuterFocusCenter.TranslateSub(this.DrawLine._OuterFocusPointB));
 
-            let InterceptionX = this.DrawLine._InnerFocusCenter.X + Math.cos(this.DrawLine.Angle) * (InnerDist ?? 0);
-            let InterceptionZ = this.DrawLine._InnerFocusCenter.Z - Math.sin(this.DrawLine.Angle) * (InnerDist ?? 0);
 
-            let DistFromA = ((this.DrawLine._InnerFocusPointA.X - InterceptionX) ** 2 + (this.DrawLine._InnerFocusPointA.Z - InterceptionZ) ** 2) ** .5;
-            let DistFromB = ((this.DrawLine._InnerFocusPointB.X - InterceptionX) ** 2 + (this.DrawLine._InnerFocusPointB.Z - InterceptionZ) ** 2) ** .5;
+            let OffsetFromOtherInnerA = Sketch2.DrawLine.IntersectionDist(this.DrawLine, this.DrawLine._InnerFocusCenter.TranslateSub(Sketch2.DrawLine._InnerFocusPointA));
+            let OffsetFromOtherInnerB = Sketch2.DrawLine.IntersectionDist(this.DrawLine, this.DrawLine._InnerFocusCenter.TranslateSub(Sketch2.DrawLine._InnerFocusPointB));
+            let OffsetFromOtherOuterA = Sketch2.DrawLine.IntersectionDist(this.DrawLine, this.DrawLine._OuterFocusCenter.TranslateSub(Sketch2.DrawLine._OuterFocusPointA));
+            let OffsetFromOtherOuterB = Sketch2.DrawLine.IntersectionDist(this.DrawLine, this.DrawLine._OuterFocusCenter.TranslateSub(Sketch2.DrawLine._OuterFocusPointB));
 
-            let InnerDistFromOther = Sketch2.DrawLine.DistIntersection(this.DrawLine); // ((Sketch2.DrawLine._InnerFocusCenter.X - InterceptionX) ** 2 + (Sketch2.DrawLine._InnerFocusCenter.Z - InterceptionZ) ** 2) ** .5; // this.DrawLine._InnerFocusCenter.DistanceFromPointXZ(Sketch2.DrawLine._InnerFocusCenter);
+            return [
+                Sketch2,
+                OffsetInnerA, OffsetInnerB, // +X -> -X // A+X -> B+X // 1-2 or 3-4 //
+                OffsetOuterA, OffsetOuterB,
 
-            return [Sketch2, DistFromA, DistFromB, InnerDist, InnerDistFromOther];
+                OffsetFromOtherInnerA, OffsetFromOtherInnerB, OffsetFromOtherOuterA, OffsetFromOtherOuterB
+            ];
         }).filter((X: any[]) => {
             if (X[3] == null || X[0] == this) return false;
             if (X[0].DrawLine._BottomHeight > this.DrawLine._CenterHeight || this.DrawLine._CenterHeight > X[0].DrawLine._TopHeight) return false;
-            if (Math.abs(X[3]) > this.DrawLine.Length / 2) return false;
-            if (Math.abs(X[4]) > X[0].DrawLine.Length / 2) return false;
+            if (Math.abs(X[1]) > this.DrawLine.Length / 2 && Math.abs(X[5]) > X[0].DrawLine.Length) return false;
+            if (Math.abs(X[2]) > this.DrawLine.Length / 2 && Math.abs(X[6]) > X[0].DrawLine.Length) return false;
+
+            // Always must intersect with either the outer or inner line.
+
+            // IF NOT INNER, CHECK OUTER. //
+            let WithinInnerA = X[1] >= 0;
+            let WithinInnerB = X[2] <= 0;
+            let WithinOuterA = X[3] >= 0;
+            let WithinOuterB = X[4] <= 0;
+
+            if (!(WithinInnerA || WithinOuterA) || !(WithinInnerB || WithinOuterB)) return false;
+
+            let OtherWithinInnerA = X[5] >= 0;
+            let OtherWithinInnerB = X[6] <= 0;
+            let OtherWithinOuterA = X[7] >= 0;
+            let OtherWithinOuterB = X[8] <= 0;
+
+            if (!(OtherWithinInnerA || OtherWithinOuterA) || !(OtherWithinInnerB || OtherWithinOuterB)) return false;
+
+            // if (!((WithinInnerA || WithinOuterA) && (OtherWithinInnerA || OtherWithinOuterA)) || !((WithinInnerB || WithinOuterB) && (OtherWithinInnerB || OtherWithinOuterB))) return false;
+
+            // if (!WithinInnerA && !WithinOuterA) return false;
+
+            // X.push(X[3] - X[1], X[1] + X[3])
+
+            // if (X[])
+            // if (X[1] < 0) return false; //  && X[3] < 0
+            // if (X[2] > 0) return false; //  && X[4] > 0
+
+            // if (X[5] < 0) return false; //  && X[7] < 0
+            // if (X[6] > 0) return false; //  && X[8] > 0
+
+            // if (Math.abs(X[4]) > X[0].DrawLine.Length / 2) return false;
 
             // if (Math.abs(X[2]) > this.DrawLine.Length) return false;
             // if (Math.abs(X[1]) > this.DrawLine.Length) return false;
 
             return true;
         });
-        console.log(this.ID, ClosestSketches);
+        console.log(this.ID, this.DrawLine.Length, ClosestSketches);
         if (ClosestSketches.length == 0) return;
 
-        ClosestSketches = ClosestSketches.sort((A: any, B: any) => Math.abs(A[1]) - Math.abs(B[1]));
-        if (Math.abs(ClosestSketches[0][1]) <= this.DrawLine.Length)
-            this.DrawLine.LineConnectA = (ClosestSketches[0][0] as SketchLine).DrawLine;
 
-        ClosestSketches = ClosestSketches.sort((A: any, B: any) => Math.abs(A[2]) - Math.abs(B[2]));
-        if (Math.abs(ClosestSketches[0][2]) <= this.DrawLine.Length)
-            this.DrawLine.LineConnectB = (ClosestSketches[0][0] as SketchLine).DrawLine;
 
+        // ClosestSketches = ClosestSketches.sort((A: any, B: any) => Math.abs(A[3] - A[1]) - Math.abs(B[3] - B[1]));
+        // ClosestSketches = ClosestSketches.sort((A: any, B: any) => (B[3] - B[1]) - (A[3] - A[1]));
+        // console.log(this.ID, this.DrawLine.Length, ClosestSketches);
+
+        let ClosestToA = [];
+        let ClosestToB = [];
+
+        for (let Data of ClosestSketches) {
+            if (Math.min(Math.abs(Data[1]), Math.abs(Data[3])) < Math.min(Math.abs(Data[2]), Math.abs(Data[4]))) {
+                if (Math.abs(Data[1]) <= this.DrawLine.Length && Math.abs(Data[3]) <= this.DrawLine.Length)
+                    if (Math.abs(Data[5]) <= Data[0].DrawLine.Length || Math.abs(Data[7]) <= Data[0].DrawLine.Length)
+                        ClosestToA.push(Data);
+            } else {
+                if (Math.abs(Data[2]) <= this.DrawLine.Length && Math.abs(Data[4]) <= this.DrawLine.Length)
+                    if (Math.abs(Data[6]) <= Data[0].DrawLine.Length || Math.abs(Data[8]) <= Data[0].DrawLine.Length)
+                        ClosestToB.push(Data);
+            }
+        }
+
+        console.log(ClosestToA, ClosestToB);
+
+        // ClosestSketches = ClosestSketches.sort((A: any, B: any) => A[1] - B[1]);
+        // // ClosestSketches = ClosestSketches.sort((A: any, B: any) => Math.abs(A[1]) - Math.abs(B[1]));
+        // // // ClosestSketches = ClosestSketches.sort((A: any, B: any) => A[3] - B[3]);
+        // // // ClosestSketches = ClosestSketches.sort((A: any, B: any) => Math.min(A[3] - B[3], A[1] - B[1]));
+        // // ClosestSketches = ClosestSketches.sort((A: any, B: any) => (A[1] - A[3]) - (B[1] - B[3]));
+
+        // ClosestToA = ClosestToA.sort((A: any, B: any) => Math.abs(A[1]) - Math.abs(B[1]));
+        // ClosestToA = ClosestToA.sort((A: any, B: any) => Math.min(A[3] - B[3], A[1] - B[1]));
+        ClosestToA = ClosestToA.sort((A: any, B: any) => Math.min(Math.abs(B[1]), Math.abs(B[3])) - Math.min(Math.abs(A[1]), Math.abs(A[3])));
+        if (ClosestToA[0])
+            this.DrawLine.LineConnectA = (ClosestToA[0][0] as SketchLine).DrawLine;
+
+        ClosestToB = ClosestToB.sort((A: any, B: any) => Math.min(Math.abs(A[2]), Math.abs(A[4])) - Math.min(Math.abs(B[2]), Math.abs(B[4])));
+        if (ClosestToB[0])
+            this.DrawLine.LineConnectB = (ClosestToB[0][0] as SketchLine).DrawLine;
+
+        // ClosestSketches = ClosestSketches.sort((A: any, B: any) => B[2] - A[2]);
+        // // // ClosestSketches = ClosestSketches.sort((A: any, B: any) => B[4] - A[4]);
+        // // // ClosestSketches = ClosestSketches.sort((A: any, B: any) => Math.min(B[4] - A[4], B[2] - A[2]));
+        // if (Math.abs(ClosestSketches[0][2]) <= this.DrawLine.Length)
+        //     this.DrawLine.LineConnectB = (ClosestSketches[0][0] as SketchLine).DrawLine;
+
+        // ORIGINAL LENGTH? // 3-4 or 1-2
+        // TOP LENGTH //
 
         // if (ClosestSketches[0][1] < ClosestSketches[0][2]) {
         //     // Editor.ActiveEditor.LabelMarkerXYZ(InterceptionX, 0, InterceptionZ, "A");

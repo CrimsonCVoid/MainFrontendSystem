@@ -12,9 +12,10 @@ import { SketchLine } from "./drawings";
 
 // import { CreateMarker } from "./editor-utils"; // SwitchMap
 
+// import * as TESTING_HEIGHTs from "./testing.json";
 import TestingConfig from "./EditorUI.json";
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
-import { Test } from "./backend"; // DebuggingClass
+// import { Test } from "./backend"; // DebuggingClass
 
 type xyz_Class = { x: number, y: number, z: number };
 
@@ -156,7 +157,7 @@ export class Editor {
         this.RoofUI.addControl(text);
         text.linkWithMesh(marker); // text follows invisible mesh
         text.color = "white"; // "Black";
-        return marker;
+        return [marker, text];
     }
 
     LabelMarker(V3: xyz_Class, Text: string = "Vertex") {
@@ -421,10 +422,66 @@ export class Editor {
 
         var PanelViewCollapsed = true;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         Scene.onKeyboardObservable.add(async (kbInfo) => {
             if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYDOWN) {
                 // console.log(kbInfo.event.key)
-                switch (kbInfo.event.key) {
+                switch (kbInfo.event.key.toLowerCase()) {
                     case "p":
                         Camera.mode = Camera.mode == BABYLON.Camera.ORTHOGRAPHIC_CAMERA ? BABYLON.Camera.PERSPECTIVE_CAMERA : BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
                         if (Camera.mode == BABYLON.Camera.ORTHOGRAPHIC_CAMERA) {
@@ -461,12 +518,15 @@ export class Editor {
 
                     case "o":
                         console.log("hi?")
-                        await Test(40.26076924275762, -74.7981296370152); // JOHN HOUSE //
+                        // await Test(40.26076924275762, -74.7981296370152); // JOHN HOUSE //
                         // await Test(37.443185078072716, -122.13801955359011); // ANGLED HOUSE //
                         // await Test(37.444938331695944, -122.13916635930947); // THE LIBRARY //
                         // await Test(37.44412278382237, -122.13891846157102); // GIANT BUILDING BELOW THE LIBRARY //
                         // await Test(36.278676208726246, -86.53094040983781); // STRANGE HOUSE IN NASHVILLE //
                         // await Test(35.513601833943504, -80.63195040878824);
+                        // await Test(27.259709614028147, -80.1990460066902); // KILL YOURSELF //
+
+
                         console.log("um?");
                         break;
 
@@ -481,7 +541,7 @@ export class Editor {
                         Camera.upperRadiusLimit = Camera.radius;
                         break;
 
-                    case "Shift":
+                    case "shift":
                         console.log("Shift is down");
                         HoldingShift = true;
                         SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
@@ -506,8 +566,8 @@ export class Editor {
 
             if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYUP) {
                 // console.log("Released:", kbInfo.event.key);
-                switch (kbInfo.event.key) {
-                    case "Shift":
+                switch (kbInfo.event.key.toLowerCase()) {
+                    case "shift":
                         HoldingShift = false;
                         SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
                         break;

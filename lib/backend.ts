@@ -4,6 +4,7 @@ import { CFrame, segmentIntersection2D, Vector3 } from "./positioning";
 import * as BABYLON from "@babylonjs/core";
 import * as BABYLON_ADDONS from "@babylonjs/addons";
 import { PDF_Exporter } from "./pdf-export";
+import * as TESTING_HEIGHTs from "./testing.json";
 
 var ENV_KEY = "AIzaSyDUfrliF4ydB8G4JbQudiC4t8L39pG_E74"; // API KEY
 
@@ -37,6 +38,8 @@ declare global {
 }
 
 ExtrudedLine.prototype.GetXsAtHeight = function (Height: number) {
+    let ExtrudeA = Math.min(0, this.ExtrudeA);
+    let ExtrudeB = Math.min(0, this.ExtrudeB);
     let BottomLength = this.BottomLength; // this.TopLength + this.ExtrudeA + this.ExtrudeB;
     let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
     let ExtrudeB_X = Height / ExtrudeLength * this.ExtrudeB;
@@ -45,28 +48,73 @@ ExtrudedLine.prototype.GetXsAtHeight = function (Height: number) {
 }
 
 ExtrudedLine.prototype.GetBottomAtX = function (X: number, Inclusive = false, ApplyOffset = true) {
+    // let MainLength = this.TopLength;
+    // let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
+    // let Height = 0;
+    // for (let ZoningPoint of this.Zonings) {
+    //     let Actual0X = -ZoningPoint[0].X + this.ExtrudeB + MainLength;
+    //     let Actual1X = -ZoningPoint[1].X + this.ExtrudeB + MainLength;
+    //     // if (Actual0X > X) continue;
+    //     let EL2 = ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5)
+    //     let EL1 = ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5)
+    //     if (Actual0X > Actual1X && (Inclusive ? X <= Actual0X : X < Actual0X)) { // && Actual1X < X && X < Actual0X) {
+    //         Height = Math.max(Height, (Actual0X - X) / (Actual0X - Actual1X) * (EL2 - EL1) - (ApplyOffset ? 1 : 0) * (EL2 - ExtrudeLength)); // Math.max(Height, ExtrudeLength - ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5));
+    //     }
+    //     if (Actual0X < Actual1X && (Inclusive ? Actual0X <= X : Actual0X < X)) { // && Actual0X < X && X < Actual1X) {
+    //         Height = Math.max(Height, (X - Actual0X) / (Actual1X - Actual0X) * (EL2 - EL1) - (ApplyOffset ? 1 : 0) * (EL2 - ExtrudeLength)); // Math.max(Height, ExtrudeLength - ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5));
+    //     }
+    // }
+    let ExtrudeA = this.ExtrudeA;
+    let ExtrudeB = this.ExtrudeB;
     let MainLength = this.TopLength;
     let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
+    // let DrawLength = MainLength + Math.max(0, ExtrudeA) + Math.max(0, ExtrudeB);
+
+    let X_L = -Math.min(0, ExtrudeA);
+    let X_EA = Math.max(0, ExtrudeA);
+    let X_EB = X_EA + MainLength;
+    let X_R = X_EB + ExtrudeB;
+
     let Height = 0;
-    for (let ZoningPoint of this.Zonings) {
-        let Actual0X = -ZoningPoint[0].X + this.ExtrudeB + MainLength;
-        let Actual1X = -ZoningPoint[1].X + this.ExtrudeB + MainLength;
-        // if (Actual0X > X) continue;
-        let EL2 = ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5)
-        let EL1 = ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5)
-        if (Actual0X > Actual1X && (Inclusive ? X <= Actual0X : X < Actual0X)) { // && Actual1X < X && X < Actual0X) {
-            Height = Math.max(Height, (Actual0X - X) / (Actual0X - Actual1X) * (EL2 - EL1) - (ApplyOffset ? 1 : 0) * (EL2 - ExtrudeLength)); // Math.max(Height, ExtrudeLength - ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5));
-        }
-        if (Actual0X < Actual1X && (Inclusive ? Actual0X <= X : Actual0X < X)) { // && Actual0X < X && X < Actual1X) {
-            Height = Math.max(Height, (X - Actual0X) / (Actual1X - Actual0X) * (EL2 - EL1) - (ApplyOffset ? 1 : 0) * (EL2 - ExtrudeLength)); // Math.max(Height, ExtrudeLength - ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5));
-        }
+
+    if (X_EA <= X && X <= X_L && X_EA != X_L) {
+        Height = ExtrudeLength * (X - X_L) / (X_EA - X_L);
+    } else if (X_L <= X && X <= X_R) {
+        Height = 0;
+    } else if (X_R <= X && X <= X_EB && X_R != X_EB) {
+        Height = ExtrudeLength - ExtrudeLength * (X - X_EB) / (X_R - X_EB);
     }
+
     return Height;
 }
+
+
+function downloadJSON(data, filename = "data.json") {
+    const json = JSON.stringify(data, null, 2); // pretty format
+
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    URL.revokeObjectURL(url);
+}
+
+let AngleRounding = 45; // 15; // 90;
+let AR_Rotations = 360 / AngleRounding;
 
 ExtrudedLine.prototype.GetHeightAtZ = function (Z: number) {
     return this.RISE * Z / this.RUN; // + Line1Top;
 };
+setOptions({ key: "AIzaSyDUfrliF4ydB8G4JbQudiC4t8L39pG_E74" });
+let Map: google.maps.MapsLibrary;
+let GoogleGeometry: google.maps.GeometryLibrary;
 
 function CalculateCorners(Data: GSolarData & { CenteredLAT0: number, CenteredLON0: number, CosCenteredLAT0: number }, v: GRoofSegment, LineCreation = false, HouseAzimuth?: number) {
     let Info: CustomBackendType = { Raw: v, Panels: [], Size: new Vector3() };
@@ -85,7 +133,10 @@ function CalculateCorners(Data: GSolarData & { CenteredLAT0: number, CenteredLON
     let _SW = [-R * dSW_LAT * InchesInMeter, R * dSW_LON * Data.CosCenteredLAT0 * InchesInMeter];
 
     let AX = v.pitchDegrees * Math.PI / 180;
-    if (HouseAzimuth) v.azimuthDegrees = HouseAzimuth + v.azimuthDegrees - (((v.azimuthDegrees - 45) % 90) + 45);
+    if (HouseAzimuth) {
+        // v.azimuthDegrees = HouseAzimuth + v.azimuthDegrees - (((v.azimuthDegrees - 45) % 90) + 45);
+        v.azimuthDegrees = HouseAzimuth + Math.round((v.azimuthDegrees - HouseAzimuth) / AngleRounding) * AngleRounding;
+    }
     let AY = v.azimuthDegrees * Math.PI / 180;
 
     let dx = Info.dx = Math.sin(AY);
@@ -116,7 +167,10 @@ function CalculateCorners(Data: GSolarData & { CenteredLAT0: number, CenteredLON
 
     let CT = Info.CT = NE.Average(SW);
     Info.Center = Center;
-    let Length = Info.Length = ((NE.x - SW.x) ** 2 + (NE.y - SW.y) ** 2) ** .5; // 200;
+    let Length = Info.Length = ((NE.x - SW.x) ** 2 + (NE.y - SW.y) ** 2) ** .5; // 200;GoogleGeometry.spherical.computeDistanceBetween(
+    //     new google.maps.LatLng(v.boundingBox.ne.latitude, v.boundingBox.ne.longitude),
+    //     new google.maps.LatLng(v.boundingBox.sw.latitude, v.boundingBox.sw.longitude),
+    // ) // ((NE.x - SW.x) ** 2 + (NE.y - SW.y) ** 2) ** .5; // 200;
     let P0 = Info.P0 = Center.TranslateAdd(new Vector3(-dx * Length / 2, -dy * Length / 2));
     let P1 = Info.P1 = Center.TranslateAdd(new Vector3(dx * Length / 2, dy * Length / 2));
 
@@ -164,6 +218,9 @@ function InchesToFT_IN_FORMAT(X: number) {
 
 export async function Test(Lat: number | string, Lon: number | string) {
 
+
+    // if (true) return;
+
     for (let i in SketchLine.AllRelations) {
         delete SketchLine.AllRelations[i];
         // SketchLine.AllRelations[i] = undefined;
@@ -177,21 +234,46 @@ export async function Test(Lat: number | string, Lon: number | string) {
     SketchLine.AllDrawings = [];
 
     // Lat = 40.26076924275762, Lon = -74.7981296370152;
-    let URL = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${Lat}&location.longitude=${Lon}&key=${ENV_KEY}`;
-    const response = await fetch(URL);
+    const response = await fetch(`https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${Lat}&location.longitude=${Lon}&key=${ENV_KEY}`);
     const Data = await response.json() as GSolarData & { CenteredLAT0: number, CenteredLON0: number, CosCenteredLAT0: number, SinCenteredLAT0: number };
     if (response.status != 200) {
         // console.error('findClosestBuilding\n', content);
         throw Data;
     }
 
-    setOptions({ key: "AIzaSyDUfrliF4ydB8G4JbQudiC4t8L39pG_E74" });
-    const { Map } = await importLibrary("maps");
-    const GoogleGeometry = await importLibrary("geometry");
+    Map = await importLibrary("maps");
+    GoogleGeometry = await importLibrary("geometry");
+
     let Radius = GoogleGeometry.spherical.computeDistanceBetween(
         new google.maps.LatLng(Data.boundingBox.ne.latitude, Data.boundingBox.ne.longitude),
         new google.maps.LatLng(Data.boundingBox.sw.latitude, Data.boundingBox.sw.longitude),
     ) / 2;
+
+
+
+    // let center = Data.center;
+    // let ne = Data.boundingBox.ne;
+    // let sw = Data.boundingBox.sw;
+    // let diameter = GoogleGeometry.spherical.computeDistanceBetween(
+    //     new google.maps.LatLng(ne.latitude, ne.longitude),
+    //     new google.maps.LatLng(sw.latitude, sw.longitude),
+    // );
+    // let radius = Math.ceil(diameter / 2);
+    // let ImgURL = `https://solar.googleapis.com/v1/dataLayers:get?location.latitude=${center.latitude}&location.longitude=${center.longitude}&radiusMeters=${radius}&view=FULL_LAYERS&requiredQuality=HIGH&exactQualityRequired=true&pixelSizeMeters=0.1&key=${ENV_KEY}`;
+    // let ImgResponse = await fetch(ImgURL);
+    // let ImgData = await ImgResponse.json() as DataLayersResponse;
+    // if (ImgResponse.status != 200) {
+    //     // console.error('findClosestBuilding\n', content);
+    //     throw ImgData;
+    // }
+    // // const mask = await downloadGeoTIFF(ImgData.rgbUrl, ENV_KEY);
+    // const mask = await downloadGeoTIFF(ImgData.dsmUrl, ENV_KEY, true);
+    // console.log("other rasters?", mask.rasters);
+
+    // downloadJSON(mask.rasters[0]);
+
+
+    // if (true) return;
 
     // console.log(Radius);
 
@@ -217,12 +299,12 @@ export async function Test(Lat: number | string, Lon: number | string) {
         Eaves: NewPDF.DrawingsInOrder.EstablishType("Eaves", 5, RoofOutlineLayers, { r: 0, g: 1, b: 0, a: 1 }),
         Gables: NewPDF.DrawingsInOrder.EstablishType("Gables", 5, RoofOutlineLayers, { r: 1, g: 1, b: 0, a: 1 }),
         HighSides: NewPDF.DrawingsInOrder.EstablishType("HighSides", 5, RoofOutlineLayers, { r: 1, g: 0, b: 0, a: 1 }),
-        SolarPanels: NewPDF.DrawingsInOrder.EstablishType("SolarPanels", 6, [3], { r: .5, g: .5, b: 1, a: 1 }),
+        SolarPanels: NewPDF.DrawingsInOrder.EstablishType("SolarPanels", 6, [], { r: .5, g: .5, b: 1, a: 1 }),
         PanelTexts: NewPDF.DrawingsInOrder.EstablishType("PanelTexts", 7, [1], { r: 0, g: 0, b: 0, a: .5 }).SetTextSize(12),
         PitchTexts: NewPDF.DrawingsInOrder.EstablishType("PitchTexts", 7, [3], { r: 0, g: 0, b: 0, a: .5 }).SetTextSize(20),
         PlaneIDTexts: NewPDF.DrawingsInOrder.EstablishType("PlaneIDTexts", 7, [3], { r: 0, g: 0, b: 0, a: .5 }).SetTextSize(20, 20),
         MeasurementTexts: NewPDF.DrawingsInOrder.EstablishType("MeasurementTexts", 7, [2], { r: 0, g: 0, b: 0, a: .5 }).SetTextSize(12, 8),
-        OTHER: NewPDF.DrawingsInOrder.EstablishType("OTHER", 8, [0], { r: 1, g: 1, b: 0, a: 1 }),
+        OTHER: NewPDF.DrawingsInOrder.EstablishType("OTHER", 8, [0], { r: 1, g: 0, b: 1, a: 1 }),
     }
 
     // Data.solarPotential.buildingStats.areaMeters2
@@ -245,13 +327,18 @@ export async function Test(Lat: number | string, Lon: number | string) {
     let COUNT = Data.solarPotential.roofSegmentStats.length;
 
     let AzimuthWeight = 0;
-    let HouseAzimuth = 0;
+    let HouseAzimuthX = 0;
+    let HouseAzimuthY = 0;
     for (let RoofID in Data.solarPotential.roofSegmentStats) {
         let Roof = Data.solarPotential.roofSegmentStats[RoofID];
-        AzimuthWeight += Roof.stats.areaMeters2;
-        HouseAzimuth += (((Roof.azimuthDegrees - 45) % 90) + 45) * Roof.stats.areaMeters2;
+        let WEIGHT = Roof.stats.areaMeters2 - Roof.stats.groundAreaMeters2;
+        AzimuthWeight += WEIGHT;
+        let Rad = (((Roof.azimuthDegrees % AngleRounding) + AngleRounding) % AngleRounding) * Math.PI / 180;
+        HouseAzimuthX += Math.cos(Rad * AR_Rotations) * WEIGHT;
+        HouseAzimuthY += Math.sin(Rad * AR_Rotations) * WEIGHT; // (((Roof.azimuthDegrees - 45) % 90) + 45) * Roof.stats.areaMeters2;
     }
-    HouseAzimuth /= AzimuthWeight;
+    let HouseAzimuth = Math.atan2(HouseAzimuthY / AzimuthWeight, HouseAzimuthX / AzimuthWeight) / AR_Rotations * 180 / Math.PI;
+    if (HouseAzimuth < 0) HouseAzimuth += AngleRounding;
     console.log("HOUSE AZIMUTH", HouseAzimuth);
 
     for (let RoofID in Data.solarPotential.roofSegmentStats) {
@@ -872,6 +959,18 @@ export async function Test(Lat: number | string, Lon: number | string) {
         Sketch.DrawLine.Update();
 
         DrawSketches.push(Sketch);
+
+        JSON_Output.push({
+            TempSketch: Sketch,
+            Length: Length,
+            Angle: Angle,
+            StartX: Info.Center.X,
+            StartY: Info.Center.Z - AverageGlobalHeight,
+            StartZ: Info.Center.Y,
+            PITCH: Math.tan(Roof.pitchDegrees * Math.PI / 180) * 12,
+            RISE: RUN * Math.tan(Roof.pitchDegrees * Math.PI / 180),
+            RUN: RUN,
+        });
     }
 
     // for (let SketchGroupID in CombineIntoSketches) {
@@ -1307,22 +1406,31 @@ export async function Test(Lat: number | string, Lon: number | string) {
         let LineID = "X";
         let Line = Sketch.DrawLine;
         if (!Line.ENABLED) continue;
+
+
+        let ExtrudeA = Line.ExtrudeA;
+        let ExtrudeB = Line.ExtrudeB;
         let MainLength = Line.TopLength;
-        let BottomLength = Line.BottomLength; // MainLength + Line.ExtrudeA + Line.ExtrudeB;
-        let HardPoints = [0, BottomLength];
-        if (Line.ExtrudeA != 0) HardPoints.push(Line.ExtrudeA);
-        if (MainLength != 0 && Line.ExtrudeA != 0) HardPoints.push(Line.ExtrudeA + MainLength);
-        for (let ZoningPoint of Line.Zonings) {
-            let Actual0X = Line.ExtrudeB + ZoningPoint[0].X;
-            let Actual1X = Line.ExtrudeB + ZoningPoint[1].X;
-            if (!HardPoints.find((x) => Approx(x) == Approx(Actual0X))) HardPoints.push(Actual0X);
-            if (!HardPoints.find((x) => Approx(x) == Approx(Actual1X))) HardPoints.push(Actual1X);
-            let Height = Line.GetHeightAtX(BottomLength - Actual1X);
-            let NormalX = Line.GetXsAtHeight(Height);
-            let ExtrudeB = NormalX[0], ExtrudeA = NormalX[1];
-            if (Actual1X <= ExtrudeB) if (!HardPoints.find((x) => Approx(x) == Approx(ExtrudeB))) HardPoints.push(ExtrudeB);
-            if (Actual1X >= ExtrudeA) if (!HardPoints.find((x) => Approx(x) == Approx(ExtrudeA))) HardPoints.push(ExtrudeA);
-        }
+        let DrawLength = MainLength + Math.max(0, ExtrudeA) + Math.max(0, ExtrudeB);
+
+        let HardPoints = [0]; // ,DrawLength
+
+        let X_L = -Math.min(0, ExtrudeA); if (!HardPoints.includes(X_L)) HardPoints.push(X_L);
+        let X_EA = Math.max(0, ExtrudeA); if (!HardPoints.includes(X_EA)) HardPoints.push(X_EA);
+        let X_EB = X_EA + MainLength; if (!HardPoints.includes(X_EB)) HardPoints.push(X_EB);
+        let X_R = X_EB + ExtrudeB; if (!HardPoints.includes(X_R)) HardPoints.push(X_R);
+
+        // for (let ZoningPoint of Line.Zonings) {
+        //     let Actual0X = Line.ExtrudeB + ZoningPoint[0].X;
+        //     let Actual1X = Line.ExtrudeB + ZoningPoint[1].X;
+        //     if (!HardPoints.find((x) => Approx(x) == Approx(Actual0X))) HardPoints.push(Actual0X);
+        //     if (!HardPoints.find((x) => Approx(x) == Approx(Actual1X))) HardPoints.push(Actual1X);
+        //     let Height = Line.GetHeightAtX(Actual1X);
+        //     let NormalX = Line.GetXsAtHeight(Height);
+        //     let ExtrudeB = NormalX[0], ExtrudeA = NormalX[1];
+        //     if (Actual1X <= ExtrudeB) if (!HardPoints.find((x) => Approx(x) == Approx(ExtrudeB))) HardPoints.push(ExtrudeB);
+        //     if (Actual1X >= ExtrudeA) if (!HardPoints.find((x) => Approx(x) == Approx(ExtrudeA))) HardPoints.push(ExtrudeA);
+        // }
 
 
 
@@ -1333,7 +1441,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
         // NewPDF.DrawLineFromV3(Line.LineBSettings.points[0], Line.LineBSettings.points[1], { r: 0, g: 1, b: 1 });
 
         let ALLPOSITIONSAREDOOMEDHERE = [];
-        let LineAngle = Sketch.Angle * 180 / Math.PI + Line.Angle;
+        let LineAngle = -Line.Angle * 180 / Math.PI + 90;
         let LineHypo = (Line.RISE ** 2 + Line.RUN ** 2) ** .5;
 
 
@@ -1348,38 +1456,39 @@ export async function Test(Lat: number | string, Lon: number | string) {
             TestCF?: CFrame,
         }[] = [];
 
-        let LineCF = Line.CF_A1;
+        let LineCF = Line.CF_A1.ToWorldSpace(CFrame.fromXYZ(- X_L, 0, 0));
 
         // for (let TinyOffset = -.00001; TinyOffset <= .00001; TinyOffset += .00001)
         for (let Index = 0; Index < HardPoints.length; Index++) {
             let HardX = HardPoints[Index]; // + TinyOffset; // - .00001;
-            let TopHypo = Line.GetHeightAtX(BottomLength - HardX);
-            let RawTopHypo = Line.GetHeightAtX(BottomLength - HardX, true);
-            let LengthFromBottom = Line.GetBottomAtX(BottomLength - HardX, false, false);
-            let LengthFromBottomOffset = Line.GetBottomAtX(BottomLength - HardX, false, true);
-            let LengthFromBottomInclusive = Line.GetBottomAtX(BottomLength - HardX, true, false);
-            let LengthFromBottomInclusiveOffset = Line.GetBottomAtX(BottomLength - HardX, true, true);
-            for (let ZoningPoint of Line.Zonings) {
-                let Actual0X = Line.ExtrudeA + ZoningPoint[0].X;
-                let Actual1X = Line.ExtrudeA + ZoningPoint[1].X;
-                if (Approx(HardX) == Approx(Actual0X)) {
-                    TopHypo = Math.max(TopHypo, LineHypo - (ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5);
-                    LengthFromBottomInclusiveOffset = Math.max(LengthFromBottomInclusiveOffset, LineHypo - (ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5);
-                }
-                if (Approx(HardX) == Approx(Actual1X)) {
-                    TopHypo = Math.max(TopHypo, LineHypo - (ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5);
-                    LengthFromBottomInclusiveOffset = Math.max(LengthFromBottomInclusiveOffset, LineHypo - (ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5);
-                }
-            }
+            let HardXCF = HardX; // - X_L;
+            let TopHypo = Line.GetHeightAtX(HardX);
+            let RawTopHypo = Line.GetHeightAtX(HardX, true);
+            let LengthFromBottom = Line.GetBottomAtX(HardX, false, false);
+            let LengthFromBottomOffset = Line.GetBottomAtX(HardX, false, true);
+            let LengthFromBottomInclusive = Line.GetBottomAtX(HardX, true, false);
+            let LengthFromBottomInclusiveOffset = Line.GetBottomAtX(HardX, true, true);
+            // for (let ZoningPoint of Line.Zonings) {
+            //     let Actual0X = Line.ExtrudeA + ZoningPoint[0].X;
+            //     let Actual1X = Line.ExtrudeA + ZoningPoint[1].X;
+            //     if (Approx(HardX) == Approx(Actual0X)) {
+            //         TopHypo = Math.max(TopHypo, LineHypo - (ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5);
+            //         LengthFromBottomInclusiveOffset = Math.max(LengthFromBottomInclusiveOffset, LineHypo - (ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5);
+            //     }
+            //     if (Approx(HardX) == Approx(Actual1X)) {
+            //         TopHypo = Math.max(TopHypo, LineHypo - (ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5);
+            //         LengthFromBottomInclusiveOffset = Math.max(LengthFromBottomInclusiveOffset, LineHypo - (ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5);
+            //     }
+            // }
             LazyPolyLines.push({
                 X: HardX,
-                Top: TopHypo, TopCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * TopHypo / LineHypo)),
-                RawTop: RawTopHypo, RawTopCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * RawTopHypo / LineHypo)),
-                Bottom: LengthFromBottom, BottomCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * LengthFromBottom / LineHypo)),
-                BottomOffset: LengthFromBottomOffset, BottomOffsetCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * LengthFromBottomOffset / LineHypo)),
-                BottomInclusive: LengthFromBottomInclusive, BottomInclusiveCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * LengthFromBottomInclusive / LineHypo)),
-                BottomInclusiveOffset: LengthFromBottomInclusiveOffset, BottomInclusiveOffsetCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * LengthFromBottomInclusiveOffset / LineHypo)),
-                TestCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardX, 0, Line.RUN * 0 / LineHypo)),
+                Top: TopHypo, TopCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardXCF, 0, Line.RUN * TopHypo / LineHypo)),
+                RawTop: RawTopHypo, RawTopCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardXCF, 0, Line.RUN * RawTopHypo / LineHypo)),
+                Bottom: LengthFromBottom, BottomCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardXCF, 0, Line.RUN * LengthFromBottom / LineHypo)),
+                BottomOffset: LengthFromBottomOffset, BottomOffsetCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardXCF, 0, Line.RUN * LengthFromBottomOffset / LineHypo)),
+                BottomInclusive: LengthFromBottomInclusive, BottomInclusiveCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardXCF, 0, Line.RUN * LengthFromBottomInclusive / LineHypo)),
+                BottomInclusiveOffset: LengthFromBottomInclusiveOffset, BottomInclusiveOffsetCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardXCF, 0, Line.RUN * LengthFromBottomInclusiveOffset / LineHypo)),
+                TestCF: LineCF.ToWorldSpace(CFrame.fromXYZ(HardXCF, 0, Line.RUN * 0 / LineHypo)),
             });
             // if (GlobalHardBottomHeight)
             // if (HardBottomHeight) HardBottom.push(HardBottomHeight);
@@ -1389,11 +1498,11 @@ export async function Test(Lat: number | string, Lon: number | string) {
         // if (+SketchIndex == 1)
         // console.log("IT'S SO HARD", LazyPolyLines.map(x => [x.Bottom, x.BottomOffset, x.BottomInclusive, x.BottomInclusiveOffset]), SketchColor);
 
-        for (let X = 0; X < BottomLength;) {
-            if (X == BottomLength) break;
+        for (let X = 0; X < DrawLength;) {
+            if (X == DrawLength) break;
             let LineHypo = (Line.RISE ** 2 + Line.RUN ** 2) ** .5;
-            let PrevTopHypo = Line.GetHeightAtX(BottomLength - X);
-            let PrevBottomHypo = Line.GetBottomAtX(BottomLength - X);
+            let PrevTopHypo = Line.GetHeightAtX(X);
+            let PrevBottomHypo = Line.GetBottomAtX(X);
             let PrevTop = Line.RUN * PrevTopHypo / LineHypo;
             let PrevBottom = Line.RUN * PrevBottomHypo / LineHypo;
             let PrevTestTop = LineCF.ToWorldSpace(CFrame.fromXYZ(X, 0, PrevTop));
@@ -1411,8 +1520,8 @@ export async function Test(Lat: number | string, Lon: number | string) {
                 }
             }
             // if (X > BottomLength) X = BottomLength;
-            let TopHypo = Line.GetHeightAtX(BottomLength - X); OverallTopHypo = Math.max(OverallTopHypo, TopHypo);
-            let BottomHypo = Line.GetBottomAtX(BottomLength - X); OverallBottomHypo = Math.min(OverallBottomHypo, BottomHypo);
+            let TopHypo = Line.GetHeightAtX(X); OverallTopHypo = Math.max(OverallTopHypo, TopHypo);
+            let BottomHypo = Line.GetBottomAtX(X); OverallBottomHypo = Math.min(OverallBottomHypo, BottomHypo);
             // if (Bottom <= Top) continue;
             let TestBottom = LineCF.ToWorldSpace(CFrame.fromXYZ(X, 0, Line.RUN * BottomHypo / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5)));
             let TestTop = LineCF.ToWorldSpace(CFrame.fromXYZ(X, 0, Line.RUN * TopHypo / ((Line.RISE ** 2 + Line.RUN ** 2) ** .5)));
@@ -1420,7 +1529,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
             if (BottomHypo <= TopHypo) {
                 ActualPanelMeasurements += PanelLength;
                 ActualPanelCount++;
-                if (X <= BottomLength)
+                if (X <= DrawLength)
                     DrawTheseInOrder.Panels.AddLine(SketchIndex, LineID, TestBottom, TestTop);
             }
             AvgCF = AvgCF.Average(TestBottom.Position.Average(TestTop.Position));
@@ -1463,6 +1572,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
             // if (Approx(ThisLine.Top) == Approx(LineHypo) && Approx(ThisLine.Top) != Approx(NextLine.Top)) {
             //     DrawTheseInOrder.Ridges.AddLine(SketchIndex, LineID, ThisLine.TopCF, ThisLine.TopCF);
             // }
+            // console.log(ThisLine, NextLine, "WTF???");
 
             // if (ThisLine)
             if (Approx(ThisLine.Top) == Approx(NextLine.Top)) {
@@ -1477,6 +1587,7 @@ export async function Test(Lat: number | string, Lon: number | string) {
                 // else
                 //     DrawTheseInOrder.InterceptRidges.AddLine(SketchIndex, LineID, ThisLine.TopCF, NextLine.TopCF);
             } else if (ValidGeometry) { //if (ThisLine.BottomInclusive != ThisLine. && Math.max(ThisLine.BottomInclusiveOffset, NextLine.BottomInclusiveOffset) != 0) {
+                // console.log(ThisLine, NextLine, "WTF???");
                 DrawTheseInOrder.Hips.AddLine(SketchIndex, LineID, ThisLine.TopCF, NextLine.TopCF);
             } else {
                 // DrawTheseInOrder.OTHER.AddLine(SketchIndex, LineID, ThisLine.TopCF, NextLine.TopCF);
@@ -1543,30 +1654,135 @@ export async function Test(Lat: number | string, Lon: number | string) {
     //     }
     // }
 
+    function GetHeightByXZ(Heights: number[], X: number, Z: number, Width: number, Height: number) {
+        return Heights[X * Width + Z];
+    }
+
+    // function createGroundFromHeightArray(
+    //     name: string,
+    //     heights: number[],
+    //     columns: number,
+    //     rows: number,
+    //     cellSizeX: number,
+    //     cellSizeZ: number,
+    //     scene: BABYLON.Scene
+    // ) {
+    //     if (columns < 2 || rows < 2) {
+    //         throw new Error("columns and rows must both be at least 2");
+    //     }
+
+    //     if (heights.length !== columns * rows) {
+    //         throw new Error(`heights.length must equal columns * rows (${columns * rows})`);
+    //     }
+
+    //     const width = (columns - 1) * cellSizeX;
+    //     const height = (rows - 1) * cellSizeZ;
+
+    //     const ground = BABYLON.MeshBuilder.CreateGround(
+    //         name,
+    //         {
+    //             width,
+    //             height,
+    //             subdivisionsX: columns - 1,
+    //             subdivisionsY: rows - 1,
+    //             updatable: true,
+    //         },
+    //         scene
+    //     );
+
+    //     const positions = ground.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+    //     const indices = ground.getIndices();
+
+    //     if (!positions || !indices) {
+    //         throw new Error("Failed to get mesh vertex data");
+    //     }
+
+    //     let colors: number[] = new Array(columns * rows * 4).fill(0);
+
+    //     const sortedValues = Array.from(heights).sort((x, y) => x - y);
+    //     const minValue = sortedValues[0];
+    //     const maxValue = sortedValues.slice(-1)[0];
+
+    //     // Babylon ground vertices are laid out as a grid.
+    //     // Each vertex has x,y,z, so positions index is vertexIndex * 3 + component.
+    //     for (let row = 0; row < rows; row++) {
+    //         for (let col = 0; col < columns; col++) {
+    //             const vertexIndex = row * columns + col;
+    //             const heightValue = heights[vertexIndex];
+
+    //             positions[vertexIndex * 3 + 1] = (heightValue - maxValue) * 39.3701; // Y
+    //             colors[vertexIndex * 3 * 4 + 1] = (heightValue - minValue) / (maxValue - minValue);
+    //             // colors[vertexIndex * 3 * 4 + 4] = 1;
+    //             // const GROUND = BABYLON.MeshBuilder.CreateGround("E", {
+    //             //     width: cellSizeX * 10,
+    //             //     height: cellSizeZ * 10,
+
+    //             // }, scene);
+    //             // GROUND.position.set(row * cellSizeX, (heightValue - maxValue) * 39.3701 / 10, col * cellSizeZ);
+    //         }
+    //     }
+
+    //     const normals: number[] = [];
+    //     BABYLON.VertexData.ComputeNormals(positions, indices, normals);
+
+    //     ground.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+    //     ground.updateVerticesData(BABYLON.VertexBuffer.NormalKind, normals);
+    //     ground.setVerticesData(BABYLON.VertexBuffer.ColorKind, colors, true);
+
+    //     ground.convertToFlatShadedMesh();
+
+    //     ground.rotation = new BABYLON.Vector3(0, -Math.PI / 2, 0);
+
+    //     // return ground;
+
+    //     for (let row = 0; row < rows; row++) {
+    //         for (let col = 0; col < columns; col++) {
+    //             const vertexIndex = row * columns + col;
+    //             const heightValue = (heights[vertexIndex] - maxValue) * 39.3701;
+
+    //             // positions[vertexIndex * 3 + 1] = (heightValue - maxValue) * 39.3701; // Y
+    //             // const GROUND = BABYLON.MeshBuilder.CreateGround("E", {
+    //             //     width: cellSizeX * 10,
+    //             //     height: cellSizeZ * 10,
+
+    //             // }, scene);
+    //             // GROUND.position.set(row * cellSizeX, (heightValue - maxValue) * 39.3701 / 10, col * cellSizeZ);
+    //         }
+    //     }
+    // }
+
     // setOptions({ key: "AIzaSyDUfrliF4ydB8G4JbQudiC4t8L39pG_E74" });
     {
         //&exactQualityRequired=true
-        let center = Data.center;
-        let ne = Data.boundingBox.ne;
-        let sw = Data.boundingBox.sw;
-        let diameter = GoogleGeometry.spherical.computeDistanceBetween(
-            new google.maps.LatLng(ne.latitude, ne.longitude),
-            new google.maps.LatLng(sw.latitude, sw.longitude),
-        );
-        let radius = Math.ceil(diameter / 2);
-        let ImgURL = `https://solar.googleapis.com/v1/dataLayers:get?location.latitude=${center.latitude}&location.longitude=${center.longitude}&radiusMeters=${radius}&view=FULL_LAYERS&requiredQuality=HIGH&exactQualityRequired=true&pixelSizeMeters=0.1&key=${ENV_KEY}`;
-        let ImgResponse = await fetch(ImgURL);
-        let ImgData = await ImgResponse.json() as DataLayersResponse;
-        if (ImgResponse.status != 200) {
-            // console.error('findClosestBuilding\n', content);
-            throw ImgData;
-        }
-        const mask = await downloadGeoTIFF(ImgData.rgbUrl, ENV_KEY);
-        let RGB_Index = await NewPDF.AddImage(mask.PNG);
-        NewPDF.PageIndex = 0;
-        NewPDF.DrawImage(RGB_Index);
-        NewPDF.PageIndex = 3;
-        NewPDF.DrawImage(RGB_Index);
+        // let center = Data.center;
+        // let ne = Data.boundingBox.ne;
+        // let sw = Data.boundingBox.sw;
+        // let diameter = GoogleGeometry.spherical.computeDistanceBetween(
+        //     new google.maps.LatLng(ne.latitude, ne.longitude),
+        //     new google.maps.LatLng(sw.latitude, sw.longitude),
+        // );
+        // let radius = Math.ceil(diameter / 2);
+        // let ImgURL = `https://solar.googleapis.com/v1/dataLayers:get?location.latitude=${center.latitude}&location.longitude=${center.longitude}&radiusMeters=${radius}&view=FULL_LAYERS&requiredQuality=HIGH&exactQualityRequired=true&pixelSizeMeters=0.1&key=${ENV_KEY}`;
+        // let ImgResponse = await fetch(ImgURL);
+        // let ImgData = await ImgResponse.json() as DataLayersResponse;
+        // if (ImgResponse.status != 200) {
+        //     // console.error('findClosestBuilding\n', content);
+        //     throw ImgData;
+        // }
+        // // const mask = await downloadGeoTIFF(ImgData.rgbUrl, ENV_KEY);
+        // const mask = await downloadGeoTIFF(ImgData.dsmUrl, ENV_KEY, true);
+        // console.log("other rasters?", mask.rasters);
+
+        // downloadJSON(mask.rasters[0]);
+
+
+
+        // console.log("MIN-MAX", minValue, maxValue)
+        // let RGB_Index = await NewPDF.AddImage(mask.PNG);
+        // NewPDF.PageIndex = 0;
+        // NewPDF.DrawImage(RGB_Index);
+        // NewPDF.PageIndex = 3;
+        // NewPDF.DrawImage(RGB_Index);
         NewPDF.PageIndex = 0;
     }
 
@@ -1599,18 +1815,19 @@ export async function Test(Lat: number | string, Lon: number | string) {
         // for (let LineID in Sketch.Lines) {
         // let Line = Sketch.Lines[LineID];
         if (!Line.ENABLED) continue;
-        let POINTS = [];
-        for (let DrawingType of NewPDF.DrawingsInOrder.DrawTypes) {
-            for (let Drawing of DrawingType.Draws) {
-                if (SketchID == Drawing.SketchID && LineID == Drawing.LineID && Drawing.Points.length == 2) {
-                    POINTS.push(Drawing.Points[0], Drawing.Points[1]);
-                }
-            }
-        }
-        let BOUNDS = Line.CF_A0.Vector3Bounds(POINTS);
-        let AVG = Line.CF_A0.ToWorldSpace(CFrame.fromVector3(BOUNDS[0])).Position.Average(Line.CF_A0.ToWorldSpace(CFrame.fromVector3(BOUNDS[1])).Position);
-        DrawTheseInOrder.PitchTexts.AddDraw(SketchID, LineID, `${Math.round(Line.PITCH)}/12`, -90 + Line.Angle, AVG);
-        DrawTheseInOrder.PlaneIDTexts.AddDraw(SketchID, LineID, `"${AlphabeticalizedIdenitifers[`${SketchID}-${LineID}`]}"`, -90 + Line.Angle, AVG);
+        // let POINTS = [];
+        // for (let DrawingType of NewPDF.DrawingsInOrder.DrawTypes) {
+        //     for (let Drawing of DrawingType.Draws) {
+        //         if (SketchID == Drawing.SketchID && LineID == Drawing.LineID && Drawing.Points.length == 2) {
+        //             POINTS.push(Drawing.Points[0], Drawing.Points[1]);
+        //         }
+        //     }
+        // }
+        // let BOUNDS = Line.CF_A0.Vector3Bounds(POINTS);
+        let LineAngle = -Line.Angle * 180 / Math.PI + 90;
+        let AVG = Line.V3A0.Average(Line.V3B0).Average(Line.V3A1.Average(Line.V3B1)); // Line.CF_A0.ToWorldSpace(CFrame.fromVector3(BOUNDS[0])).Position.Average(Line.CF_A0.ToWorldSpace(CFrame.fromVector3(BOUNDS[1])).Position);
+        DrawTheseInOrder.PitchTexts.AddDraw(SketchID, LineID, `${Math.round(Line.PITCH)}/12`, LineAngle, AVG);
+        DrawTheseInOrder.PlaneIDTexts.AddDraw(SketchID, LineID, `"${AlphabeticalizedIdenitifers[`${SketchID}-${LineID}`]}"`, LineAngle, AVG);
 
         // NewPDF.AddTextAtV3("+" + Math.round(Line.PITCH), AVG, -90 + Line.Angle, 16, 0, 1);
         // }
@@ -1795,141 +2012,144 @@ export async function Test(Lat: number | string, Lon: number | string) {
 
 function Approx(X: number) { return Math.round(X * 1000) / 1000; }
 
-interface DataLayersResponse {
-    imageryDate: Date;
-    imageryProcessedDate: Date;
-    dsmUrl: string;
-    rgbUrl: string;
-    maskUrl: string;
-    annualFluxUrl: string;
-    monthlyFluxUrl: string;
-    hourlyShadeUrls: string[];
-    imageryQuality: 'HIGH' | 'MEDIUM' | 'BASE';
-}
+// interface DataLayersResponse {
+//     imageryDate: Date;
+//     imageryProcessedDate: Date;
+//     dsmUrl: string;
+//     rgbUrl: string;
+//     maskUrl: string;
+//     annualFluxUrl: string;
+//     monthlyFluxUrl: string;
+//     hourlyShadeUrls: string[];
+//     imageryQuality: 'HIGH' | 'MEDIUM' | 'BASE';
+// }
 
-interface Bounds {
-    north: number;
-    south: number;
-    east: number;
-    west: number;
-}
+// interface Bounds {
+//     north: number;
+//     south: number;
+//     east: number;
+//     west: number;
+// }
 
-interface GeoTiff {
-    width: number;
-    height: number;
-    rasters: Array<number>[];
-    //   bounds: Bounds;
-}
+// interface GeoTiff {
+//     width: number;
+//     height: number;
+//     rasters: Array<number>[];
+//     //   bounds: Bounds;
+// }
 
-import * as geotiff from 'geotiff';
-// import * as geokeysToProj4 from 'geotiff-geokeys-to-proj4';
-// import proj4 from 'proj4';
-
-
-async function downloadGeoTIFF(url: string, apiKey: string): Promise<GeoTiff> {
-    // console.log(`Downloading data layer: ${url}`);
-
-    // Include your Google Cloud API key in the Data Layers URL.
-    const solarUrl = url.includes('solar.googleapis.com') ? url + `&key=${apiKey}` : url;
-    // console.log("URL", solarUrl);
-    const response = await fetch(solarUrl);
-    if (response.status != 200) {
-        const error = await response.json();
-        console.error(`downloadGeoTIFF failed: ${url}\n`, error);
-        throw error;
-    }
-
-    // Get the GeoTIFF rasters, which are the pixel values for each band.
-    const arrayBuffer = await response.arrayBuffer();
-    const tiff = await geotiff.fromArrayBuffer(arrayBuffer);
-    const image = await tiff.getImage();
-    const rasters = await image.readRasters();
+// import * as geotiff from 'geotiff';
+// // import * as geokeysToProj4 from 'geotiff-geokeys-to-proj4';
+// // import proj4 from 'proj4';
 
 
+// async function downloadGeoTIFF(url: string, apiKey: string, IgnoreImage = false): Promise<GeoTiff> {
+//     // console.log(`Downloading data layer: ${url}`);
 
+//     // Include your Google Cloud API key in the Data Layers URL.
+//     const solarUrl = url.includes('solar.googleapis.com') ? url + `&key=${apiKey}` : url;
+//     // console.log("URL", solarUrl);
+//     const response = await fetch(solarUrl);
+//     if (response.status != 200) {
+//         const error = await response.json();
+//         console.error(`downloadGeoTIFF failed: ${url}\n`, error);
+//         throw error;
+//     }
 
-
-    const width = image.getWidth(); // rasters.width; // image.getWidth()
-    const height = image.getHeight(); // rasters.height; // image.getHeight()
-
-    // Read as RGB (interleaved)
-    // const rgb = await image.readRGB(); // Uint8Array length = width*height*3
-
-    // Convert RGB to RGBA by adding alpha channel
-    const rgba = new Uint8ClampedArray(width * height * 4);
-    // console.log("LENGTH OF RGB???", width, height, rasters.length, rasters)
-    for (let i = 0, j = 0; i < width * height; i++, j += 4) {
-        rgba[j] = rasters[0][i];       // R
-        rgba[j + 1] = rasters[1][i]; // G
-        rgba[j + 2] = rasters[2][i]; // B
-        rgba[j + 3] = 255;      // A (opaque)
-    }
-    // console.log("RGBA", rgba);
-
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext('2d')
-
-    const imageData = new ImageData(rgba, width, height)
-    ctx.putImageData(imageData, 0, 0)
-
-    // Convert canvas to PNG bytes
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
-
-    // const url = URL.createObjectURL(blob);
-    // const a = document.createElement("a");
-    // a.href = url;
-    // a.download = "eeee.png"; //filename ?? `Estimate_${data.projectName.replace(/\s+/g, "_")}.pdf`;
-    // document.body.appendChild(a);
-    // a.click();
-    // document.body.removeChild(a);
-    // URL.revokeObjectURL(url);
-
-    const pngBytes = new Uint8Array(await blob.arrayBuffer())
+//     // Get the GeoTIFF rasters, which are the pixel values for each band.
+//     const arrayBuffer = await response.arrayBuffer();
+//     const tiff = await geotiff.fromArrayBuffer(arrayBuffer);
+//     const image = await tiff.getImage();
+//     const rasters = await image.readRasters();
 
 
 
 
-    // const PNG_Bytes = await geotiffToPngBytes(arrayBuffer);
 
-    // Reproject the bounding box into lat/lon coordinates.
-    //   const box = image.getBoundingBox();
-    //   const geoKeys = image.getGeoKeys();
-    //   const projObj = geokeysToProj4.toProj4(geoKeys);
-    //   const projection = proj4(projObj.proj4, 'WGS84');
-    //   const sw = projection.forward({
-    //     x: box[0] * projObj.coordinatesConversionParameters.x,
-    //     y: box[1] * projObj.coordinatesConversionParameters.y,
-    //   });
-    //   const ne = projection.forward({
-    //     x: box[2] * projObj.coordinatesConversionParameters.x,
-    //     y: box[3] * projObj.coordinatesConversionParameters.y,
-    //   });
+//     const width = image.getWidth(); // rasters.width; // image.getWidth()
+//     const height = image.getHeight(); // rasters.height; // image.getHeight()
 
-    return {
-        // Width and height of the data layer image in pixels.
-        // Used to know the row and column since Javascript
-        // stores the values as flat arrays.
-        width: width, // rasters.width,
-        height: height, // rasters.height,
-        // PNG_Bytes: PNG_Bytes,
-        // Each raster reprents the pixel values of each band.
-        // We convert them from `geotiff.TypedArray`s into plain
-        // Javascript arrays to make them easier to process.
-        rasters: [...Array(rasters.length).keys()].map((i) =>
-            Array.from(rasters[i] as geotiff.TypedArray),
-        ),
-        PNG: pngBytes,
-        // The bounding box as a lat/lon rectangle.
-        // bounds: {
-        //   north: ne.y,
-        //   south: sw.y,
-        //   east: ne.x,
-        //   west: sw.x,
-        // },
-    };
-}
+//     // Read as RGB (interleaved)
+//     // const rgb = await image.readRGB(); // Uint8Array length = width*height*3
+
+//     const canvas = document.createElement('canvas')
+//     canvas.width = width
+//     canvas.height = height
+//     const ctx = canvas.getContext('2d')
+
+//     console.log("RASTERS", rasters);
+//     if (!IgnoreImage) {
+//         // Convert RGB to RGBA by adding alpha channel
+//         const rgba = new Uint8ClampedArray(width * height * 4);
+//         // console.log("LENGTH OF RGB???", width, height, rasters.length, rasters)
+//         for (let i = 0, j = 0; i < width * height; i++, j += 4) {
+//             rgba[j] = rasters[0][i];       // R
+//             rgba[j + 1] = rasters[1][i]; // G
+//             rgba[j + 2] = rasters[2][i]; // B
+//             rgba[j + 3] = 255;      // A (opaque)
+//         }
+//         // console.log("RGBA", rgba);
+
+//         const imageData = new ImageData(rgba, width, height)
+//         ctx.putImageData(imageData, 0, 0)
+//     }
+
+//     // Convert canvas to PNG bytes
+//     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
+
+//     // const url = URL.createObjectURL(blob);
+//     // const a = document.createElement("a");
+//     // a.href = url;
+//     // a.download = "eeee.png"; //filename ?? `Estimate_${data.projectName.replace(/\s+/g, "_")}.pdf`;
+//     // document.body.appendChild(a);
+//     // a.click();
+//     // document.body.removeChild(a);
+//     // URL.revokeObjectURL(url);
+
+//     const pngBytes = new Uint8Array(await blob.arrayBuffer())
+
+
+
+
+//     // const PNG_Bytes = await geotiffToPngBytes(arrayBuffer);
+
+//     // Reproject the bounding box into lat/lon coordinates.
+//     //   const box = image.getBoundingBox();
+//     //   const geoKeys = image.getGeoKeys();
+//     //   const projObj = geokeysToProj4.toProj4(geoKeys);
+//     //   const projection = proj4(projObj.proj4, 'WGS84');
+//     //   const sw = projection.forward({
+//     //     x: box[0] * projObj.coordinatesConversionParameters.x,
+//     //     y: box[1] * projObj.coordinatesConversionParameters.y,
+//     //   });
+//     //   const ne = projection.forward({
+//     //     x: box[2] * projObj.coordinatesConversionParameters.x,
+//     //     y: box[3] * projObj.coordinatesConversionParameters.y,
+//     //   });
+
+//     return {
+//         // Width and height of the data layer image in pixels.
+//         // Used to know the row and column since Javascript
+//         // stores the values as flat arrays.
+//         width: width, // rasters.width,
+//         height: height, // rasters.height,
+//         // PNG_Bytes: PNG_Bytes,
+//         // Each raster reprents the pixel values of each band.
+//         // We convert them from `geotiff.TypedArray`s into plain
+//         // Javascript arrays to make them easier to process.
+//         rasters: [...Array(rasters.length).keys()].map((i) =>
+//             Array.from(rasters[i] as geotiff.TypedArray),
+//         ),
+//         PNG: pngBytes,
+//         // The bounding box as a lat/lon rectangle.
+//         // bounds: {
+//         //   north: ne.y,
+//         //   south: sw.y,
+//         //   east: ne.x,
+//         //   west: sw.x,
+//         // },
+//     };
+// }
 
 
 
