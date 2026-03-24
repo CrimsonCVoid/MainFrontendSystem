@@ -14,3 +14,8 @@ lib/pdf-export
 lib/backend.ts
 lib/testing.json
 lib/testing-mansion.json
+lib/testing-giant.json
+lib/testing-john.json
+lib/testing-library.json
+lib/testing-me.json
+lib/testing-mrq.json
