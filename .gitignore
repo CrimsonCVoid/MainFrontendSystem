@@ -12,10 +12,10 @@ build/
  netlify.toml
 lib/pdf-export
 lib/backend.ts
-lib/testing.json
-lib/testing-mansion.json
-lib/testing-giant.json
-lib/testing-john.json
-lib/testing-library.json
-lib/testing-me.json
-lib/testing-mrq.json
+lib/angled.kyxr
+lib/giant.kyxr
+lib/mansion.kyxr
+lib/me.kyxr
+lib/mrq.kyxr
+lib/library.kyxr
+lib/john.kyxr
