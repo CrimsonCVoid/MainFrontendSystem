@@ -381,7 +381,7 @@ export class CFrame {
         else if (length == 0) { /*this.X = 0; this.Y = 0; this.Z = 0;*/ } // this.CreationType = "0-Default";
         else if (length == 1) {
             let pos = params[0];
-            this._X = pos.X; this._Y = pos.Y; this._Z = pos.Z;
+            this._X = pos.x; this._Y = pos.y; this._Z = pos.z;
             // this.CreationType = "1-Vector3";
         }
         else if (length == 2) {

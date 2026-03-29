@@ -584,7 +584,7 @@ export class ExtrudedLine {
         this.TopLineSettings.points[0].set(this.CF_A0.X, this.CF_A0.Y, this.CF_A0.Z);
         this.TopLineSettings.points[1].set(this.CF_B0.X, this.CF_B0.Y, this.CF_B0.Z);
 
-        if (this.Modify) this.Modify[1].text = `${this.FocusSketchLine.ID}\n${this._Length}\nTL: ${this._TopLength}\nBL: ${this._BottomLength}\n${this.ExtrudeA}-${this.ExtrudeB}`;
+        if (this.Modify) this.Modify[1].text = ""; // `${this.FocusSketchLine.ID}\n${this._Length}\nTL: ${this._TopLength}\nBL: ${this._BottomLength}\n${this.ExtrudeA}-${this.ExtrudeB}`;
 
         this.UpdatePanelMesh();
 
@@ -1068,7 +1068,7 @@ export class SketchLine {
 
             return true;
         });
-        console.log(this.ID, this.DrawLine.Length, ClosestSketches);
+        // console.log(this.ID, this.DrawLine.Length, ClosestSketches);
         if (ClosestSketches.length == 0) return;
 
         // Outer goes as close as it can within, inner goes to the closest inner point if outer intersects
@@ -1093,7 +1093,7 @@ export class SketchLine {
             }
         }
 
-        console.log(ClosestToA, ClosestToB);
+        // console.log(ClosestToA, ClosestToB);
 
         // ClosestSketches = ClosestSketches.sort((A: any, B: any) => A[1] - B[1]);
         // // ClosestSketches = ClosestSketches.sort((A: any, B: any) => Math.abs(A[1]) - Math.abs(B[1]));
@@ -1113,8 +1113,8 @@ export class SketchLine {
             OffsetOuterA = Close[3];
             break;
         }
-        this.DrawLine.OffsetInnerA = OffsetInnerA;
-        this.DrawLine.OffsetOuterA = OffsetOuterA;
+        // this.DrawLine.OffsetInnerA = OffsetInnerA;
+        // this.DrawLine.OffsetOuterA = OffsetOuterA;
         // if (ClosestToA[0]) {
         //     this.DrawLine.OffsetInnerA = ClosestToA[0][1] ?? 0;
         //     this.DrawLine.OffsetOuterA = ClosestToA[0][3] ?? 0;
@@ -1132,8 +1132,8 @@ export class SketchLine {
             OffsetOuterB = Close[4];
             break;
         }
-        this.DrawLine.OffsetInnerB = OffsetInnerB;
-        this.DrawLine.OffsetOuterB = OffsetOuterB;
+        // this.DrawLine.OffsetInnerB = OffsetInnerB;
+        // this.DrawLine.OffsetOuterB = OffsetOuterB;
 
         // if (ClosestToB[0]) {
         //     // this.DrawLine.OffsetInnerB = ClosestToB[0][2] ?? 0;

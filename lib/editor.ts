@@ -15,6 +15,8 @@ import { SketchLine } from "./drawings";
 import TestingConfig from "./EditorUI.json";
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
 import { Test } from "./backend"; // DebuggingClass
+import { earcut } from "./earcut";
+import { CFrame, Vector3 } from "./positioning";
 
 type xyz_Class = { x: number, y: number, z: number };
 
@@ -824,830 +826,6 @@ export class Editor {
 
 
 
-        // function segmentByNeighborPredicate(data, width, height, shouldConnect, options = {}) {
-        //     const useDiagonals = options.useDiagonals ?? true;
-        //     const minGroupSize = options.minGroupSize ?? 1;
-        //     const maxGroupSize = options.maxGroupSize ?? Infinity;
-
-        //     const labels = new Int32Array(data.length);
-        //     labels.fill(-1);
-
-        //     const assigned = new Uint8Array(data.length);
-        //     const groups = [];
-        //     let nextLabel = 0;
-
-        //     function getNeighbors(index) {
-        //         const x = index % width;
-        //         const z = Math.floor(index / width);
-        //         const neighbors = [];
-
-        //         if (useDiagonals) {
-        //             for (let dz = -1; dz <= 1; dz++) {
-        //                 for (let dx = -1; dx <= 1; dx++) {
-        //                     if (dx === 0 && dz === 0) continue;
-
-        //                     const nx = x + dx;
-        //                     const nz = z + dz;
-
-        //                     if (nx >= 0 && nx < width && nz >= 0 && nz < height) {
-        //                         neighbors.push(nz * width + nx);
-        //                     }
-        //                 }
-        //             }
-        //         } else {
-        //             if (x > 0) neighbors.push(index - 1);
-        //             if (x < width - 1) neighbors.push(index + 1);
-        //             if (z > 0) neighbors.push(index - width);
-        //             if (z < height - 1) neighbors.push(index + width);
-        //         }
-
-        //         return neighbors;
-        //     }
-
-        //     for (let startIndex = 0; startIndex < data.length; startIndex++) {
-        //         if (assigned[startIndex]) continue;
-        //         if (!data[startIndex]) continue;
-        //         assigned[startIndex] = 1;
-
-        //         if (!shouldConnect(startIndex, startIndex, null, labels, -1, startIndex)) {
-        //             continue;
-        //         }
-
-        //         const stack = [startIndex];
-        //         const queued = new Uint8Array(data.length);
-        //         queued[startIndex] = 1;
-
-        //         const indices = [];
-        //         labels[startIndex] = nextLabel;
-        //         assigned[startIndex] = 1;
-
-        //         while (stack.length > 0) {
-        //             const current = stack.pop();
-        //             indices.push(current);
-
-        //             for (const ni of getNeighbors(current)) {
-        //                 if (assigned[ni] || queued[ni]) continue;
-
-        //                 if (!shouldConnect(current, ni, indices, labels, current, startIndex)) {
-        //                     continue;
-        //                 }
-
-        //                 queued[ni] = 1;
-        //                 labels[ni] = nextLabel;
-        //                 assigned[ni] = 1;
-        //                 stack.push(ni);
-        //             }
-        //         }
-
-        //         if (indices.length < minGroupSize || indices.length > maxGroupSize) {
-        //             for (const index of indices) {
-        //                 labels[index] = -1;
-        //                 assigned[index] = 0;
-        //             }
-        //             continue;
-        //         }
-
-        //         groups.push({
-        //             label: nextLabel,
-        //             indices
-        //         });
-
-        //         nextLabel++;
-        //     }
-
-        //     return {
-        //         labels,
-        //         groups
-        //     };
-        // }
-
-        // function segmentByNeighborPredicate(data, width, height, shouldConnect: (fromIndex: number, toIndex: number) => boolean, options = {}) {
-        //     const minGroupSize = options.minGroupSize ?? 1;
-        //     const maxGroupSize = options.maxGroupSize ?? Infinity;
-
-        //     const labels = new Int32Array(data.length);
-        //     labels.fill(-1);
-
-        //     const assigned = new Uint8Array(data.length);
-        //     const groups = [];
-        //     let nextLabel = 0;
-
-        //     for (let startIndex = 0; startIndex < data.length; startIndex++) {
-        //         if (assigned[startIndex]) continue;
-        //         if (!data[startIndex]) continue;
-
-        //         assigned[startIndex] = 1;
-
-        //         if (!shouldConnect(startIndex, startIndex, null, labels, -1, startIndex)) {
-        //             continue;
-        //         }
-
-        //         const stack = [startIndex];
-        //         const queued = new Uint8Array(data.length);
-        //         queued[startIndex] = 1;
-
-        //         const indices = [];
-        //         labels[startIndex] = nextLabel;
-
-        //         const neighborOffsets = [
-        //             [-1, -1], [0, -1], [1, -1],
-        //             [-1,  0],          [1,  0],
-        //             [-1,  1], [0,  1], [1,  1]
-        //         ];
-
-        //         while (stack.length > 0) {
-        //             const current = stack.pop();
-        //             indices.push(current);
-
-        //             const x = current % width;
-        //             const z = Math.floor(current / width);
-
-        //             for (let k = 0; k < 8; k++) {
-        //                 const nx = x + neighborOffsets[k][0];
-        //                 const nz = z + neighborOffsets[k][1];
-
-        //                 if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
-
-        //                 const ni = nz * width + nx;
-
-        //                 if (assigned[ni] || queued[ni]) continue;
-        //                 if (!shouldConnect(current, ni, indices, labels, current, startIndex)) continue;
-
-        //                 queued[ni] = 1;
-        //                 labels[ni] = nextLabel;
-        //                 assigned[ni] = 1;
-        //                 stack.push(ni);
-        //             }
-        //         }
-
-        //         if (indices.length < minGroupSize || indices.length > maxGroupSize) {
-        //             for (const index of indices) {
-        //                 labels[index] = -1;
-        //                 assigned[index] = 0;
-        //             }
-        //             continue;
-        //         }
-
-        //         groups.push({
-        //             label: nextLabel,
-        //             indices
-        //         });
-
-        //         nextLabel++;
-        //     }
-
-        //     return {
-        //         labels,
-        //         groups
-        //     };
-        // }
-
-        // function segmentByNeighborPredicate(data, width, height, shouldConnect, options = {}) {
-        //     const minGroupSize = options.minGroupSize ?? 1;
-        //     const maxGroupSize = options.maxGroupSize ?? Infinity;
-
-        //     const size = data.length;
-
-        //     const labels = new Int32Array(size);
-        //     labels.fill(-1);
-
-        //     const assigned = new Uint8Array(size);
-        //     const queued = new Uint32Array(size);
-
-        //     const stack = new Int32Array(size);
-        //     const groupBuffer = new Int32Array(size);
-
-        //     const groups = [];
-
-        //     let nextLabel = 0;
-        //     let queueStamp = 1;
-
-        //     for (let startIndex = 0; startIndex < size; startIndex++) {
-        //         if (assigned[startIndex]) continue;
-        //         if (!data[startIndex]) continue;
-
-        //         assigned[startIndex] = 1;
-
-        //         if (!shouldConnect(startIndex, startIndex, groupBuffer, 0, labels, -1, startIndex)) {
-        //             continue;
-        //         }
-
-        //         let stackSize = 0;
-        //         let groupSize = 0;
-
-        //         stack[stackSize++] = startIndex;
-        //         queued[startIndex] = queueStamp;
-        //         labels[startIndex] = nextLabel;
-
-        //         while (stackSize > 0) {
-        //             const current = stack[--stackSize];
-        //             groupBuffer[groupSize++] = current;
-
-        //             const x = current % width;
-        //             const z = (current / width) | 0;
-
-        //             let ni;
-
-        //             if (x > 0 && z > 0) {
-        //                 ni = current - width - 1;
-        //                 if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stack[stackSize++] = ni;
-        //                 }
-        //             }
-
-        //             if (z > 0) {
-        //                 ni = current - width;
-        //                 if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stack[stackSize++] = ni;
-        //                 }
-        //             }
-
-        //             if (x < width - 1 && z > 0) {
-        //                 ni = current - width + 1;
-        //                 if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stack[stackSize++] = ni;
-        //                 }
-        //             }
-
-        //             if (x > 0) {
-        //                 ni = current - 1;
-        //                 if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stack[stackSize++] = ni;
-        //                 }
-        //             }
-
-        //             if (x < width - 1) {
-        //                 ni = current + 1;
-        //                 if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stack[stackSize++] = ni;
-        //                 }
-        //             }
-
-        //             if (x > 0 && z < height - 1) {
-        //                 ni = current + width - 1;
-        //                 if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stack[stackSize++] = ni;
-        //                 }
-        //             }
-
-        //             if (z < height - 1) {
-        //                 ni = current + width;
-        //                 if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stack[stackSize++] = ni;
-        //                 }
-        //             }
-
-        //             if (x < width - 1 && z < height - 1) {
-        //                 ni = current + width + 1;
-        //                 if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stack[stackSize++] = ni;
-        //                 }
-        //             }
-        //         }
-
-        //         if (groupSize < minGroupSize || groupSize > maxGroupSize) {
-        //             for (let i = 0; i < groupSize; i++) {
-        //                 const index = groupBuffer[i];
-        //                 labels[index] = -1;
-        //                 assigned[index] = 0;
-        //             }
-        //             queueStamp++;
-        //             continue;
-        //         }
-
-        //         const indices = new Int32Array(groupSize);
-        //         indices.set(groupBuffer.subarray(0, groupSize));
-
-        //         groups.push({
-        //             label: nextLabel,
-        //             indices
-        //         });
-
-        //         nextLabel++;
-        //         queueStamp++;
-        //     }
-
-        //     return { labels, groups };
-        // }
-
-        // function segmentByNeighborPredicate(data, width, height, shouldConnect, options = {}) {
-        //     const minGroupSize = options.minGroupSize ?? 1;
-        //     const maxGroupSize = options.maxGroupSize ?? Infinity;
-
-        //     const size = data.length;
-
-        //     const labels = new Int32Array(size);
-        //     labels.fill(-1);
-
-        //     const assigned = new Uint8Array(size);
-        //     const queued = new Uint32Array(size);
-
-        //     const stackIndex = new Int32Array(size);
-        //     const stackX = new Int32Array(size);
-        //     const stackZ = new Int32Array(size);
-
-        //     const groupBuffer = new Int32Array(size);
-        //     const groups = [];
-
-        //     let nextLabel = 0;
-        //     let queueStamp = 1;
-
-        //     for (let startIndex = 0, startZ = 0, startX = 0; startIndex < size; startIndex++) {
-        //         if (assigned[startIndex]) {
-        //             startX++;
-        //             if (startX === width) {
-        //                 startX = 0;
-        //                 startZ++;
-        //             }
-        //             continue;
-        //         }
-
-        //         if (!data[startIndex]) {
-        //             startX++;
-        //             if (startX === width) {
-        //                 startX = 0;
-        //                 startZ++;
-        //             }
-        //             continue;
-        //         }
-
-        //         assigned[startIndex] = 1;
-
-        //         if (!shouldConnect(startIndex, startIndex, groupBuffer, 0, labels, -1, startIndex)) {
-        //             startX++;
-        //             if (startX === width) {
-        //                 startX = 0;
-        //                 startZ++;
-        //             }
-        //             continue;
-        //         }
-
-        //         let stackSize = 0;
-        //         let groupSize = 0;
-
-        //         stackIndex[stackSize] = startIndex;
-        //         stackX[stackSize] = startX;
-        //         stackZ[stackSize] = startZ;
-        //         stackSize++;
-
-        //         queued[startIndex] = queueStamp;
-        //         labels[startIndex] = nextLabel;
-
-        //         while (stackSize > 0) {
-        //             stackSize--;
-
-        //             const current = stackIndex[stackSize];
-        //             const x = stackX[stackSize];
-        //             const z = stackZ[stackSize];
-
-        //             groupBuffer[groupSize++] = current;
-
-        //             let ni;
-
-        //             if (z > 0) {
-        //                 const up = current - width;
-
-        //                 if (x > 0) {
-        //                     ni = up - 1;
-        //                     if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                         shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                         queued[ni] = queueStamp;
-        //                         labels[ni] = nextLabel;
-        //                         assigned[ni] = 1;
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x - 1;
-        //                         stackZ[stackSize] = z - 1;
-        //                         stackSize++;
-        //                     }
-        //                 }
-
-        //                 ni = up;
-        //                 if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x;
-        //                     stackZ[stackSize] = z - 1;
-        //                     stackSize++;
-        //                 }
-
-        //                 if (x < width - 1) {
-        //                     ni = up + 1;
-        //                     if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                         shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                         queued[ni] = queueStamp;
-        //                         labels[ni] = nextLabel;
-        //                         assigned[ni] = 1;
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x + 1;
-        //                         stackZ[stackSize] = z - 1;
-        //                         stackSize++;
-        //                     }
-        //                 }
-        //             }
-
-        //             if (x > 0) {
-        //                 ni = current - 1;
-        //                 if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x - 1;
-        //                     stackZ[stackSize] = z;
-        //                     stackSize++;
-        //                 }
-        //             }
-
-        //             if (x < width - 1) {
-        //                 ni = current + 1;
-        //                 if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x + 1;
-        //                     stackZ[stackSize] = z;
-        //                     stackSize++;
-        //                 }
-        //             }
-
-        //             if (z < height - 1) {
-        //                 const down = current + width;
-
-        //                 if (x > 0) {
-        //                     ni = down - 1;
-        //                     if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                         shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                         queued[ni] = queueStamp;
-        //                         labels[ni] = nextLabel;
-        //                         assigned[ni] = 1;
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x - 1;
-        //                         stackZ[stackSize] = z + 1;
-        //                         stackSize++;
-        //                     }
-        //                 }
-
-        //                 ni = down;
-        //                 if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x;
-        //                     stackZ[stackSize] = z + 1;
-        //                     stackSize++;
-        //                 }
-
-        //                 if (x < width - 1) {
-        //                     ni = down + 1;
-        //                     if (!assigned[ni] && queued[ni] !== queueStamp &&
-        //                         shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)) {
-        //                         queued[ni] = queueStamp;
-        //                         labels[ni] = nextLabel;
-        //                         assigned[ni] = 1;
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x + 1;
-        //                         stackZ[stackSize] = z + 1;
-        //                         stackSize++;
-        //                     }
-        //                 }
-        //             }
-        //         }
-
-        //         if (groupSize < minGroupSize || groupSize > maxGroupSize) {
-        //             for (let i = 0; i < groupSize; i++) {
-        //                 const index = groupBuffer[i];
-        //                 labels[index] = -1;
-        //                 assigned[index] = 0;
-        //             }
-
-        //             queueStamp++;
-
-        //             startX++;
-        //             if (startX === width) {
-        //                 startX = 0;
-        //                 startZ++;
-        //             }
-        //             continue;
-        //         }
-
-        //         const indices = new Int32Array(groupSize);
-        //         indices.set(groupBuffer.subarray(0, groupSize));
-
-        //         groups.push({
-        //             label: nextLabel,
-        //             indices
-        //         });
-
-        //         nextLabel++;
-        //         queueStamp++;
-
-        //         startX++;
-        //         if (startX === width) {
-        //             startX = 0;
-        //             startZ++;
-        //         }
-        //     }
-
-        //     return { labels, groups };
-        // }
-
-        // function segmentByNeighborPredicate(data, width, height, shouldConnect, options = {}) {
-        //     const minGroupSize = options.minGroupSize ?? 1;
-        //     const maxGroupSize = options.maxGroupSize ?? Infinity;
-
-        //     const size = data.length;
-
-        //     const labels = new Int32Array(size);
-        //     labels.fill(-1);
-
-        //     const assigned = new Uint8Array(size);
-        //     const queued = new Uint32Array(size);
-
-        //     const stackIndex = new Int32Array(size);
-        //     const stackX = new Int32Array(size);
-        //     const stackZ = new Int32Array(size);
-
-        //     const groupBuffer = new Int32Array(size);
-
-        //     // flat storage for all accepted group indices
-        //     const allGroupIndices = new Int32Array(size);
-        //     let allGroupIndicesCount = 0;
-
-        //     const groupLabels = [];
-        //     const groupStarts = [];
-        //     const groupLengths = [];
-
-        //     let nextLabel = 0;
-        //     let queueStamp = 1;
-
-        //     for (let startIndex = 0, startZ = 0, startX = 0; startIndex < size; startIndex++) {
-        //         if (assigned[startIndex] || !data[startIndex]) {
-        //             startX++;
-        //             if (startX === width) {
-        //                 startX = 0;
-        //                 startZ++;
-        //             }
-        //             continue;
-        //         }
-
-        //         assigned[startIndex] = 1;
-
-        //         if (!shouldConnect(startIndex, startIndex, groupBuffer, 0, labels, -1, startIndex)) {
-        //             startX++;
-        //             if (startX === width) {
-        //                 startX = 0;
-        //                 startZ++;
-        //             }
-        //             continue;
-        //         }
-
-        //         let stackSize = 0;
-        //         let groupSize = 0;
-
-        //         stackIndex[stackSize] = startIndex;
-        //         stackX[stackSize] = startX;
-        //         stackZ[stackSize] = startZ;
-        //         stackSize++;
-
-        //         queued[startIndex] = queueStamp;
-        //         labels[startIndex] = nextLabel;
-
-        //         while (stackSize > 0) {
-        //             stackSize--;
-
-        //             const current = stackIndex[stackSize];
-        //             const x = stackX[stackSize];
-        //             const z = stackZ[stackSize];
-
-        //             groupBuffer[groupSize++] = current;
-
-        //             let ni;
-
-        //             if (z > 0) {
-        //                 const up = current - width;
-
-        //                 if (x > 0) {
-        //                     ni = up - 1;
-        //                     if (
-        //                         !assigned[ni] &&
-        //                         queued[ni] !== queueStamp &&
-        //                         shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)
-        //                     ) {
-        //                         queued[ni] = queueStamp;
-        //                         labels[ni] = nextLabel;
-        //                         assigned[ni] = 1;
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x - 1;
-        //                         stackZ[stackSize] = z - 1;
-        //                         stackSize++;
-        //                     }
-        //                 }
-
-        //                 ni = up;
-        //                 if (
-        //                     !assigned[ni] &&
-        //                     queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)
-        //                 ) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x;
-        //                     stackZ[stackSize] = z - 1;
-        //                     stackSize++;
-        //                 }
-
-        //                 if (x < width - 1) {
-        //                     ni = up + 1;
-        //                     if (
-        //                         !assigned[ni] &&
-        //                         queued[ni] !== queueStamp &&
-        //                         shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)
-        //                     ) {
-        //                         queued[ni] = queueStamp;
-        //                         labels[ni] = nextLabel;
-        //                         assigned[ni] = 1;
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x + 1;
-        //                         stackZ[stackSize] = z - 1;
-        //                         stackSize++;
-        //                     }
-        //                 }
-        //             }
-
-        //             if (x > 0) {
-        //                 ni = current - 1;
-        //                 if (
-        //                     !assigned[ni] &&
-        //                     queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)
-        //                 ) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x - 1;
-        //                     stackZ[stackSize] = z;
-        //                     stackSize++;
-        //                 }
-        //             }
-
-        //             if (x < width - 1) {
-        //                 ni = current + 1;
-        //                 if (
-        //                     !assigned[ni] &&
-        //                     queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)
-        //                 ) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x + 1;
-        //                     stackZ[stackSize] = z;
-        //                     stackSize++;
-        //                 }
-        //             }
-
-        //             if (z < height - 1) {
-        //                 const down = current + width;
-
-        //                 if (x > 0) {
-        //                     ni = down - 1;
-        //                     if (
-        //                         !assigned[ni] &&
-        //                         queued[ni] !== queueStamp &&
-        //                         shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)
-        //                     ) {
-        //                         queued[ni] = queueStamp;
-        //                         labels[ni] = nextLabel;
-        //                         assigned[ni] = 1;
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x - 1;
-        //                         stackZ[stackSize] = z + 1;
-        //                         stackSize++;
-        //                     }
-        //                 }
-
-        //                 ni = down;
-        //                 if (
-        //                     !assigned[ni] &&
-        //                     queued[ni] !== queueStamp &&
-        //                     shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)
-        //                 ) {
-        //                     queued[ni] = queueStamp;
-        //                     labels[ni] = nextLabel;
-        //                     assigned[ni] = 1;
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x;
-        //                     stackZ[stackSize] = z + 1;
-        //                     stackSize++;
-        //                 }
-
-        //                 if (x < width - 1) {
-        //                     ni = down + 1;
-        //                     if (
-        //                         !assigned[ni] &&
-        //                         queued[ni] !== queueStamp &&
-        //                         shouldConnect(current, ni, groupBuffer, groupSize, labels, current, startIndex)
-        //                     ) {
-        //                         queued[ni] = queueStamp;
-        //                         labels[ni] = nextLabel;
-        //                         assigned[ni] = 1;
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x + 1;
-        //                         stackZ[stackSize] = z + 1;
-        //                         stackSize++;
-        //                     }
-        //                 }
-        //             }
-        //         }
-
-        //         if (groupSize < minGroupSize || groupSize > maxGroupSize) {
-        //             for (let i = 0; i < groupSize; i++) {
-        //                 const index = groupBuffer[i];
-        //                 labels[index] = -1;
-        //                 assigned[index] = 0;
-        //             }
-
-        //             queueStamp++;
-
-        //             startX++;
-        //             if (startX === width) {
-        //                 startX = 0;
-        //                 startZ++;
-        //             }
-        //             continue;
-        //         }
-
-        //         const groupStart = allGroupIndicesCount;
-        //         for (let i = 0; i < groupSize; i++) {
-        //             allGroupIndices[allGroupIndicesCount++] = groupBuffer[i];
-        //         }
-
-        //         groupLabels.push(nextLabel);
-        //         groupStarts.push(groupStart);
-        //         groupLengths.push(groupSize);
-
-        //         nextLabel++;
-        //         queueStamp++;
-
-        //         startX++;
-        //         if (startX === width) {
-        //             startX = 0;
-        //             startZ++;
-        //         }
-        //     }
-
-        //     return {
-        //         labels,
-        //         groupLabels,
-        //         groupStarts,
-        //         groupLengths,
-        //         allGroupIndices: allGroupIndices.subarray(0, allGroupIndicesCount)
-        //     };
-        // }
 
         function segmentByNeighborPredicate5x5(data, width, height, shouldConnect, options = {}) {
             const minGroupSize = options.minGroupSize ?? 1;
@@ -2076,647 +1254,6 @@ export class Editor {
                 allGroupIndices: allGroupIndices.subarray(0, allGroupIndicesCount)
             };
         }
-
-        // function segmentRoofPlanes(heightData, slopeX, slopeZ, mask, width, height, options = {}) {
-        //     const size = width * height;
-
-        //     const minGroupSize = options.minGroupSize ?? 8;
-        //     const maxGroupSize = options.maxGroupSize ?? Infinity;
-
-        //     const maxHeightDiff = options.maxHeightDiff ?? 0.3;
-        //     const maxSlopeDiff = options.maxSlopeDiff ?? 0.08;
-        //     const maxSeedHeightDiff = options.maxSeedHeightDiff ?? Infinity;
-        //     const maxSeedSlopeDiff = options.maxSeedSlopeDiff ?? Infinity;
-        //     const minValidHeight = options.minValidHeight ?? -Infinity;
-        //     const maxValidHeight = options.maxValidHeight ?? Infinity;
-
-        //     const useAverageNormal = options.useAverageNormal ?? false;
-        //     const averageRecheckEvery = options.averageRecheckEvery ?? 16;
-        //     const maxAverageSlopeDiff = options.maxAverageSlopeDiff ?? maxSlopeDiff;
-
-        //     const labels = new Int32Array(size);
-        //     labels.fill(-1);
-
-        //     const assigned = new Uint8Array(size);
-        //     const queued = new Uint32Array(size);
-
-        //     const stackIndex = new Int32Array(size);
-        //     const stackX = new Int32Array(size);
-        //     const stackZ = new Int32Array(size);
-
-        //     const groupBuffer = new Int32Array(size);
-        //     const allGroupIndices = new Int32Array(size);
-
-        //     const groupLabels = new Int32Array(size);
-        //     const groupStarts = new Int32Array(size);
-        //     const groupLengths = new Int32Array(size);
-
-        //     let allGroupIndicesCount = 0;
-        //     let groupCount = 0;
-        //     let nextLabel = 0;
-        //     let queueStamp = 1;
-
-        //     for (let startIndex = 0, startX = 0, startZ = 0; startIndex < size; startIndex++) {
-        //         const seedHeight = heightData[startIndex];
-
-        //         if (
-        //             assigned[startIndex] ||
-        //             mask[startIndex] == 0 ||
-        //             !Number.isFinite(seedHeight) ||
-        //             seedHeight < minValidHeight ||
-        //             seedHeight > maxValidHeight
-        //         ) {
-        //             startX++;
-        //             if (startX === width) {
-        //                 startX = 0;
-        //                 startZ++;
-        //             }
-        //             continue;
-        //         }
-
-        //         const seedSlopeX = slopeX[startIndex];
-        //         const seedSlopeZ = slopeZ[startIndex];
-
-        //         if (!Number.isFinite(seedSlopeX) || !Number.isFinite(seedSlopeZ)) {
-        //             startX++;
-        //             if (startX === width) {
-        //                 startX = 0;
-        //                 startZ++;
-        //             }
-        //             continue;
-        //         }
-
-        //         assigned[startIndex] = 1;
-
-        //         let stackSize = 0;
-        //         let groupSize = 0;
-
-        //         let avgSlopeX = seedSlopeX;
-        //         let avgSlopeZ = seedSlopeZ;
-        //         let slopeSumX = seedSlopeX;
-        //         let slopeSumZ = seedSlopeZ;
-
-        //         stackIndex[stackSize] = startIndex;
-        //         stackX[stackSize] = startX;
-        //         stackZ[stackSize] = startZ;
-        //         stackSize++;
-
-        //         queued[startIndex] = queueStamp;
-        //         labels[startIndex] = nextLabel;
-
-        //         while (stackSize > 0) {
-        //             stackSize--;
-
-        //             const current = stackIndex[stackSize];
-        //             const x = stackX[stackSize];
-        //             const z = stackZ[stackSize];
-
-        //             const currentHeight = heightData[current];
-        //             const currentSlopeX = slopeX[current];
-        //             const currentSlopeZ = slopeZ[current];
-
-        //             groupBuffer[groupSize++] = current;
-
-        //             if (useAverageNormal && (groupSize % averageRecheckEvery === 0)) {
-        //                 avgSlopeX = slopeSumX / groupSize;
-        //                 avgSlopeZ = slopeSumZ / groupSize;
-        //             }
-
-        //             let ni;
-
-        //             if (z > 0) {
-        //                 const up = current - width;
-
-        //                 if (x > 0) {
-        //                     ni = up - 1;
-        //                     if (tryAddNeighbor(
-        //                         ni, current, x - 1, z - 1,
-        //                         currentHeight, currentSlopeX, currentSlopeZ,
-        //                         seedHeight, seedSlopeX, seedSlopeZ,
-        //                         avgSlopeX, avgSlopeZ
-        //                     )) {
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x - 1;
-        //                         stackZ[stackSize] = z - 1;
-        //                         stackSize++;
-        //                         slopeSumX += slopeX[ni];
-        //                         slopeSumZ += slopeZ[ni];
-        //                     }
-        //                 }
-
-        //                 ni = up;
-        //                 if (tryAddNeighbor(
-        //                     ni, current, x, z - 1,
-        //                     currentHeight, currentSlopeX, currentSlopeZ,
-        //                     seedHeight, seedSlopeX, seedSlopeZ,
-        //                     avgSlopeX, avgSlopeZ
-        //                 )) {
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x;
-        //                     stackZ[stackSize] = z - 1;
-        //                     stackSize++;
-        //                     slopeSumX += slopeX[ni];
-        //                     slopeSumZ += slopeZ[ni];
-        //                 }
-
-        //                 if (x < width - 1) {
-        //                     ni = up + 1;
-        //                     if (tryAddNeighbor(
-        //                         ni, current, x + 1, z - 1,
-        //                         currentHeight, currentSlopeX, currentSlopeZ,
-        //                         seedHeight, seedSlopeX, seedSlopeZ,
-        //                         avgSlopeX, avgSlopeZ
-        //                     )) {
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x + 1;
-        //                         stackZ[stackSize] = z - 1;
-        //                         stackSize++;
-        //                         slopeSumX += slopeX[ni];
-        //                         slopeSumZ += slopeZ[ni];
-        //                     }
-        //                 }
-        //             }
-
-        //             if (x > 0) {
-        //                 ni = current - 1;
-        //                 if (tryAddNeighbor(
-        //                     ni, current, x - 1, z,
-        //                     currentHeight, currentSlopeX, currentSlopeZ,
-        //                     seedHeight, seedSlopeX, seedSlopeZ,
-        //                     avgSlopeX, avgSlopeZ
-        //                 )) {
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x - 1;
-        //                     stackZ[stackSize] = z;
-        //                     stackSize++;
-        //                     slopeSumX += slopeX[ni];
-        //                     slopeSumZ += slopeZ[ni];
-        //                 }
-        //             }
-
-        //             if (x < width - 1) {
-        //                 ni = current + 1;
-        //                 if (tryAddNeighbor(
-        //                     ni, current, x + 1, z,
-        //                     currentHeight, currentSlopeX, currentSlopeZ,
-        //                     seedHeight, seedSlopeX, seedSlopeZ,
-        //                     avgSlopeX, avgSlopeZ
-        //                 )) {
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x + 1;
-        //                     stackZ[stackSize] = z;
-        //                     stackSize++;
-        //                     slopeSumX += slopeX[ni];
-        //                     slopeSumZ += slopeZ[ni];
-        //                 }
-        //             }
-
-        //             if (z < height - 1) {
-        //                 const down = current + width;
-
-        //                 if (x > 0) {
-        //                     ni = down - 1;
-        //                     if (tryAddNeighbor(
-        //                         ni, current, x - 1, z + 1,
-        //                         currentHeight, currentSlopeX, currentSlopeZ,
-        //                         seedHeight, seedSlopeX, seedSlopeZ,
-        //                         avgSlopeX, avgSlopeZ
-        //                     )) {
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x - 1;
-        //                         stackZ[stackSize] = z + 1;
-        //                         stackSize++;
-        //                         slopeSumX += slopeX[ni];
-        //                         slopeSumZ += slopeZ[ni];
-        //                     }
-        //                 }
-
-        //                 ni = down;
-        //                 if (tryAddNeighbor(
-        //                     ni, current, x, z + 1,
-        //                     currentHeight, currentSlopeX, currentSlopeZ,
-        //                     seedHeight, seedSlopeX, seedSlopeZ,
-        //                     avgSlopeX, avgSlopeZ
-        //                 )) {
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x;
-        //                     stackZ[stackSize] = z + 1;
-        //                     stackSize++;
-        //                     slopeSumX += slopeX[ni];
-        //                     slopeSumZ += slopeZ[ni];
-        //                 }
-
-        //                 if (x < width - 1) {
-        //                     ni = down + 1;
-        //                     if (tryAddNeighbor(
-        //                         ni, current, x + 1, z + 1,
-        //                         currentHeight, currentSlopeX, currentSlopeZ,
-        //                         seedHeight, seedSlopeX, seedSlopeZ,
-        //                         avgSlopeX, avgSlopeZ
-        //                     )) {
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x + 1;
-        //                         stackZ[stackSize] = z + 1;
-        //                         stackSize++;
-        //                         slopeSumX += slopeX[ni];
-        //                         slopeSumZ += slopeZ[ni];
-        //                     }
-        //                 }
-        //             }
-        //         }
-
-        //         if (groupSize < minGroupSize || groupSize > maxGroupSize) {
-        //             for (let i = 0; i < groupSize; i++) {
-        //                 const index = groupBuffer[i];
-        //                 labels[index] = -1;
-        //                 assigned[index] = 0;
-        //             }
-
-        //             queueStamp++;
-        //             startX++;
-        //             if (startX === width) {
-        //                 startX = 0;
-        //                 startZ++;
-        //             }
-        //             continue;
-        //         }
-
-        //         const groupStart = allGroupIndicesCount;
-        //         for (let i = 0; i < groupSize; i++) {
-        //             allGroupIndices[allGroupIndicesCount++] = groupBuffer[i];
-        //         }
-
-        //         groupLabels[groupCount] = nextLabel;
-        //         groupStarts[groupCount] = groupStart;
-        //         groupLengths[groupCount] = groupSize;
-        //         groupCount++;
-
-        //         nextLabel++;
-        //         queueStamp++;
-
-        //         startX++;
-        //         if (startX === width) {
-        //             startX = 0;
-        //             startZ++;
-        //         }
-        //     }
-
-        //     return {
-        //         labels,
-        //         groupCount,
-        //         groupLabels: groupLabels.subarray(0, groupCount),
-        //         groupStarts: groupStarts.subarray(0, groupCount),
-        //         groupLengths: groupLengths.subarray(0, groupCount),
-        //         allGroupIndices: allGroupIndices.subarray(0, allGroupIndicesCount)
-        //     };
-
-        //     function tryAddNeighbor(
-        //         ni, parent, nx, nz,
-        //         currentHeight, currentSlopeX, currentSlopeZ,
-        //         seedHeight, seedSlopeX, seedSlopeZ,
-        //         avgSlopeX, avgSlopeZ
-        //     ) {
-        //         // ni, x - 1, z - 1, y, seedHeight, planeValid, planeA, planeB, planeC
-        //         if (mask[ni] === 0 || assigned[ni] || queued[ni] === queueStamp) return false;
-
-        //         const h = heightData[ni];
-        //         if (!Number.isFinite(h) || h < minValidHeight || h > maxValidHeight) return false;
-
-        //         const sx = slopeX[ni];
-        //         const sz = slopeZ[ni];
-        //         if (!Number.isFinite(sx) || !Number.isFinite(sz)) return false;
-
-        //         if (Math.abs(h - currentHeight) > maxHeightDiff) return false;
-        //         if (Math.abs(sx - currentSlopeX) > maxSlopeDiff) return false;
-        //         if (Math.abs(sz - currentSlopeZ) > maxSlopeDiff) return false;
-
-        //         if (maxSeedHeightDiff !== Infinity && Math.abs(h - seedHeight) > maxSeedHeightDiff) return false;
-        //         if (maxSeedSlopeDiff !== Infinity) {
-        //             if (Math.abs(sx - seedSlopeX) > maxSeedSlopeDiff) return false;
-        //             if (Math.abs(sz - seedSlopeZ) > maxSeedSlopeDiff) return false;
-        //         }
-
-        //         if (useAverageNormal) {
-        //             if (Math.abs(sx - avgSlopeX) > maxAverageSlopeDiff) return false;
-        //             if (Math.abs(sz - avgSlopeZ) > maxAverageSlopeDiff) return false;
-        //         }
-
-        //         queued[ni] = queueStamp;
-        //         labels[ni] = nextLabel;
-        //         assigned[ni] = 1;
-
-        //         return true;
-        //     }
-        // }
-
-        // function segmentRoofPlanesByFit(heightData, mask, width, height, options = {}) {
-        //     const size = width * height;
-
-        //     const minGroupSize = options.minGroupSize ?? 8;
-        //     const maxGroupSize = options.maxGroupSize ?? Infinity;
-
-        //     const minValidHeight = options.minValidHeight ?? -Infinity;
-        //     const maxValidHeight = options.maxValidHeight ?? Infinity;
-
-        //     const maxNeighborHeightDiff = options.maxNeighborHeightDiff ?? 0.35;
-        //     const maxSeedHeightDiff = options.maxSeedHeightDiff ?? Infinity;
-
-        //     const minFitPoints = options.minFitPoints ?? 6;
-        //     const maxPlaneResidual = options.maxPlaneResidual ?? 0.2;
-
-        //     const labels = new Int32Array(size);
-        //     labels.fill(-1);
-
-        //     const assigned = new Uint8Array(size);
-        //     const queued = new Uint32Array(size);
-
-        //     const stackIndex = new Int32Array(size);
-        //     const stackX = new Int32Array(size);
-        //     const stackZ = new Int32Array(size);
-
-        //     const groupBuffer = new Int32Array(size);
-        //     const allGroupIndices = new Int32Array(size);
-
-        //     const groupLabels = new Int32Array(size);
-        //     const groupStarts = new Int32Array(size);
-        //     const groupLengths = new Int32Array(size);
-
-        //     let allGroupIndicesCount = 0;
-        //     let groupCount = 0;
-        //     let nextLabel = 0;
-        //     let queueStamp = 1;
-
-        //     for (let startIndex = 0, startX = 0, startZ = 0; startIndex < size; startIndex++) {
-        //         const seedHeight = heightData[startIndex];
-
-        //         if (
-        //             assigned[startIndex] ||
-        //             mask[startIndex] == 0 ||
-        //             !Number.isFinite(seedHeight) ||
-        //             seedHeight < minValidHeight ||
-        //             seedHeight > maxValidHeight
-        //         ) {
-        //             startX++;
-        //             if (startX === width) {
-        //                 startX = 0;
-        //                 startZ++;
-        //             }
-        //             continue;
-        //         }
-
-        //         assigned[startIndex] = 1;
-
-        //         let stackSize = 0;
-        //         let groupSize = 0;
-
-        //         // running sums for plane fit
-        //         let n = 0;
-        //         let sumX = 0;
-        //         let sumZ = 0;
-        //         let sumY = 0;
-        //         let sumXX = 0;
-        //         let sumZZ = 0;
-        //         let sumXZ = 0;
-        //         let sumXY = 0;
-        //         let sumZY = 0;
-
-        //         let planeA = 0;
-        //         let planeB = 0;
-        //         let planeC = seedHeight;
-        //         let planeValid = false;
-
-        //         stackIndex[stackSize] = startIndex;
-        //         stackX[stackSize] = startX;
-        //         stackZ[stackSize] = startZ;
-        //         stackSize++;
-
-        //         queued[startIndex] = queueStamp;
-        //         labels[startIndex] = nextLabel;
-
-        //         while (stackSize > 0) {
-        //             stackSize--;
-
-        //             const current = stackIndex[stackSize];
-        //             const x = stackX[stackSize];
-        //             const z = stackZ[stackSize];
-        //             const y = heightData[current];
-
-        //             groupBuffer[groupSize++] = current;
-
-        //             // update running sums with accepted point
-        //             n++;
-        //             sumX += x;
-        //             sumZ += z;
-        //             sumY += y;
-        //             sumXX += x * x;
-        //             sumZZ += z * z;
-        //             sumXZ += x * z;
-        //             sumXY += x * y;
-        //             sumZY += z * y;
-
-        //             if (n >= minFitPoints) {
-        //                 const solved = solvePlaneFromSums(
-        //                     n, sumX, sumZ, sumY, sumXX, sumZZ, sumXZ, sumXY, sumZY
-        //                 );
-
-        //                 if (solved) {
-        //                     planeA = solved.a;
-        //                     planeB = solved.b;
-        //                     planeC = solved.c;
-        //                     planeValid = true;
-        //                 }
-        //             }
-
-        //             let ni;
-
-        //             if (z > 0) {
-        //                 const up = current - width;
-
-        //                 if (x > 0) {
-        //                     ni = up - 1;
-        //                     if (tryAddNeighbor(ni, x - 1, z - 1, y, seedHeight, planeValid, planeA, planeB, planeC)) {
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x - 1;
-        //                         stackZ[stackSize] = z - 1;
-        //                         stackSize++;
-        //                     }
-        //                 }
-
-        //                 ni = up;
-        //                 if (tryAddNeighbor(ni, x, z - 1, y, seedHeight, planeValid, planeA, planeB, planeC)) {
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x;
-        //                     stackZ[stackSize] = z - 1;
-        //                     stackSize++;
-        //                 }
-
-        //                 if (x < width - 1) {
-        //                     ni = up + 1;
-        //                     if (tryAddNeighbor(ni, x + 1, z - 1, y, seedHeight, planeValid, planeA, planeB, planeC)) {
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x + 1;
-        //                         stackZ[stackSize] = z - 1;
-        //                         stackSize++;
-        //                     }
-        //                 }
-        //             }
-
-        //             if (x > 0) {
-        //                 ni = current - 1;
-        //                 if (tryAddNeighbor(ni, x - 1, z, y, seedHeight, planeValid, planeA, planeB, planeC)) {
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x - 1;
-        //                     stackZ[stackSize] = z;
-        //                     stackSize++;
-        //                 }
-        //             }
-
-        //             if (x < width - 1) {
-        //                 ni = current + 1;
-        //                 if (tryAddNeighbor(ni, x + 1, z, y, seedHeight, planeValid, planeA, planeB, planeC)) {
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x + 1;
-        //                     stackZ[stackSize] = z;
-        //                     stackSize++;
-        //                 }
-        //             }
-
-        //             if (z < height - 1) {
-        //                 const down = current + width;
-
-        //                 if (x > 0) {
-        //                     ni = down - 1;
-        //                     if (tryAddNeighbor(ni, x - 1, z + 1, y, seedHeight, planeValid, planeA, planeB, planeC)) {
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x - 1;
-        //                         stackZ[stackSize] = z + 1;
-        //                         stackSize++;
-        //                     }
-        //                 }
-
-        //                 ni = down;
-        //                 if (tryAddNeighbor(ni, x, z + 1, y, seedHeight, planeValid, planeA, planeB, planeC)) {
-        //                     stackIndex[stackSize] = ni;
-        //                     stackX[stackSize] = x;
-        //                     stackZ[stackSize] = z + 1;
-        //                     stackSize++;
-        //                 }
-
-        //                 if (x < width - 1) {
-        //                     ni = down + 1;
-        //                     if (tryAddNeighbor(ni, x + 1, z + 1, y, seedHeight, planeValid, planeA, planeB, planeC)) {
-        //                         stackIndex[stackSize] = ni;
-        //                         stackX[stackSize] = x + 1;
-        //                         stackZ[stackSize] = z + 1;
-        //                         stackSize++;
-        //                     }
-        //                 }
-        //             }
-        //         }
-
-        //         if (groupSize < minGroupSize || groupSize > maxGroupSize) {
-        //             for (let i = 0; i < groupSize; i++) {
-        //                 const index = groupBuffer[i];
-        //                 labels[index] = -1;
-        //                 assigned[index] = 0;
-        //             }
-
-        //             queueStamp++;
-        //             startX++;
-        //             if (startX === width) {
-        //                 startX = 0;
-        //                 startZ++;
-        //             }
-        //             continue;
-        //         }
-
-        //         const groupStart = allGroupIndicesCount;
-        //         for (let i = 0; i < groupSize; i++) {
-        //             allGroupIndices[allGroupIndicesCount++] = groupBuffer[i];
-        //         }
-
-        //         groupLabels[groupCount] = nextLabel;
-        //         groupStarts[groupCount] = groupStart;
-        //         groupLengths[groupCount] = groupSize;
-        //         groupCount++;
-
-        //         nextLabel++;
-        //         queueStamp++;
-
-        //         startX++;
-        //         if (startX === width) {
-        //             startX = 0;
-        //             startZ++;
-        //         }
-        //     }
-
-        //     return {
-        //         labels,
-        //         groupCount,
-        //         groupLabels: groupLabels.subarray(0, groupCount),
-        //         groupStarts: groupStarts.subarray(0, groupCount),
-        //         groupLengths: groupLengths.subarray(0, groupCount),
-        //         allGroupIndices: allGroupIndices.subarray(0, allGroupIndicesCount)
-        //     };
-
-        //     function tryAddNeighbor(ni, nx, nz, currentHeight, seedHeight, planeValid, a, b, c) {
-        //         if (mask[ni] === 0 || assigned[ni] || queued[ni] === queueStamp) return false;
-
-        //         const h = heightData[ni];
-        //         if (!Number.isFinite(h) || h < minValidHeight || h > maxValidHeight) return false;
-
-        //         if (Math.abs(h - currentHeight) > maxNeighborHeightDiff) return false;
-        //         if (maxSeedHeightDiff !== Infinity && Math.abs(h - seedHeight) > maxSeedHeightDiff) return false;
-
-        //         if (planeValid) {
-        //             const predicted = a * nx + b * nz + c;
-        //             if (Math.abs(h - predicted) > maxPlaneResidual) return false;
-        //         }
-
-        //         queued[ni] = queueStamp;
-        //         labels[ni] = nextLabel;
-        //         assigned[ni] = 1; // Might need to disable? If I disable, it takes a lot longer to process.
-        //         return true;
-        //     }
-        // }
-
-        // function solvePlaneFromSums(n, sumX, sumZ, sumY, sumXX, sumZZ, sumXZ, sumXY, sumZY) {
-        //     // Solve:
-        //     // [sumXX sumXZ sumX] [a]   [sumXY]
-        //     // [sumXZ sumZZ sumZ] [b] = [sumZY]
-        //     // [sumX  sumZ   n  ] [c]   [sumY ]
-
-        //     const m00 = sumXX, m01 = sumXZ, m02 = sumX;
-        //     const m10 = sumXZ, m11 = sumZZ, m12 = sumZ;
-        //     const m20 = sumX, m21 = sumZ, m22 = n;
-
-        //     const b0 = sumXY, b1 = sumZY, b2 = sumY;
-
-        //     const det =
-        //         m00 * (m11 * m22 - m12 * m21) -
-        //         m01 * (m10 * m22 - m12 * m20) +
-        //         m02 * (m10 * m21 - m11 * m20);
-
-        //     if (Math.abs(det) < 1e-12) return null;
-
-        //     const inv00 = (m11 * m22 - m12 * m21) / det;
-        //     const inv01 = -(m01 * m22 - m02 * m21) / det;
-        //     const inv02 = (m01 * m12 - m02 * m11) / det;
-
-        //     const inv10 = -(m10 * m22 - m12 * m20) / det;
-        //     const inv11 = (m00 * m22 - m02 * m20) / det;
-        //     const inv12 = -(m00 * m12 - m02 * m10) / det;
-
-        //     const inv20 = (m10 * m21 - m11 * m20) / det;
-        //     const inv21 = -(m00 * m21 - m01 * m20) / det;
-        //     const inv22 = (m00 * m11 - m01 * m10) / det;
-
-        //     return {
-        //         a: inv00 * b0 + inv01 * b1 + inv02 * b2,
-        //         b: inv10 * b0 + inv11 * b1 + inv12 * b2,
-        //         c: inv20 * b0 + inv21 * b1 + inv22 * b2
-        //     };
-        // }
 
         function segmentRoofPlanesByFitWithAzimuth(heightData, mask, width, height, options = {}) {
             const size = width * height;
@@ -3454,49 +1991,6 @@ export class Editor {
 
 
 
-
-        // function listAdjacentGroups(labels, width, height, useDiagonals = true) {
-        //     const adjacency = [];
-
-        //     function addEdge(a, b) {
-        //         if (a === b || a < 0 || b < 0) return;
-
-        //         if (!adjacency[a]) adjacency[a] = [];
-        //         if (!adjacency[b]) adjacency[b] = [];
-
-        //         if (!adjacency[a].includes(b)) adjacency[a].push(b);
-        //         if (!adjacency[b].includes(a)) adjacency[b].push(a);
-        //     }
-
-        //     for (let z = 0; z < height; z++) {
-        //         for (let x = 0; x < width; x++) {
-        //             const index = z * width + x;
-        //             const label = labels[index];
-        //             if (label < 0) continue;
-
-        //             // Only check forward neighbors so pairs are not repeated
-        //             if (x + 1 < width) {
-        //                 addEdge(label, labels[index + 1]);
-        //             }
-
-        //             if (z + 1 < height) {
-        //                 addEdge(label, labels[index + width]);
-        //             }
-
-        //             if (useDiagonals) {
-        //                 if (x + 1 < width && z + 1 < height) {
-        //                     addEdge(label, labels[index + width + 1]);
-        //                 }
-
-        //                 if (x - 1 >= 0 && z + 1 < height) {
-        //                     addEdge(label, labels[index + width - 1]);
-        //                 }
-        //             }
-        //         }
-        //     }
-
-        //     return adjacency;
-        // }
 
 
 
@@ -5034,6 +3528,853 @@ export class Editor {
             };
         }
 
+        // const enum RoofEdgeClass {
+        //     NONE = 0,
+        //     EAVE = 1,
+        //     GABLE = 2,
+        //     RIDGE = 3,
+        //     HIP = 4,
+        //     VALLEY = 5,
+        //     SEAM = 6,
+        //     UNKNOWN_BOUNDARY = 7,
+        // }
+
+        // type LocalCircularMapsLike = {
+        //     pitch12Map: ArrayLike<number>;
+        //     azimuthDegMap: ArrayLike<number>;
+        //     fitErrorMap?: ArrayLike<number>;
+        //     valid: ArrayLike<number>;
+        //     trusted?: ArrayLike<number>;
+        //     confidenceMap?: ArrayLike<number>;
+        // };
+
+        // type ClassifyLocalRoofEdges5x5Options = {
+        //     mask?: ArrayLike<number> | null;
+
+        //     minPitch12?: number;                 // ignore very low slopes
+        //     minSectorSamples?: number;           // weighted count per sector pair side
+        //     minAzimuthSplitDeg?: number;         // minimum azimuth separation across seam
+        //     maxPitchDiff12?: number;             // pair should have similar pitch across seam
+
+        //     ridgeValleyDotThreshold?: number;    // how strongly each side should point away/toward seam
+        //     eaveDotThreshold?: number;           // downslope vs outward boundary normal
+        //     gableAbsDotThreshold?: number;       // near-parallel to boundary => gable
+
+        //     boundaryOutsideFraction?: number;    // how much outside support to treat as boundary
+        //     fitErrorForSeam?: number;            // seam gets stronger when center fit error is elevated
+
+        //     preferTrusted?: boolean;             // if trusted exists, require it
+        // };
+
+        // type ClassifiedRoofEdges = {
+        //     labelMap: Uint8Array;
+        //     strengthMap: Float32Array;
+        //     seamScoreMap: Float32Array;
+        //     boundaryScoreMap: Float32Array;
+        // };
+
+        // // function clamp01(v: number): number {
+        // //     return v <= 0 ? 0 : v >= 1 ? 1 : v;
+        // // }
+
+        // // function angleDeltaDeg(a: number, b: number): number {
+        // //     let d = Math.abs(a - b) % 360;
+        // //     if (d > 180) d = 360 - d;
+        // //     return d;
+        // // }
+
+        // function azimuthToVector(azDeg: number): { x: number; z: number } {
+        //     const r = azDeg * Math.PI / 180;
+        //     // 0°=+Z, 90°=+X
+        //     return { x: Math.sin(r), z: Math.cos(r) };
+        // }
+
+        // function hypot2(x: number, z: number): number {
+        //     return Math.hypot(x, z);
+        // }
+
+        // function normalize2(x: number, z: number): { x: number; z: number; len: number } {
+        //     const len = Math.hypot(x, z);
+        //     if (len <= 1e-12) return { x: 0, z: 0, len: 0 };
+        //     return { x: x / len, z: z / len, len };
+        // }
+
+        // /**
+        //  * Remake of classifyLocalRoofEdges5x5 using circular-map outputs rather than raw heights.
+        //  *
+        //  * Needs:
+        //  *   - azimuthDegMap
+        //  *   - pitch12Map
+        //  *   - valid
+        //  *
+        //  * Helps a lot if available:
+        //  *   - fitErrorMap
+        //  *   - trusted
+        //  *   - mask
+        //  */
+        // function classifyLocalRoofEdges5x5FromCircularMaps(
+        //     maps: LocalCircularMapsLike,
+        //     width: number,
+        //     height: number,
+        //     options: ClassifyLocalRoofEdges5x5Options = {}
+        // ): ClassifiedRoofEdges {
+        //     const {
+        //         mask = null,
+
+        //         minPitch12 = 1.5,
+        //         minSectorSamples = 1.25,
+        //         minAzimuthSplitDeg = 20,
+        //         maxPitchDiff12 = 3.0,
+
+        //         ridgeValleyDotThreshold = 0.45,
+        //         eaveDotThreshold = 0.55,
+        //         gableAbsDotThreshold = 0.30,
+
+        //         boundaryOutsideFraction = 0.22,
+        //         fitErrorForSeam = 1.25,
+
+        //         preferTrusted = true,
+        //     } = options;
+
+        //     const n = width * height;
+        //     if (maps.pitch12Map.length !== n) throw new Error("pitch12Map length mismatch");
+        //     if (maps.azimuthDegMap.length !== n) throw new Error("azimuthDegMap length mismatch");
+        //     if (maps.valid.length !== n) throw new Error("valid length mismatch");
+        //     if (mask && mask.length !== n) throw new Error("mask length mismatch");
+        //     if (maps.fitErrorMap && maps.fitErrorMap.length !== n) throw new Error("fitErrorMap length mismatch");
+        //     if (maps.trusted && maps.trusted.length !== n) throw new Error("trusted length mismatch");
+        //     if (maps.confidenceMap && maps.confidenceMap.length !== n) throw new Error("confidenceMap length mismatch");
+
+        //     const labelMap = new Uint8Array(n);
+        //     const strengthMap = new Float32Array(n);
+        //     const seamScoreMap = new Float32Array(n);
+        //     const boundaryScoreMap = new Float32Array(n);
+
+        //     // 8 directional sectors around center for the 5x5 neighborhood
+        //     const sectorDirs = [
+        //         { x: 1, z: 0 },                                // E
+        //         { x: Math.SQRT1_2, z: Math.SQRT1_2 },          // SE
+        //         { x: 0, z: 1 },                                // S (+Z)
+        //         { x: -Math.SQRT1_2, z: Math.SQRT1_2 },         // SW
+        //         { x: -1, z: 0 },                               // W
+        //         { x: -Math.SQRT1_2, z: -Math.SQRT1_2 },        // NW
+        //         { x: 0, z: -1 },                               // N (-Z)
+        //         { x: Math.SQRT1_2, z: -Math.SQRT1_2 },         // NE
+        //     ];
+
+        //     type Off = { dx: number; dz: number; dist: number; sector: number; w: number };
+        //     const offsets: Off[] = [];
+
+        //     for (let dz = -2; dz <= 2; dz++) {
+        //         for (let dx = -2; dx <= 2; dx++) {
+        //             if (dx === 0 && dz === 0) continue;
+        //             const dist = Math.hypot(dx, dz);
+        //             if (dist > 2.5) continue;
+
+        //             let ang = Math.atan2(dz, dx); // 0=+X
+        //             if (ang < 0) ang += 2 * Math.PI;
+        //             let sector = Math.round((ang / (2 * Math.PI)) * 8) % 8;
+
+        //             offsets.push({
+        //                 dx,
+        //                 dz,
+        //                 dist,
+        //                 sector,
+        //                 w: 1 / dist,
+        //             });
+        //         }
+        //     }
+
+        //     function isUsable(i: number): boolean {
+        //         if (!maps.valid[i]) return false;
+        //         if (preferTrusted && maps.trusted && !maps.trusted[i]) return false;
+
+        //         const pitch = maps.pitch12Map[i];
+        //         const az = maps.azimuthDegMap[i];
+
+        //         if (!Number.isFinite(pitch) || pitch < minPitch12) return false;
+        //         if (!Number.isFinite(az)) return false;
+        //         return true;
+        //     }
+
+        //     for (let z = 0; z < height; z++) {
+        //         const rowBase = z * width;
+
+        //         for (let x = 0; x < width; x++) {
+        //             const i = rowBase + x;
+
+        //             if (mask && mask[i] === 0) continue;
+        //             if (!isUsable(i)) continue;
+
+        //             const centerPitch = maps.pitch12Map[i];
+        //             const centerAz = maps.azimuthDegMap[i];
+        //             const centerVec = azimuthToVector(centerAz);
+        //             const centerFit = maps.fitErrorMap ? maps.fitErrorMap[i] : 0;
+
+        //             // sector accumulators
+        //             const secCount = new Float32Array(8);
+        //             const secSumPitch = new Float32Array(8);
+        //             const secSumVX = new Float32Array(8);
+        //             const secSumVZ = new Float32Array(8);
+
+        //             // boundary / outside support
+        //             let insideW = 0;
+        //             let outsideW = 0;
+        //             let outNX = 0;
+        //             let outNZ = 0;
+
+        //             for (const off of offsets) {
+        //                 const nx = x + off.dx;
+        //                 const nz = z + off.dz;
+        //                 if (nx < 0 || nx >= width || nz < 0 || nz >= height) {
+        //                     outsideW += off.w;
+        //                     outNX += off.w * off.dx;
+        //                     outNZ += off.w * off.dz;
+        //                     continue;
+        //                 }
+
+        //                 const j = nz * width + nx;
+
+        //                 if (mask && mask[j] === 0) {
+        //                     outsideW += off.w;
+        //                     outNX += off.w * off.dx;
+        //                     outNZ += off.w * off.dz;
+        //                     continue;
+        //                 }
+
+        //                 insideW += off.w;
+
+        //                 if (!isUsable(j)) continue;
+
+        //                 const az = maps.azimuthDegMap[j];
+        //                 const p = maps.pitch12Map[j];
+        //                 const v = azimuthToVector(az);
+
+        //                 secCount[off.sector] += off.w;
+        //                 secSumPitch[off.sector] += off.w * p;
+        //                 secSumVX[off.sector] += off.w * v.x;
+        //                 secSumVZ[off.sector] += off.w * v.z;
+        //             }
+
+        //             // ---------- Boundary classification ----------
+        //             let bestBoundaryClass = RoofEdgeClass.NONE;
+        //             let bestBoundaryScore = 0;
+
+        //             const totalBoundaryW = insideW + outsideW;
+        //             const outsideFrac = totalBoundaryW > 0 ? outsideW / totalBoundaryW : 0;
+
+        //             if (mask && outsideFrac >= boundaryOutsideFraction) {
+        //                 const nOut = normalize2(outNX, outNZ); // points toward outside
+        //                 if (nOut.len > 0) {
+        //                     const dot = centerVec.x * nOut.x + centerVec.z * nOut.z;
+
+        //                     // stronger if more outside support and center slope is meaningful
+        //                     const outsideScore = clamp01((outsideFrac - boundaryOutsideFraction) / Math.max(1e-6, 1 - boundaryOutsideFraction));
+        //                     const slopeScore = clamp01(centerPitch / 8);
+        //                     const scoreBase = 0.65 * outsideScore + 0.35 * slopeScore;
+
+        //                     if (dot >= eaveDotThreshold) {
+        //                         bestBoundaryClass = RoofEdgeClass.EAVE;
+        //                         bestBoundaryScore = scoreBase * clamp01((dot - eaveDotThreshold) / Math.max(1e-6, 1 - eaveDotThreshold));
+        //                     } else if (Math.abs(dot) <= gableAbsDotThreshold) {
+        //                         bestBoundaryClass = RoofEdgeClass.GABLE;
+        //                         bestBoundaryScore = scoreBase * clamp01(1 - Math.abs(dot) / Math.max(1e-6, gableAbsDotThreshold));
+        //                     } else {
+        //                         bestBoundaryClass = RoofEdgeClass.UNKNOWN_BOUNDARY;
+        //                         bestBoundaryScore = scoreBase * 0.5;
+        //                     }
+        //                 }
+        //             }
+
+        //             boundaryScoreMap[i] = bestBoundaryScore;
+
+        //             // ---------- Interior seam classification ----------
+        //             let bestSeamClass = RoofEdgeClass.NONE;
+        //             let bestSeamScore = 0;
+
+        //             for (let s = 0; s < 4; s++) {
+        //                 const o = (s + 4) & 7;
+
+        //                 if (secCount[s] < minSectorSamples || secCount[o] < minSectorSamples) continue;
+
+        //                 const pA = secSumPitch[s] / secCount[s];
+        //                 const pB = secSumPitch[o] / secCount[o];
+
+        //                 if (!Number.isFinite(pA) || !Number.isFinite(pB)) continue;
+        //                 if (Math.abs(pA - pB) > maxPitchDiff12) continue;
+
+        //                 const vA = normalize2(secSumVX[s], secSumVZ[s]);
+        //                 const vB = normalize2(secSumVX[o], secSumVZ[o]);
+        //                 if (vA.len === 0 || vB.len === 0) continue;
+
+        //                 const azA = ((Math.atan2(vA.x, vA.z) * 180 / Math.PI) + 360) % 360;
+        //                 const azB = ((Math.atan2(vB.x, vB.z) * 180 / Math.PI) + 360) % 360;
+        //                 const azSplit = angleDeltaDeg(azA, azB);
+        //                 if (azSplit < minAzimuthSplitDeg) continue;
+
+        //                 const dirA = sectorDirs[s];
+        //                 const dirB = sectorDirs[o];
+
+        //                 // positive means that side slopes outward toward its own side of the neighborhood
+        //                 const awayA = vA.x * dirA.x + vA.z * dirA.z;
+        //                 const awayB = vB.x * dirB.x + vB.z * dirB.z;
+
+        //                 const convexScore = Math.min(awayA, awayB);       // ridge/hip candidate
+        //                 const concaveScore = Math.min(-awayA, -awayB);    // valley candidate
+
+        //                 const supportScore = clamp01(Math.min(secCount[s], secCount[o]) / Math.max(1e-6, minSectorSamples * 2));
+        //                 const azScore = clamp01((azSplit - minAzimuthSplitDeg) / Math.max(1e-6, 180 - minAzimuthSplitDeg));
+        //                 const pitchScore = clamp01(1 - Math.abs(pA - pB) / Math.max(1e-6, maxPitchDiff12));
+        //                 const fitScore = maps.fitErrorMap
+        //                     ? clamp01(centerFit / Math.max(1e-6, fitErrorForSeam))
+        //                     : 0.5;
+
+        //                 if (convexScore >= ridgeValleyDotThreshold) {
+        //                     let score =
+        //                         0.28 * supportScore +
+        //                         0.22 * azScore +
+        //                         0.20 * pitchScore +
+        //                         0.30 * clamp01((convexScore - ridgeValleyDotThreshold) / Math.max(1e-6, 1 - ridgeValleyDotThreshold));
+
+        //                     // seam center usually has a worse local fit
+        //                     score = 0.8 * score + 0.2 * fitScore;
+
+        //                     let klass = RoofEdgeClass.RIDGE;
+
+        //                     // Heuristic: convex seam near boundary is more likely a hip than ridge
+        //                     if (mask && outsideFrac > 0.05) {
+        //                         klass = RoofEdgeClass.HIP;
+        //                     }
+
+        //                     if (score > bestSeamScore) {
+        //                         bestSeamScore = score;
+        //                         bestSeamClass = klass;
+        //                     }
+        //                 }
+
+        //                 if (concaveScore >= ridgeValleyDotThreshold) {
+        //                     let score =
+        //                         0.28 * supportScore +
+        //                         0.22 * azScore +
+        //                         0.20 * pitchScore +
+        //                         0.30 * clamp01((concaveScore - ridgeValleyDotThreshold) / Math.max(1e-6, 1 - ridgeValleyDotThreshold));
+
+        //                     score = 0.8 * score + 0.2 * fitScore;
+
+        //                     if (score > bestSeamScore) {
+        //                         bestSeamScore = score;
+        //                         bestSeamClass = RoofEdgeClass.VALLEY;
+        //                     }
+        //                 }
+        //             }
+
+        //             seamScoreMap[i] = bestSeamScore;
+
+        //             // ---------- Decide final class ----------
+        //             // Boundary wins if clearly boundary-like. Otherwise use strongest seam.
+        //             if (bestBoundaryScore >= 0.20 && bestBoundaryScore >= bestSeamScore * 1.05) {
+        //                 labelMap[i] = bestBoundaryClass;
+        //                 strengthMap[i] = bestBoundaryScore;
+        //             } else if (bestSeamScore >= 0.20) {
+        //                 labelMap[i] = bestSeamClass;
+        //                 strengthMap[i] = bestSeamScore;
+        //             } else if (bestBoundaryScore >= 0.12) {
+        //                 labelMap[i] = bestBoundaryClass;
+        //                 strengthMap[i] = bestBoundaryScore;
+        //             }
+        //         }
+        //     }
+
+        //     return {
+        //         labelMap,
+        //         strengthMap,
+        //         seamScoreMap,
+        //         boundaryScoreMap,
+        //     };
+        // }
+
+        // const enum RoofEdgeClass {
+        //     NONE = 0,
+        //     EAVE = 1,
+        //     GABLE = 2,
+        //     RIDGE = 3,
+        //     HIP = 4,
+        //     VALLEY = 5,
+        //     SEAM = 6,
+        //     UNKNOWN_BOUNDARY = 7,
+        // }
+
+        // type AdaptiveQuantizedRoofMapsLike = {
+        //     pitch12Map: ArrayLike<number>;
+        //     azimuthDegMap: ArrayLike<number>;
+        //     valid: ArrayLike<number>;
+
+        //     trusted?: ArrayLike<number>;
+        //     confidenceMap?: ArrayLike<number>;
+        //     fitErrorMap?: ArrayLike<number>;
+        //     chosenRadiusMap?: ArrayLike<number>;
+        //     riseAcrossRadiusMap?: ArrayLike<number>;
+        // };
+
+        // type ClassifiedRoofEdges = {
+        //     labelMap: Uint8Array;
+        //     strengthMap: Float32Array;
+        //     seamScoreMap: Float32Array;
+        //     boundaryScoreMap: Float32Array;
+        // };
+
+        // type ClassifyAdaptiveRoofEdges5x5Options = {
+        //     mask?: ArrayLike<number> | null;
+
+        //     candidateRadii?: number[];             // default [2,3,4,5,7,9,12]
+        //     preferTrusted?: boolean;               // default true
+        //     minPitch12?: number;                   // default 1.5
+        //     minConfidenceForNeighbor?: number;     // default 0.20
+
+        //     minSectorVoteWeight?: number;          // default 1.0
+        //     minAzimuthSplitDegSmall?: number;      // default 16
+        //     minAzimuthSplitDegLarge?: number;      // default 26
+        //     maxPitchDiff12?: number;               // default 3.0
+
+        //     ridgeValleyDotThreshold?: number;      // default 0.45
+        //     eaveDotThresholdSmall?: number;        // default 0.50
+        //     eaveDotThresholdLarge?: number;        // default 0.60
+        //     gableAbsDotThreshold?: number;         // default 0.30
+
+        //     boundaryOutsideFractionSmall?: number; // default 0.16
+        //     boundaryOutsideFractionLarge?: number; // default 0.28
+
+        //     fitErrorForSeam?: number;              // default 1.25
+        //     hipBoundaryFraction?: number;          // default 0.10
+        // };
+
+        // // function clamp01(v: number): number {
+        // //     return v <= 0 ? 0 : v >= 1 ? 1 : v;
+        // // }
+
+        // function lerp(a: number, b: number, t: number): number {
+        //     return a + (b - a) * t;
+        // }
+
+        // function angleDeltaDeg(a: number, b: number): number {
+        //     let d = Math.abs(a - b) % 360;
+        //     if (d > 180) d = 360 - d;
+        //     return d;
+        // }
+
+        // function azimuthToVector(azDeg: number): { x: number; z: number } {
+        //     const r = azDeg * Math.PI / 180;
+        //     // 0° = +Z, 90° = +X
+        //     return { x: Math.sin(r), z: Math.cos(r) };
+        // }
+
+        // function normalize2(x: number, z: number): { x: number; z: number; len: number } {
+        //     const len = Math.hypot(x, z);
+        //     if (len <= 1e-12) return { x: 0, z: 0, len: 0 };
+        //     return { x: x / len, z: z / len, len };
+        // }
+
+        /**
+         * 5x5 local roof-edge classifier tuned for adaptive multi-radius plane maps.
+         *
+         * Uses:
+         * - azimuth + pitch as the main seam signal
+         * - fitError to strengthen seam centers
+         * - confidence + chosenRadius to prevent over-smoothed large-radius estimates
+         *   from overpowering sharper local evidence
+         *
+         * Output is still local/heuristic:
+         * - EAVE / GABLE are usually strong if mask is good
+         * - VALLEY is usually strong
+         * - RIDGE vs HIP is still partly heuristic in a 5x5 window
+         */
+        // function classifyLocalRoofEdges5x5FromAdaptiveMaps(
+        //     maps: AdaptiveQuantizedRoofMapsLike,
+        //     width: number,
+        //     height: number,
+        //     options: ClassifyAdaptiveRoofEdges5x5Options = {}
+        // ): ClassifiedRoofEdges {
+        //     const {
+        //         mask = null,
+
+        //         candidateRadii = [2, 3, 4, 5, 7, 9, 12],
+        //         preferTrusted = true,
+        //         minPitch12 = 1.5,
+        //         minConfidenceForNeighbor = 0.20,
+
+        //         minSectorVoteWeight = 1.0,
+        //         minAzimuthSplitDegSmall = 16,
+        //         minAzimuthSplitDegLarge = 26,
+        //         maxPitchDiff12 = 3.0,
+
+        //         ridgeValleyDotThreshold = 0.45,
+        //         eaveDotThresholdSmall = 0.50,
+        //         eaveDotThresholdLarge = 0.60,
+        //         gableAbsDotThreshold = 0.30,
+
+        //         boundaryOutsideFractionSmall = 0.16,
+        //         boundaryOutsideFractionLarge = 0.28,
+
+        //         fitErrorForSeam = 1.25,
+        //         hipBoundaryFraction = 0.10,
+        //     } = options;
+
+        //     const n = width * height;
+        //     if (maps.pitch12Map.length !== n) throw new Error("pitch12Map length mismatch");
+        //     if (maps.azimuthDegMap.length !== n) throw new Error("azimuthDegMap length mismatch");
+        //     if (maps.valid.length !== n) throw new Error("valid length mismatch");
+        //     if (mask && mask.length !== n) throw new Error("mask length mismatch");
+        //     if (maps.trusted && maps.trusted.length !== n) throw new Error("trusted length mismatch");
+        //     if (maps.confidenceMap && maps.confidenceMap.length !== n) throw new Error("confidenceMap length mismatch");
+        //     if (maps.fitErrorMap && maps.fitErrorMap.length !== n) throw new Error("fitErrorMap length mismatch");
+        //     if (maps.chosenRadiusMap && maps.chosenRadiusMap.length !== n) throw new Error("chosenRadiusMap length mismatch");
+
+        //     const labelMap = new Uint8Array(n);
+        //     const strengthMap = new Float32Array(n);
+        //     const seamScoreMap = new Float32Array(n);
+        //     const boundaryScoreMap = new Float32Array(n);
+
+        //     const minRadius = Math.min(...candidateRadii);
+        //     const maxRadius = Math.max(...candidateRadii);
+        //     const radiusRange = Math.max(1, maxRadius - minRadius);
+
+        //     // 8 directional sectors around center
+        //     const sectorDirs = [
+        //         { x: 1, z: 0 },                                // E
+        //         { x: Math.SQRT1_2, z: Math.SQRT1_2 },          // SE
+        //         { x: 0, z: 1 },                                // S (+Z)
+        //         { x: -Math.SQRT1_2, z: Math.SQRT1_2 },         // SW
+        //         { x: -1, z: 0 },                               // W
+        //         { x: -Math.SQRT1_2, z: -Math.SQRT1_2 },        // NW
+        //         { x: 0, z: -1 },                               // N (-Z)
+        //         { x: Math.SQRT1_2, z: -Math.SQRT1_2 },         // NE
+        //     ];
+
+        //     type Off = { dx: number; dz: number; dist: number; sector: number; w: number };
+        //     const offsets: Off[] = [];
+
+        //     for (let dz = -2; dz <= 2; dz++) {
+        //         for (let dx = -2; dx <= 2; dx++) {
+        //             if (dx === 0 && dz === 0) continue;
+        //             const dist = Math.hypot(dx, dz);
+        //             if (dist > 2.5) continue;
+
+        //             let ang = Math.atan2(dz, dx); // 0=+X
+        //             if (ang < 0) ang += 2 * Math.PI;
+        //             let sector = Math.round((ang / (2 * Math.PI)) * 8) % 8;
+
+        //             offsets.push({
+        //                 dx,
+        //                 dz,
+        //                 dist,
+        //                 sector,
+        //                 w: 1 / dist,
+        //             });
+        //         }
+        //     }
+
+        //     function getConfidence(i: number): number {
+        //         return maps.confidenceMap ? clamp01(maps.confidenceMap[i]) : 1;
+        //     }
+
+        //     function getChosenRadius(i: number): number {
+        //         if (!maps.chosenRadiusMap) return maxRadius;
+        //         const r = maps.chosenRadiusMap[i];
+        //         return r > 0 ? r : maxRadius;
+        //     }
+
+        //     function isUsable(i: number): boolean {
+        //         if (!maps.valid[i]) return false;
+        //         if (preferTrusted && maps.trusted && !maps.trusted[i]) return false;
+
+        //         const p = maps.pitch12Map[i];
+        //         const az = maps.azimuthDegMap[i];
+        //         if (!Number.isFinite(p) || p < minPitch12) return false;
+        //         if (!Number.isFinite(az)) return false;
+
+        //         if (maps.confidenceMap && maps.confidenceMap[i] < minConfidenceForNeighbor) return false;
+        //         return true;
+        //     }
+
+        //     for (let z = 0; z < height; z++) {
+        //         const rowBase = z * width;
+
+        //         for (let x = 0; x < width; x++) {
+        //             const i = rowBase + x;
+        //             if (mask && mask[i] === 0) continue;
+        //             if (!isUsable(i)) continue;
+
+        //             const centerPitch = maps.pitch12Map[i];
+        //             const centerAz = maps.azimuthDegMap[i];
+        //             const centerVec = azimuthToVector(centerAz);
+        //             const centerConf = getConfidence(i);
+        //             const centerFit = maps.fitErrorMap ? maps.fitErrorMap[i] : 0;
+        //             const centerRadius = getChosenRadius(i);
+        //             const centerRadiusNorm = clamp01((centerRadius - minRadius) / radiusRange);
+
+        //             const minAzimuthSplitDeg = lerp(
+        //                 minAzimuthSplitDegSmall,
+        //                 minAzimuthSplitDegLarge,
+        //                 centerRadiusNorm
+        //             );
+        //             const eaveDotThreshold = lerp(
+        //                 eaveDotThresholdSmall,
+        //                 eaveDotThresholdLarge,
+        //                 centerRadiusNorm
+        //             );
+        //             const boundaryOutsideFraction = lerp(
+        //                 boundaryOutsideFractionSmall,
+        //                 boundaryOutsideFractionLarge,
+        //                 centerRadiusNorm
+        //             );
+
+        //             // sector accumulators
+        //             const secCount = new Float32Array(8);
+        //             const secSumPitch = new Float32Array(8);
+        //             const secSumVX = new Float32Array(8);
+        //             const secSumVZ = new Float32Array(8);
+        //             const secSumRadius = new Float32Array(8);
+
+        //             // geometry-only boundary support
+        //             let insideGeoW = 0;
+        //             let outsideGeoW = 0;
+        //             let outNX = 0;
+        //             let outNZ = 0;
+
+        //             for (const off of offsets) {
+        //                 const nx = x + off.dx;
+        //                 const nz = z + off.dz;
+
+        //                 if (nx < 0 || nx >= width || nz < 0 || nz >= height) {
+        //                     outsideGeoW += off.w;
+        //                     outNX += off.w * off.dx;
+        //                     outNZ += off.w * off.dz;
+        //                     continue;
+        //                 }
+
+        //                 const j = nz * width + nx;
+
+        //                 if (mask && mask[j] === 0) {
+        //                     outsideGeoW += off.w;
+        //                     outNX += off.w * off.dx;
+        //                     outNZ += off.w * off.dz;
+        //                     continue;
+        //                 }
+
+        //                 insideGeoW += off.w;
+
+        //                 if (!isUsable(j)) continue;
+
+        //                 const neighborConf = getConfidence(j);
+        //                 const neighborRadius = getChosenRadius(j);
+        //                 const neighborRadiusNorm = clamp01((neighborRadius - minRadius) / radiusRange);
+
+        //                 // scale compatibility: do not let very different support sizes overrule each other
+        //                 const radiusDiffNorm = clamp01(Math.abs(centerRadius - neighborRadius) / radiusRange);
+        //                 const scaleCompatibility = 1 - 0.55 * radiusDiffNorm;
+
+        //                 // favor more local estimates slightly
+        //                 const localityWeight = 1 - 0.30 * neighborRadiusNorm;
+
+        //                 const voteW = off.w * (0.25 + 0.75 * neighborConf) * scaleCompatibility * localityWeight;
+
+        //                 const az = maps.azimuthDegMap[j];
+        //                 const p = maps.pitch12Map[j];
+        //                 const v = azimuthToVector(az);
+
+        //                 secCount[off.sector] += voteW;
+        //                 secSumPitch[off.sector] += voteW * p;
+        //                 secSumVX[off.sector] += voteW * v.x;
+        //                 secSumVZ[off.sector] += voteW * v.z;
+        //                 secSumRadius[off.sector] += voteW * neighborRadius;
+        //             }
+
+        //             // ---------- Boundary classification ----------
+        //             let bestBoundaryClass = RoofEdgeClass.NONE;
+        //             let bestBoundaryScore = 0;
+
+        //             const totalGeoW = insideGeoW + outsideGeoW;
+        //             const outsideFrac = totalGeoW > 0 ? outsideGeoW / totalGeoW : 0;
+
+        //             if (mask && outsideFrac >= boundaryOutsideFraction) {
+        //                 const nOut = normalize2(outNX, outNZ); // points toward outside
+
+        //                 if (nOut.len > 0) {
+        //                     const dot = centerVec.x * nOut.x + centerVec.z * nOut.z;
+
+        //                     const outsideScore = clamp01(
+        //                         (outsideFrac - boundaryOutsideFraction) /
+        //                         Math.max(1e-6, 1 - boundaryOutsideFraction)
+        //                     );
+        //                     const slopeScore = clamp01(centerPitch / 8);
+        //                     const localityScore = 1 - 0.35 * centerRadiusNorm;
+
+        //                     const scoreBase =
+        //                         0.40 * outsideScore +
+        //                         0.20 * slopeScore +
+        //                         0.20 * centerConf +
+        //                         0.20 * localityScore;
+
+        //                     if (dot >= eaveDotThreshold) {
+        //                         bestBoundaryClass = RoofEdgeClass.EAVE;
+        //                         bestBoundaryScore =
+        //                             scoreBase *
+        //                             clamp01((dot - eaveDotThreshold) / Math.max(1e-6, 1 - eaveDotThreshold));
+        //                     } else if (Math.abs(dot) <= gableAbsDotThreshold) {
+        //                         bestBoundaryClass = RoofEdgeClass.GABLE;
+        //                         bestBoundaryScore =
+        //                             scoreBase *
+        //                             clamp01(1 - Math.abs(dot) / Math.max(1e-6, gableAbsDotThreshold));
+        //                     } else {
+        //                         bestBoundaryClass = RoofEdgeClass.UNKNOWN_BOUNDARY;
+        //                         bestBoundaryScore = scoreBase * 0.5;
+        //                     }
+        //                 }
+        //             }
+
+        //             boundaryScoreMap[i] = bestBoundaryScore;
+
+        //             // ---------- Interior seam classification ----------
+        //             let bestSeamClass = RoofEdgeClass.NONE;
+        //             let bestSeamScore = 0;
+
+        //             for (let s = 0; s < 4; s++) {
+        //                 const o = (s + 4) & 7;
+
+        //                 if (secCount[s] < minSectorVoteWeight || secCount[o] < minSectorVoteWeight) continue;
+
+        //                 const pA = secSumPitch[s] / secCount[s];
+        //                 const pB = secSumPitch[o] / secCount[o];
+        //                 if (!Number.isFinite(pA) || !Number.isFinite(pB)) continue;
+        //                 if (Math.abs(pA - pB) > maxPitchDiff12) continue;
+
+        //                 const vA = normalize2(secSumVX[s], secSumVZ[s]);
+        //                 const vB = normalize2(secSumVX[o], secSumVZ[o]);
+        //                 if (vA.len === 0 || vB.len === 0) continue;
+
+        //                 const azA = ((Math.atan2(vA.x, vA.z) * 180 / Math.PI) + 360) % 360;
+        //                 const azB = ((Math.atan2(vB.x, vB.z) * 180 / Math.PI) + 360) % 360;
+        //                 const azSplit = angleDeltaDeg(azA, azB);
+        //                 if (azSplit < minAzimuthSplitDeg) continue;
+
+        //                 const rA = secSumRadius[s] / secCount[s];
+        //                 const rB = secSumRadius[o] / secCount[o];
+        //                 const scalePairScore = 1 - clamp01(Math.abs(rA - rB) / radiusRange);
+
+        //                 const dirA = sectorDirs[s];
+        //                 const dirB = sectorDirs[o];
+
+        //                 // positive => each side slopes outward toward its own side
+        //                 const awayA = vA.x * dirA.x + vA.z * dirA.z;
+        //                 const awayB = vB.x * dirB.x + vB.z * dirB.z;
+
+        //                 const convexScore = Math.min(awayA, awayB);       // ridge / hip candidate
+        //                 const concaveScore = Math.min(-awayA, -awayB);    // valley candidate
+
+        //                 const supportScore = clamp01(
+        //                     Math.min(secCount[s], secCount[o]) / Math.max(1e-6, minSectorVoteWeight * 2)
+        //                 );
+        //                 const azScore = clamp01(
+        //                     (azSplit - minAzimuthSplitDeg) /
+        //                     Math.max(1e-6, 180 - minAzimuthSplitDeg)
+        //                 );
+        //                 const pitchScore = clamp01(
+        //                     1 - Math.abs(pA - pB) / Math.max(1e-6, maxPitchDiff12)
+        //                 );
+        //                 const fitScore = maps.fitErrorMap
+        //                     ? clamp01(centerFit / Math.max(1e-6, fitErrorForSeam))
+        //                     : 0.5;
+
+        //                 if (convexScore >= ridgeValleyDotThreshold) {
+        //                     let score =
+        //                         0.22 * supportScore +
+        //                         0.18 * azScore +
+        //                         0.16 * pitchScore +
+        //                         0.12 * scalePairScore +
+        //                         0.14 * centerConf +
+        //                         0.18 * clamp01(
+        //                             (convexScore - ridgeValleyDotThreshold) /
+        //                             Math.max(1e-6, 1 - ridgeValleyDotThreshold)
+        //                         );
+
+        //                     // seam centers often have a worse local plane fit
+        //                     score = 0.85 * score + 0.15 * fitScore;
+
+        //                     let klass = RoofEdgeClass.RIDGE;
+
+        //                     // local heuristic only
+        //                     if (mask && outsideFrac >= hipBoundaryFraction) {
+        //                         klass = RoofEdgeClass.HIP;
+        //                     }
+
+        //                     if (score > bestSeamScore) {
+        //                         bestSeamScore = score;
+        //                         bestSeamClass = klass;
+        //                     }
+        //                 }
+
+        //                 if (concaveScore >= ridgeValleyDotThreshold) {
+        //                     let score =
+        //                         0.22 * supportScore +
+        //                         0.18 * azScore +
+        //                         0.16 * pitchScore +
+        //                         0.12 * scalePairScore +
+        //                         0.14 * centerConf +
+        //                         0.18 * clamp01(
+        //                             (concaveScore - ridgeValleyDotThreshold) /
+        //                             Math.max(1e-6, 1 - ridgeValleyDotThreshold)
+        //                         );
+
+        //                     score = 0.85 * score + 0.15 * fitScore;
+
+        //                     if (score > bestSeamScore) {
+        //                         bestSeamScore = score;
+        //                         bestSeamClass = RoofEdgeClass.VALLEY;
+        //                     }
+        //                 }
+        //             }
+
+        //             seamScoreMap[i] = bestSeamScore;
+
+        //             // ---------- Final decision ----------
+        //             if (bestBoundaryScore >= 0.20 && bestBoundaryScore >= bestSeamScore * 1.05) {
+        //                 labelMap[i] = bestBoundaryClass;
+        //                 strengthMap[i] = bestBoundaryScore;
+        //             } else if (bestSeamScore >= 0.20) {
+        //                 labelMap[i] = bestSeamClass;
+        //                 strengthMap[i] = bestSeamScore;
+        //             } else if (bestBoundaryScore >= 0.12) {
+        //                 labelMap[i] = bestBoundaryClass;
+        //                 strengthMap[i] = bestBoundaryScore;
+        //             }
+        //         }
+        //     }
+
+        //     return {
+        //         labelMap,
+        //         strengthMap,
+        //         seamScoreMap,
+        //         boundaryScoreMap,
+        //     };
+        // }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5176,6 +4517,2001 @@ export class Editor {
 
             return { labels, distance };
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        // type CircularStencil = {
+        //     radiusPixels: number;
+        //     cellSizeX: number;
+        //     cellSizeZ: number;
+        //     dx: Int16Array;      // pixel offsets
+        //     dz: Int16Array;      // pixel offsets
+        //     ox: Float32Array;    // world offsets
+        //     oz: Float32Array;    // world offsets
+        //     w: Float32Array;     // spatial weights
+        //     count: number;
+        // };
+
+        // type ComputeCircularMapsOptions = {
+        //     radius?: number;
+        //     cellSizeX?: number;
+        //     cellSizeZ?: number;
+        //     distanceWeightPower?: number;   // 0 = uniform, 1 = 1/d, 2 = 1/d^2
+        //     minNeighbors?: number;
+        //     minSlopeDegForAzimuth?: number;
+        //     computeFitError?: boolean;
+        //     noData?: number;
+        //     mask?: ArrayLike<number> | null;
+        //     stencil?: CircularStencil;
+        // };
+
+        // type CircularMaps = {
+        //     slopeDegMap: Float32Array;
+        //     pitch12Map: Float32Array;
+        //     azimuthDegMap: Float32Array;
+        //     dYdXMap: Float32Array;
+        //     dYdZMap: Float32Array;
+        //     fitErrorMap: Float32Array;
+        //     samplesUsedMap: Uint16Array;
+        //     valid: Uint8Array;
+        //     stencil: CircularStencil;
+        // };
+
+        // const RAD2DEG = 180 / Math.PI;
+        // const DEG2RAD = Math.PI / 180;
+
+        // function createCircularStencil(
+        //     radiusPixels: number,
+        //     cellSizeX = 1,
+        //     cellSizeZ = 1,
+        //     distanceWeightPower = 1
+        // ): CircularStencil {
+        //     const dxs: number[] = [];
+        //     const dzs: number[] = [];
+        //     const oxs: number[] = [];
+        //     const ozs: number[] = [];
+        //     const ws: number[] = [];
+
+        //     const r2 = radiusPixels * radiusPixels;
+        //     const weightPow = 0.5 * distanceWeightPower;
+
+        //     for (let dz = -radiusPixels; dz <= radiusPixels; dz++) {
+        //         for (let dx = -radiusPixels; dx <= radiusPixels; dx++) {
+        //             const pixelD2 = dx * dx + dz * dz;
+        //             if (pixelD2 === 0 || pixelD2 > r2) continue;
+
+        //             const ox = dx * cellSizeX;
+        //             const oz = dz * cellSizeZ;
+        //             const worldD2 = ox * ox + oz * oz;
+
+        //             const w = distanceWeightPower === 0
+        //                 ? 1
+        //                 : 1 / Math.pow(worldD2, weightPow);
+
+        //             dxs.push(dx);
+        //             dzs.push(dz);
+        //             oxs.push(ox);
+        //             ozs.push(oz);
+        //             ws.push(w);
+        //         }
+        //     }
+
+        //     return {
+        //         radiusPixels,
+        //         cellSizeX,
+        //         cellSizeZ,
+        //         dx: Int16Array.from(dxs),
+        //         dz: Int16Array.from(dzs),
+        //         ox: Float32Array.from(oxs),
+        //         oz: Float32Array.from(ozs),
+        //         w: Float32Array.from(ws),
+        //         count: dxs.length,
+        //     };
+        // }
+
+        // /**
+        //  * Computes local slope + azimuth using a weighted circular neighborhood.
+        //  *
+        //  * Model:
+        //  *   dh ~= gx * ox + gz * oz
+        //  *
+        //  * where:
+        //  *   gx = dY/dX
+        //  *   gz = dY/dZ
+        //  *
+        //  * This is a local gradient solve over a disk, not a final roof-plane grouping step.
+        //  *
+        //  * Azimuth convention used here:
+        //  *   0° = +Z
+        //  *   90° = +X
+        //  *   180° = -Z
+        //  *   270° = -X
+        //  * and it points DOWNSLOPE.
+        //  */
+        // function computeLocalCircularMaps(
+        //     heights: ArrayLike<number>,
+        //     width: number,
+        //     height: number,
+        //     options: ComputeCircularMapsOptions = {}
+        // ): CircularMaps {
+        //     const {
+        //         radius = 4,
+        //         cellSizeX = 1,
+        //         cellSizeZ = 1,
+        //         distanceWeightPower = 1,
+        //         minNeighbors = 8,
+        //         minSlopeDegForAzimuth = 2,
+        //         computeFitError = true,
+        //         noData,
+        //         mask = null,
+        //         stencil = createCircularStencil(radius, cellSizeX, cellSizeZ, distanceWeightPower),
+        //     } = options;
+
+        //     const n = width * height;
+        //     if (heights.length !== n) {
+        //         throw new Error(`heights.length (${heights.length}) must equal width*height (${n})`);
+        //     }
+        //     if (mask && mask.length !== n) {
+        //         throw new Error(`mask.length (${mask.length}) must equal width*height (${n})`);
+        //     }
+
+        //     const slopeDegMap = new Float32Array(n);
+        //     const pitch12Map = new Float32Array(n);
+        //     const azimuthDegMap = new Float32Array(n);
+        //     const dYdXMap = new Float32Array(n);
+        //     const dYdZMap = new Float32Array(n);
+        //     const fitErrorMap = new Float32Array(n);
+        //     const samplesUsedMap = new Uint16Array(n);
+        //     const valid = new Uint8Array(n);
+
+        //     slopeDegMap.fill(NaN);
+        //     pitch12Map.fill(NaN);
+        //     azimuthDegMap.fill(NaN);
+        //     dYdXMap.fill(NaN);
+        //     dYdZMap.fill(NaN);
+        //     fitErrorMap.fill(NaN);
+
+        //     const dxs = stencil.dx;
+        //     const dzs = stencil.dz;
+        //     const oxs = stencil.ox;
+        //     const ozs = stencil.oz;
+        //     const ws = stencil.w;
+        //     const kCount = stencil.count;
+
+        //     const hasNoData = noData !== undefined;
+
+        //     for (let z = 0; z < height; z++) {
+        //         const rowBase = z * width;
+
+        //         for (let x = 0; x < width; x++) {
+        //             const i = rowBase + x;
+        //             const h0 = heights[i];
+
+        //             if (!Number.isFinite(h0)) continue;
+        //             if (hasNoData && h0 === noData) continue;
+        //             if (mask && mask[i] === 0) continue;
+
+        //             let sxx = 0;
+        //             let sxz = 0;
+        //             let szz = 0;
+        //             let bx = 0;
+        //             let bz = 0;
+        //             let wsum = 0;
+        //             let count = 0;
+
+        //             // First pass: solve local gradient over a circular neighborhood
+        //             for (let k = 0; k < kCount; k++) {
+        //                 const nx = x + dxs[k];
+        //                 if (nx < 0 || nx >= width) continue;
+
+        //                 const nz = z + dzs[k];
+        //                 if (nz < 0 || nz >= height) continue;
+
+        //                 const j = nz * width + nx;
+        //                 const hj = heights[j];
+
+        //                 if (!Number.isFinite(hj)) continue;
+        //                 if (hasNoData && hj === noData) continue;
+        //                 if (mask && mask[j] === 0) continue;
+
+        //                 const dh = hj - h0;
+        //                 const ox = oxs[k];
+        //                 const oz = ozs[k];
+        //                 const w = ws[k];
+
+        //                 sxx += w * ox * ox;
+        //                 sxz += w * ox * oz;
+        //                 szz += w * oz * oz;
+        //                 bx += w * ox * dh;
+        //                 bz += w * oz * dh;
+        //                 wsum += w;
+        //                 count++;
+        //             }
+
+        //             if (count < minNeighbors) continue;
+
+        //             const det = sxx * szz - sxz * sxz;
+        //             if (Math.abs(det) < 1e-12) continue;
+
+        //             const gx = (bx * szz - bz * sxz) / det;
+        //             const gz = (bz * sxx - bx * sxz) / det;
+
+        //             dYdXMap[i] = gx;
+        //             dYdZMap[i] = gz;
+        //             samplesUsedMap[i] = count;
+        //             valid[i] = 1;
+
+        //             const gradMag = Math.hypot(gx, gz);
+        //             const slopeRad = Math.atan(gradMag);
+        //             const slopeDeg = slopeRad * RAD2DEG;
+        //             const pitch12 = 12 * Math.tan(slopeRad);
+
+        //             slopeDegMap[i] = slopeDeg;
+        //             pitch12Map[i] = pitch12;
+
+        //             // Downslope azimuth
+        //             if (slopeDeg >= minSlopeDegForAzimuth) {
+        //                 const vx = -gx;
+        //                 const vz = -gz;
+        //                 let az = Math.atan2(vx, vz) * RAD2DEG; // 0° at +Z, clockwise
+        //                 if (az < 0) az += 360;
+        //                 azimuthDegMap[i] = az;
+        //             }
+
+        //             if (computeFitError) {
+        //                 let rss = 0;
+
+        //                 for (let k = 0; k < kCount; k++) {
+        //                     const nx = x + dxs[k];
+        //                     if (nx < 0 || nx >= width) continue;
+
+        //                     const nz = z + dzs[k];
+        //                     if (nz < 0 || nz >= height) continue;
+
+        //                     const j = nz * width + nx;
+        //                     const hj = heights[j];
+
+        //                     if (!Number.isFinite(hj)) continue;
+        //                     if (hasNoData && hj === noData) continue;
+        //                     if (mask && mask[j] === 0) continue;
+
+        //                     const dh = hj - h0;
+        //                     const ox = oxs[k];
+        //                     const oz = ozs[k];
+        //                     const w = ws[k];
+
+        //                     const predicted = gx * ox + gz * oz;
+        //                     const err = dh - predicted;
+        //                     rss += w * err * err;
+        //                 }
+
+        //                 fitErrorMap[i] = Math.sqrt(rss / wsum);
+        //             }
+        //         }
+        //     }
+
+        //     return {
+        //         slopeDegMap,
+        //         pitch12Map,
+        //         azimuthDegMap,
+        //         dYdXMap,
+        //         dYdZMap,
+        //         fitErrorMap,
+        //         samplesUsedMap,
+        //         valid,
+        //         stencil,
+        //     };
+        // }
+
+        type CircularStencilQ = {
+            radiusPixels: number;
+            cellSizeX: number;
+            cellSizeZ: number;
+            dx: Int16Array;
+            dz: Int16Array;
+            ox: Float32Array;
+            oz: Float32Array;
+            w: Float32Array;
+            sector: Uint8Array;
+            count: number;
+            maxDistance: number;
+            sectorCount: number;
+        };
+
+        type QuantizedRoofMaps = {
+            slopeDegMap: Float32Array;
+            pitch12Map: Float32Array;
+            azimuthDegMap: Float32Array;
+            dYdXMap: Float32Array;
+            dYdZMap: Float32Array;
+            interceptMap: Float32Array;
+            fitErrorMap: Float32Array;          // weighted RMS residual, in height units (dm here)
+            riseAcrossRadiusMap: Float32Array;  // expected rise from center to disk edge, in dm
+            confidenceMap: Float32Array;        // 0..1
+            samplesUsedMap: Uint16Array;
+            sectorsUsedMap: Uint8Array;
+            valid: Uint8Array;                  // solvable fit
+            trusted: Uint8Array;                // good enough to use downstream
+            stencil: CircularStencilQ;
+        };
+
+        type ComputeQuantizedRoofMapsOptions = {
+            radius?: number;                    // default 7 for 1 dm integer DSMs
+            cellSizeX?: number;                 // default 1 dm
+            cellSizeZ?: number;                 // default 1 dm
+            distanceWeightPower?: number;       // 0=uniform, 1=1/d, 2=1/d^2
+            sectorCount?: number;               // default 8
+            minNeighbors?: number;              // default 24
+            minSectors?: number;                // default 6
+            minSlopeDegForAzimuth?: number;     // default 3
+            minRiseAcrossRadiusDm?: number;     // default 2
+            robustResidualDm?: number;          // default 1.5
+            robustPasses?: number;              // default 1
+            minConfidence?: number;             // default 0.45
+            noData?: number;
+            mask?: ArrayLike<number> | null;
+            stencil?: CircularStencilQ;
+        };
+
+        function createCircularStencilQ(
+            radiusPixels: number,
+            cellSizeX = 1,
+            cellSizeZ = 1,
+            distanceWeightPower = 1,
+            sectorCount = 8
+        ): CircularStencilQ {
+            const dxs: number[] = [];
+            const dzs: number[] = [];
+            const oxs: number[] = [];
+            const ozs: number[] = [];
+            const ws: number[] = [];
+            const sectors: number[] = [];
+
+            const r2 = radiusPixels * radiusPixels;
+            let maxDistance = 0;
+
+            for (let dz = -radiusPixels; dz <= radiusPixels; dz++) {
+                for (let dx = -radiusPixels; dx <= radiusPixels; dx++) {
+                    const pixelD2 = dx * dx + dz * dz;
+                    if (pixelD2 === 0 || pixelD2 > r2) continue;
+
+                    const ox = dx * cellSizeX;
+                    const oz = dz * cellSizeZ;
+                    const d = Math.hypot(ox, oz);
+                    if (d <= 0) continue;
+
+                    const w = distanceWeightPower === 0
+                        ? 1
+                        : 1 / Math.pow(d, distanceWeightPower);
+
+                    let ang = Math.atan2(oz, ox); // [-pi, pi], 0 along +X
+                    if (ang < 0) ang += 2 * Math.PI;
+                    let sector = Math.floor((ang / (2 * Math.PI)) * sectorCount);
+                    if (sector >= sectorCount) sector = sectorCount - 1;
+
+                    dxs.push(dx);
+                    dzs.push(dz);
+                    oxs.push(ox);
+                    ozs.push(oz);
+                    ws.push(w);
+                    sectors.push(sector);
+
+                    if (d > maxDistance) maxDistance = d;
+                }
+            }
+
+            return {
+                radiusPixels,
+                cellSizeX,
+                cellSizeZ,
+                dx: Int16Array.from(dxs),
+                dz: Int16Array.from(dzs),
+                ox: Float32Array.from(oxs),
+                oz: Float32Array.from(ozs),
+                w: Float32Array.from(ws),
+                sector: Uint8Array.from(sectors),
+                count: dxs.length,
+                maxDistance,
+                sectorCount,
+            };
+        }
+
+        function computeQuantizedLocalRoofMaps(
+            heights: ArrayLike<number>,
+            width: number,
+            height: number,
+            options: ComputeQuantizedRoofMapsOptions = {}
+        ): QuantizedRoofMaps {
+            const {
+                radius = 7,
+                cellSizeX = 1,
+                cellSizeZ = 1,
+                distanceWeightPower = 1,
+                sectorCount = 8,
+                minNeighbors = 24,
+                minSectors = 6,
+                minSlopeDegForAzimuth = 3,
+                minRiseAcrossRadiusDm = 2,
+                robustResidualDm = 1.5,
+                robustPasses = 1,
+                minConfidence = 0.45,
+                noData,
+                mask = null,
+                stencil = createCircularStencilQ(radius, cellSizeX, cellSizeZ, distanceWeightPower, sectorCount),
+            } = options;
+
+            const n = width * height;
+            if (heights.length !== n) throw new Error(`heights.length must equal width*height`);
+            if (mask && mask.length !== n) throw new Error(`mask.length must equal width*height`);
+
+            const slopeDegMap = new Float32Array(n);
+            const pitch12Map = new Float32Array(n);
+            const azimuthDegMap = new Float32Array(n);
+            const dYdXMap = new Float32Array(n);
+            const dYdZMap = new Float32Array(n);
+            const interceptMap = new Float32Array(n);
+            const fitErrorMap = new Float32Array(n);
+            const riseAcrossRadiusMap = new Float32Array(n);
+            const confidenceMap = new Float32Array(n);
+            const samplesUsedMap = new Uint16Array(n);
+            const sectorsUsedMap = new Uint8Array(n);
+            const valid = new Uint8Array(n);
+            const trusted = new Uint8Array(n);
+
+            slopeDegMap.fill(NaN);
+            pitch12Map.fill(NaN);
+            azimuthDegMap.fill(NaN);
+            dYdXMap.fill(NaN);
+            dYdZMap.fill(NaN);
+            interceptMap.fill(NaN);
+            fitErrorMap.fill(NaN);
+            riseAcrossRadiusMap.fill(NaN);
+            confidenceMap.fill(0);
+
+            const hasNoData = noData !== undefined;
+
+            const dxs = stencil.dx;
+            const dzs = stencil.dz;
+            const oxs = stencil.ox;
+            const ozs = stencil.oz;
+            const baseW = stencil.w;
+            const sectors = stencil.sector;
+            const kCount = stencil.count;
+
+            for (let z = 0; z < height; z++) {
+                const rowBase = z * width;
+
+                for (let x = 0; x < width; x++) {
+                    const i = rowBase + x;
+                    const hCenter = heights[i];
+
+                    if (!Number.isFinite(hCenter)) continue;
+                    if (hasNoData && hCenter === noData) continue;
+                    if (mask && mask[i] === 0) continue;
+
+                    let count = 0;
+                    let sectorMask = 0;
+
+                    let sumW = 0;
+                    let meanX = 0;
+                    let meanZ = 0;
+                    let meanH = 0;
+
+                    // pass 1: weighted means + sector coverage
+                    for (let k = 0; k < kCount; k++) {
+                        const nx = x + dxs[k];
+                        const nz = z + dzs[k];
+                        if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                        const j = nz * width + nx;
+                        const hj = heights[j];
+                        if (!Number.isFinite(hj)) continue;
+                        if (hasNoData && hj === noData) continue;
+                        if (mask && mask[j] === 0) continue;
+
+                        const w = baseW[k];
+                        const ox = oxs[k];
+                        const oz = ozs[k];
+
+                        sumW += w;
+                        meanX += w * ox;
+                        meanZ += w * oz;
+                        meanH += w * hj;
+                        count++;
+
+                        sectorMask |= (1 << sectors[k]);
+                    }
+
+                    if (count < minNeighbors || sumW <= 0) continue;
+
+                    let sectorsHit = 0;
+                    for (let s = 0; s < stencil.sectorCount; s++) {
+                        if (sectorMask & (1 << s)) sectorsHit++;
+                    }
+
+                    samplesUsedMap[i] = count;
+                    sectorsUsedMap[i] = sectorsHit;
+
+                    if (sectorsHit < minSectors) continue;
+
+                    meanX /= sumW;
+                    meanZ /= sumW;
+                    meanH /= sumW;
+
+                    // initial solve
+                    let gx = 0;
+                    let gz = 0;
+                    let c = 0;
+
+                    {
+                        let sxx = 0, sxz = 0, szz = 0;
+                        let sxh = 0, szh = 0;
+
+                        for (let k = 0; k < kCount; k++) {
+                            const nx = x + dxs[k];
+                            const nz = z + dzs[k];
+                            if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                            const j = nz * width + nx;
+                            const hj = heights[j];
+                            if (!Number.isFinite(hj)) continue;
+                            if (hasNoData && hj === noData) continue;
+                            if (mask && mask[j] === 0) continue;
+
+                            const w = baseW[k];
+                            const cx = oxs[k] - meanX;
+                            const cz = ozs[k] - meanZ;
+                            const ch = hj - meanH;
+
+                            sxx += w * cx * cx;
+                            sxz += w * cx * cz;
+                            szz += w * cz * cz;
+                            sxh += w * cx * ch;
+                            szh += w * cz * ch;
+                        }
+
+                        const det = sxx * szz - sxz * sxz;
+                        if (Math.abs(det) < 1e-12) continue;
+
+                        gx = (sxh * szz - szh * sxz) / det;
+                        gz = (szh * sxx - sxh * sxz) / det;
+                        c = meanH - gx * meanX - gz * meanZ;
+                    }
+
+                    // robust reweighting pass(es)
+                    for (let pass = 0; pass < robustPasses; pass++) {
+                        let rSumW = 0;
+                        let rMeanX = 0;
+                        let rMeanZ = 0;
+                        let rMeanH = 0;
+
+                        for (let k = 0; k < kCount; k++) {
+                            const nx = x + dxs[k];
+                            const nz = z + dzs[k];
+                            if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                            const j = nz * width + nx;
+                            const hj = heights[j];
+                            if (!Number.isFinite(hj)) continue;
+                            if (hasNoData && hj === noData) continue;
+                            if (mask && mask[j] === 0) continue;
+
+                            const ox = oxs[k];
+                            const oz = ozs[k];
+                            const predicted = gx * ox + gz * oz + c;
+                            const absErr = Math.abs(hj - predicted);
+                            const rw = baseW[k] * huberWeightAbs(absErr, robustResidualDm);
+
+                            rSumW += rw;
+                            rMeanX += rw * ox;
+                            rMeanZ += rw * oz;
+                            rMeanH += rw * hj;
+                        }
+
+                        if (rSumW <= 0) break;
+
+                        rMeanX /= rSumW;
+                        rMeanZ /= rSumW;
+                        rMeanH /= rSumW;
+
+                        let sxx = 0, sxz = 0, szz = 0;
+                        let sxh = 0, szh = 0;
+
+                        for (let k = 0; k < kCount; k++) {
+                            const nx = x + dxs[k];
+                            const nz = z + dzs[k];
+                            if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                            const j = nz * width + nx;
+                            const hj = heights[j];
+                            if (!Number.isFinite(hj)) continue;
+                            if (hasNoData && hj === noData) continue;
+                            if (mask && mask[j] === 0) continue;
+
+                            const ox = oxs[k];
+                            const oz = ozs[k];
+                            const predicted = gx * ox + gz * oz + c;
+                            const absErr = Math.abs(hj - predicted);
+                            const rw = baseW[k] * huberWeightAbs(absErr, robustResidualDm);
+
+                            const cx = ox - rMeanX;
+                            const cz = oz - rMeanZ;
+                            const ch = hj - rMeanH;
+
+                            sxx += rw * cx * cx;
+                            sxz += rw * cx * cz;
+                            szz += rw * cz * cz;
+                            sxh += rw * cx * ch;
+                            szh += rw * cz * ch;
+                        }
+
+                        const det = sxx * szz - sxz * sxz;
+                        if (Math.abs(det) < 1e-12) break;
+
+                        gx = (sxh * szz - szh * sxz) / det;
+                        gz = (szh * sxx - sxh * sxz) / det;
+                        c = rMeanH - gx * rMeanX - gz * rMeanZ;
+                    }
+
+                    // final residual / confidence
+                    let rss = 0;
+                    let finalW = 0;
+
+                    for (let k = 0; k < kCount; k++) {
+                        const nx = x + dxs[k];
+                        const nz = z + dzs[k];
+                        if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                        const j = nz * width + nx;
+                        const hj = heights[j];
+                        if (!Number.isFinite(hj)) continue;
+                        if (hasNoData && hj === noData) continue;
+                        if (mask && mask[j] === 0) continue;
+
+                        const predicted = gx * oxs[k] + gz * ozs[k] + c;
+                        const err = hj - predicted;
+                        const w = baseW[k];
+
+                        rss += w * err * err;
+                        finalW += w;
+                    }
+
+                    const fitError = finalW > 0 ? Math.sqrt(rss / finalW) : Infinity;
+
+                    const gradMag = Math.hypot(gx, gz);    // rise/run in dm per dm
+                    const slopeDeg = Math.atan(gradMag) * RAD2DEG;
+                    const pitch12 = 12 * gradMag;
+                    const riseAcrossRadius = gradMag * stencil.maxDistance;
+
+                    dYdXMap[i] = gx;
+                    dYdZMap[i] = gz;
+                    interceptMap[i] = c;
+                    slopeDegMap[i] = slopeDeg;
+                    pitch12Map[i] = pitch12;
+                    fitErrorMap[i] = fitError;
+                    riseAcrossRadiusMap[i] = riseAcrossRadius;
+                    valid[i] = 1;
+
+                    if (slopeDeg >= minSlopeDegForAzimuth) {
+                        const vx = -gx;
+                        const vz = -gz;
+                        let az = Math.atan2(vx, vz) * RAD2DEG; // 0°=+Z, 90°=+X
+                        if (az < 0) az += 360;
+                        azimuthDegMap[i] = az;
+                    }
+
+                    // confidence for quantized integer-height DSMs
+                    const sectorScore = clamp01((sectorsHit - minSectors + 1) / Math.max(1, stencil.sectorCount - minSectors + 1));
+                    const neighborScore = clamp01(count / Math.max(minNeighbors, 1));
+                    const riseScore = clamp01(riseAcrossRadius / Math.max(minRiseAcrossRadiusDm, 1e-6));
+                    const fitScore = clamp01(1 - fitError / Math.max(robustResidualDm * 1.5, 1e-6));
+
+                    const confidence =
+                        0.30 * sectorScore +
+                        0.15 * neighborScore +
+                        0.30 * riseScore +
+                        0.25 * fitScore;
+
+                    confidenceMap[i] = confidence;
+
+                    // trusted means: enough support to actually believe the result
+                    if (
+                        confidence >= minConfidence &&
+                        riseAcrossRadius >= minRiseAcrossRadiusDm &&
+                        fitError <= robustResidualDm * 1.5
+                    ) {
+                        trusted[i] = 1;
+                    }
+                }
+            }
+
+            return {
+                slopeDegMap,
+                pitch12Map,
+                azimuthDegMap,
+                dYdXMap,
+                dYdZMap,
+                interceptMap,
+                fitErrorMap,
+                riseAcrossRadiusMap,
+                confidenceMap,
+                samplesUsedMap,
+                sectorsUsedMap,
+                valid,
+                trusted,
+                stencil,
+            };
+        }
+
+        type CircularStencil = {
+            radiusPixels: number;
+            cellSizeX: number;
+            cellSizeZ: number;
+            dx: Int16Array;
+            dz: Int16Array;
+            ox: Float32Array;
+            oz: Float32Array;
+            w: Float32Array;
+            sector: Uint8Array;
+            count: number;
+            maxDistance: number;
+            sectorCount: number;
+        };
+
+        type AdaptiveQuantizedRoofMaps = {
+            planeA: Float32Array;
+            planeB: Float32Array;
+            planeC: Float32Array;
+
+            slopeDegMap: Float32Array;
+            pitch12Map: Float32Array;
+            azimuthDegMap: Float32Array;
+
+            fitErrorMap: Float32Array;
+            riseAcrossRadiusMap: Float32Array;
+            confidenceMap: Float32Array;
+
+            samplesUsedMap: Uint16Array;
+            sectorsUsedMap: Uint8Array;
+            chosenRadiusMap: Uint8Array;     // chosen radius in pixels
+            chosenScaleIndexMap: Uint8Array; // index into candidateRadii
+
+            valid: Uint8Array;
+            trusted: Uint8Array;
+
+            stencils: CircularStencil[];
+            candidateRadii: number[];
+        };
+
+        type ComputeAdaptiveQuantizedRoofMapsOptions = {
+            candidateRadii?: number[];          // default [2,3,4,5,7,9,12]
+            cellSizeX?: number;                 // default 1
+            cellSizeZ?: number;                 // default 1
+            distanceWeightPower?: number;       // default 1
+            sectorCount?: number;               // default 8
+
+            minNeighbors?: number;              // default 12
+            minSectors?: number;                // default 5
+            minSlopeDegForAzimuth?: number;     // default 3
+
+            minRiseAcrossRadiusDm?: number;     // default 2
+            robustResidualDm?: number;          // default 1.5
+            robustPasses?: number;              // default 1
+            minConfidence?: number;             // default 0.45
+
+            // optional stricter size-dependent rules
+            minNeighborsByRadius?: boolean;     // default true
+            minSectorsByRadius?: boolean;       // default true
+
+            // fallback behavior
+            keepBestFallback?: boolean;         // default true
+
+            noData?: number;
+            mask?: ArrayLike<number> | null;
+            stencils?: CircularStencil[];
+        };
+
+        type FitAtPixelResult = {
+            ok: boolean;
+            a: number;
+            b: number;
+            c: number;
+            slopeDeg: number;
+            pitch12: number;
+            azimuthDeg: number;
+            fitError: number;
+            riseAcrossRadius: number;
+            confidence: number;
+            samplesUsed: number;
+            sectorsUsed: number;
+            trusted: boolean;
+        };
+
+        const RAD2DEG = 180 / Math.PI;
+
+        function clamp01(v: number): number {
+            return v <= 0 ? 0 : v >= 1 ? 1 : v;
+        }
+
+        function huberWeightAbs(absErr: number, delta: number): number {
+            if (delta <= 0) return 1;
+            if (absErr <= delta) return 1;
+            return delta / absErr;
+        }
+
+        function createCircularStencil(
+            radiusPixels: number,
+            cellSizeX = 1,
+            cellSizeZ = 1,
+            distanceWeightPower = 1,
+            sectorCount = 8
+        ): CircularStencil {
+            const dxs: number[] = [];
+            const dzs: number[] = [];
+            const oxs: number[] = [];
+            const ozs: number[] = [];
+            const ws: number[] = [];
+            const sectors: number[] = [];
+
+            const r2 = radiusPixels * radiusPixels;
+            let maxDistance = 0;
+
+            for (let dz = -radiusPixels; dz <= radiusPixels; dz++) {
+                for (let dx = -radiusPixels; dx <= radiusPixels; dx++) {
+                    const pixelD2 = dx * dx + dz * dz;
+                    if (pixelD2 === 0 || pixelD2 > r2) continue;
+
+                    const ox = dx * cellSizeX;
+                    const oz = dz * cellSizeZ;
+                    const d = Math.hypot(ox, oz);
+                    if (d <= 0) continue;
+
+                    const w = distanceWeightPower === 0
+                        ? 1
+                        : 1 / Math.pow(d, distanceWeightPower);
+
+                    let ang = Math.atan2(oz, ox); // 0=+X
+                    if (ang < 0) ang += 2 * Math.PI;
+                    let sector = Math.floor((ang / (2 * Math.PI)) * sectorCount);
+                    if (sector >= sectorCount) sector = sectorCount - 1;
+
+                    dxs.push(dx);
+                    dzs.push(dz);
+                    oxs.push(ox);
+                    ozs.push(oz);
+                    ws.push(w);
+                    sectors.push(sector);
+
+                    if (d > maxDistance) maxDistance = d;
+                }
+            }
+
+            return {
+                radiusPixels,
+                cellSizeX,
+                cellSizeZ,
+                dx: Int16Array.from(dxs),
+                dz: Int16Array.from(dzs),
+                ox: Float32Array.from(oxs),
+                oz: Float32Array.from(ozs),
+                w: Float32Array.from(ws),
+                sector: Uint8Array.from(sectors),
+                count: dxs.length,
+                maxDistance,
+                sectorCount,
+            };
+        }
+
+        function fitPlaneAtPixelWithStencil(
+            heights: ArrayLike<number>,
+            width: number,
+            height: number,
+            x: number,
+            z: number,
+            stencil: CircularStencil,
+            opts: {
+                minNeighbors: number;
+                minSectors: number;
+                minSlopeDegForAzimuth: number;
+                minRiseAcrossRadiusDm: number;
+                robustResidualDm: number;
+                robustPasses: number;
+                minConfidence: number;
+                noData?: number;
+                hasNoData: boolean;
+                mask?: ArrayLike<number> | null;
+            }
+        ): FitAtPixelResult {
+            const {
+                minNeighbors,
+                minSectors,
+                minSlopeDegForAzimuth,
+                minRiseAcrossRadiusDm,
+                robustResidualDm,
+                robustPasses,
+                minConfidence,
+                noData,
+                hasNoData,
+                mask,
+            } = opts;
+
+            let count = 0;
+            let sectorMask = 0;
+
+            let sumW = 0;
+            let meanX = 0;
+            let meanZ = 0;
+            let meanH = 0;
+
+            const dxs = stencil.dx;
+            const dzs = stencil.dz;
+            const oxs = stencil.ox;
+            const ozs = stencil.oz;
+            const baseW = stencil.w;
+            const sectors = stencil.sector;
+            const kCount = stencil.count;
+
+            // weighted means
+            for (let k = 0; k < kCount; k++) {
+                const nx = x + dxs[k];
+                const nz = z + dzs[k];
+                if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                const j = nz * width + nx;
+                const hj = heights[j];
+                if (!Number.isFinite(hj)) continue;
+                if (hasNoData && hj === noData) continue;
+                if (mask && mask[j] === 0) continue;
+
+                const w = baseW[k];
+                sumW += w;
+                meanX += w * oxs[k];
+                meanZ += w * ozs[k];
+                meanH += w * hj;
+                count++;
+
+                sectorMask |= (1 << sectors[k]);
+            }
+
+            if (count < minNeighbors || sumW <= 0) {
+                return {
+                    ok: false,
+                    a: NaN, b: NaN, c: NaN,
+                    slopeDeg: NaN,
+                    pitch12: NaN,
+                    azimuthDeg: NaN,
+                    fitError: NaN,
+                    riseAcrossRadius: NaN,
+                    confidence: 0,
+                    samplesUsed: count,
+                    sectorsUsed: 0,
+                    trusted: false,
+                };
+            }
+
+            let sectorsHit = 0;
+            for (let s = 0; s < stencil.sectorCount; s++) {
+                if (sectorMask & (1 << s)) sectorsHit++;
+            }
+
+            if (sectorsHit < minSectors) {
+                return {
+                    ok: false,
+                    a: NaN, b: NaN, c: NaN,
+                    slopeDeg: NaN,
+                    pitch12: NaN,
+                    azimuthDeg: NaN,
+                    fitError: NaN,
+                    riseAcrossRadius: NaN,
+                    confidence: 0,
+                    samplesUsed: count,
+                    sectorsUsed: sectorsHit,
+                    trusted: false,
+                };
+            }
+
+            meanX /= sumW;
+            meanZ /= sumW;
+            meanH /= sumW;
+
+            let a = 0, b = 0, c = 0;
+
+            // initial solve
+            {
+                let sxx = 0, sxz = 0, szz = 0;
+                let sxh = 0, szh = 0;
+
+                for (let k = 0; k < kCount; k++) {
+                    const nx = x + dxs[k];
+                    const nz = z + dzs[k];
+                    if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                    const j = nz * width + nx;
+                    const hj = heights[j];
+                    if (!Number.isFinite(hj)) continue;
+                    if (hasNoData && hj === noData) continue;
+                    if (mask && mask[j] === 0) continue;
+
+                    const w = baseW[k];
+                    const cx = oxs[k] - meanX;
+                    const cz = ozs[k] - meanZ;
+                    const ch = hj - meanH;
+
+                    sxx += w * cx * cx;
+                    sxz += w * cx * cz;
+                    szz += w * cz * cz;
+                    sxh += w * cx * ch;
+                    szh += w * cz * ch;
+                }
+
+                const det = sxx * szz - sxz * sxz;
+                if (Math.abs(det) < 1e-12) {
+                    return {
+                        ok: false,
+                        a: NaN, b: NaN, c: NaN,
+                        slopeDeg: NaN,
+                        pitch12: NaN,
+                        azimuthDeg: NaN,
+                        fitError: NaN,
+                        riseAcrossRadius: NaN,
+                        confidence: 0,
+                        samplesUsed: count,
+                        sectorsUsed: sectorsHit,
+                        trusted: false,
+                    };
+                }
+
+                a = (sxh * szz - szh * sxz) / det;
+                b = (szh * sxx - sxh * sxz) / det;
+                c = meanH - a * meanX - b * meanZ;
+            }
+
+            // robust reweighting
+            for (let pass = 0; pass < robustPasses; pass++) {
+                let rSumW = 0;
+                let rMeanX = 0;
+                let rMeanZ = 0;
+                let rMeanH = 0;
+
+                for (let k = 0; k < kCount; k++) {
+                    const nx = x + dxs[k];
+                    const nz = z + dzs[k];
+                    if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                    const j = nz * width + nx;
+                    const hj = heights[j];
+                    if (!Number.isFinite(hj)) continue;
+                    if (hasNoData && hj === noData) continue;
+                    if (mask && mask[j] === 0) continue;
+
+                    const pred = a * oxs[k] + b * ozs[k] + c;
+                    const absErr = Math.abs(hj - pred);
+                    const rw = baseW[k] * huberWeightAbs(absErr, robustResidualDm);
+
+                    rSumW += rw;
+                    rMeanX += rw * oxs[k];
+                    rMeanZ += rw * ozs[k];
+                    rMeanH += rw * hj;
+                }
+
+                if (rSumW <= 0) break;
+
+                rMeanX /= rSumW;
+                rMeanZ /= rSumW;
+                rMeanH /= rSumW;
+
+                let sxx = 0, sxz = 0, szz = 0;
+                let sxh = 0, szh = 0;
+
+                for (let k = 0; k < kCount; k++) {
+                    const nx = x + dxs[k];
+                    const nz = z + dzs[k];
+                    if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                    const j = nz * width + nx;
+                    const hj = heights[j];
+                    if (!Number.isFinite(hj)) continue;
+                    if (hasNoData && hj === noData) continue;
+                    if (mask && mask[j] === 0) continue;
+
+                    const pred = a * oxs[k] + b * ozs[k] + c;
+                    const absErr = Math.abs(hj - pred);
+                    const rw = baseW[k] * huberWeightAbs(absErr, robustResidualDm);
+
+                    const cx = oxs[k] - rMeanX;
+                    const cz = ozs[k] - rMeanZ;
+                    const ch = hj - rMeanH;
+
+                    sxx += rw * cx * cx;
+                    sxz += rw * cx * cz;
+                    szz += rw * cz * cz;
+                    sxh += rw * cx * ch;
+                    szh += rw * cz * ch;
+                }
+
+                const det = sxx * szz - sxz * sxz;
+                if (Math.abs(det) < 1e-12) break;
+
+                a = (sxh * szz - szh * sxz) / det;
+                b = (szh * sxx - sxh * sxz) / det;
+                c = rMeanH - a * rMeanX - b * rMeanZ;
+            }
+
+            let rss = 0;
+            let finalW = 0;
+
+            for (let k = 0; k < kCount; k++) {
+                const nx = x + dxs[k];
+                const nz = z + dzs[k];
+                if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                const j = nz * width + nx;
+                const hj = heights[j];
+                if (!Number.isFinite(hj)) continue;
+                if (hasNoData && hj === noData) continue;
+                if (mask && mask[j] === 0) continue;
+
+                const err = hj - (a * oxs[k] + b * ozs[k] + c);
+                const w = baseW[k];
+                rss += w * err * err;
+                finalW += w;
+            }
+
+            const fitError = finalW > 0 ? Math.sqrt(rss / finalW) : Infinity;
+            const grade = Math.hypot(a, b);
+            const slopeDeg = Math.atan(grade) * RAD2DEG;
+            const pitch12 = 12 * grade;
+            const riseAcrossRadius = grade * stencil.maxDistance;
+
+            let azimuthDeg = NaN;
+            if (slopeDeg >= minSlopeDegForAzimuth) {
+                const vx = -a;
+                const vz = -b;
+                azimuthDeg = Math.atan2(vx, vz) * RAD2DEG;
+                if (azimuthDeg < 0) azimuthDeg += 360;
+            }
+
+            const sectorScore = clamp01((sectorsHit - minSectors + 1) / Math.max(1, stencil.sectorCount - minSectors + 1));
+            const neighborScore = clamp01(count / Math.max(minNeighbors, 1));
+            const riseScore = clamp01(riseAcrossRadius / Math.max(minRiseAcrossRadiusDm, 1e-6));
+            const fitScore = clamp01(1 - fitError / Math.max(robustResidualDm * 1.5, 1e-6));
+
+            const confidence =
+                0.30 * sectorScore +
+                0.15 * neighborScore +
+                0.30 * riseScore +
+                0.25 * fitScore;
+
+            const trusted =
+                confidence >= minConfidence &&
+                riseAcrossRadius >= minRiseAcrossRadiusDm &&
+                fitError <= robustResidualDm * 1.5;
+
+            return {
+                ok: true,
+                a, b, c,
+                slopeDeg,
+                pitch12,
+                azimuthDeg,
+                fitError,
+                riseAcrossRadius,
+                confidence,
+                samplesUsed: count,
+                sectorsUsed: sectorsHit,
+                trusted,
+            };
+        }
+
+        function computeAdaptiveQuantizedLocalRoofMaps(
+            heights: ArrayLike<number>,
+            width: number,
+            height: number,
+            options: ComputeAdaptiveQuantizedRoofMapsOptions = {}
+        ): AdaptiveQuantizedRoofMaps {
+            const {
+                candidateRadii = [2, 3, 4, 5, 7, 9, 12],
+                cellSizeX = 1,
+                cellSizeZ = 1,
+                distanceWeightPower = 1,
+                sectorCount = 8,
+
+                minNeighbors = 12,
+                minSectors = 5,
+                minSlopeDegForAzimuth = 3,
+
+                minRiseAcrossRadiusDm = 2,
+                robustResidualDm = 1.5,
+                robustPasses = 1,
+                minConfidence = 0.45,
+
+                minNeighborsByRadius = true,
+                minSectorsByRadius = true,
+
+                keepBestFallback = true,
+
+                noData,
+                mask = null,
+                stencils,
+            } = options;
+
+            const n = width * height;
+            if (heights.length !== n) throw new Error(`heights.length must equal width*height`);
+            if (mask && mask.length !== n) throw new Error(`mask.length must equal width*height`);
+
+            const sortedRadii = [...candidateRadii].sort((a, b) => a - b);
+            const actualStencils = stencils ?? sortedRadii.map(r =>
+                createCircularStencil(r, cellSizeX, cellSizeZ, distanceWeightPower, sectorCount)
+            );
+
+            if (actualStencils.length !== sortedRadii.length) {
+                throw new Error(`stencils length must match candidateRadii length`);
+            }
+
+            const planeA = new Float32Array(n);
+            const planeB = new Float32Array(n);
+            const planeC = new Float32Array(n);
+
+            const slopeDegMap = new Float32Array(n);
+            const pitch12Map = new Float32Array(n);
+            const azimuthDegMap = new Float32Array(n);
+
+            const fitErrorMap = new Float32Array(n);
+            const riseAcrossRadiusMap = new Float32Array(n);
+            const confidenceMap = new Float32Array(n);
+
+            const samplesUsedMap = new Uint16Array(n);
+            const sectorsUsedMap = new Uint8Array(n);
+            const chosenRadiusMap = new Uint8Array(n);
+            const chosenScaleIndexMap = new Uint8Array(n);
+
+            const valid = new Uint8Array(n);
+            const trusted = new Uint8Array(n);
+
+            planeA.fill(NaN);
+            planeB.fill(NaN);
+            planeC.fill(NaN);
+            slopeDegMap.fill(NaN);
+            pitch12Map.fill(NaN);
+            azimuthDegMap.fill(NaN);
+            fitErrorMap.fill(NaN);
+            riseAcrossRadiusMap.fill(NaN);
+            confidenceMap.fill(0);
+
+            const hasNoData = noData !== undefined;
+
+            function minNeighborsForRadius(r: number): number {
+                if (!minNeighborsByRadius) return minNeighbors;
+                return Math.max(minNeighbors, Math.min(24, Math.floor(0.35 * Math.PI * r * r)));
+            }
+
+            function minSectorsForRadius(r: number): number {
+                if (!minSectorsByRadius) return minSectors;
+                if (r <= 2) return Math.max(4, Math.min(minSectors, 4));
+                if (r <= 4) return Math.max(5, Math.min(minSectors, 5));
+                return minSectors;
+            }
+
+            for (let z = 0; z < height; z++) {
+                const rowBase = z * width;
+
+                for (let x = 0; x < width; x++) {
+                    const i = rowBase + x;
+                    const hCenter = heights[i];
+
+                    if (!Number.isFinite(hCenter)) continue;
+                    if (hasNoData && hCenter === noData) continue;
+                    if (mask && mask[i] === 0) continue;
+
+                    let bestFallbackScore = -Infinity;
+                    let bestFallback: FitAtPixelResult | null = null;
+                    let bestFallbackRadius = 0;
+                    let bestFallbackScale = 0;
+
+                    let accepted = false;
+
+                    for (let s = 0; s < actualStencils.length; s++) {
+                        const stencil = actualStencils[s];
+                        const radius = sortedRadii[s];
+
+                        const fit = fitPlaneAtPixelWithStencil(
+                            heights,
+                            width,
+                            height,
+                            x,
+                            z,
+                            stencil,
+                            {
+                                minNeighbors: minNeighborsForRadius(radius),
+                                minSectors: minSectorsForRadius(radius),
+                                minSlopeDegForAzimuth,
+                                minRiseAcrossRadiusDm,
+                                robustResidualDm,
+                                robustPasses,
+                                minConfidence,
+                                noData,
+                                hasNoData,
+                                mask,
+                            }
+                        );
+
+                        if (!fit.ok) continue;
+
+                        valid[i] = 1;
+
+                        // fallback score prefers good fit + enough rise, slightly prefers smaller radius
+                        const fallbackScore =
+                            0.45 * fit.confidence +
+                            0.30 * clamp01(fit.riseAcrossRadius / Math.max(minRiseAcrossRadiusDm, 1e-6)) +
+                            0.20 * clamp01(1 - fit.fitError / Math.max(robustResidualDm * 1.5, 1e-6)) +
+                            0.05 * clamp01(1 - radius / Math.max(1, sortedRadii[sortedRadii.length - 1]));
+
+                        if (fallbackScore > bestFallbackScore) {
+                            bestFallbackScore = fallbackScore;
+                            bestFallback = fit;
+                            bestFallbackRadius = radius;
+                            bestFallbackScale = s;
+                        }
+
+                        // key rule: choose the smallest trustworthy radius
+                        if (fit.trusted) {
+                            planeA[i] = fit.a;
+                            planeB[i] = fit.b;
+                            planeC[i] = fit.c;
+
+                            slopeDegMap[i] = fit.slopeDeg;
+                            pitch12Map[i] = fit.pitch12;
+                            azimuthDegMap[i] = fit.azimuthDeg;
+
+                            fitErrorMap[i] = fit.fitError;
+                            riseAcrossRadiusMap[i] = fit.riseAcrossRadius;
+                            confidenceMap[i] = fit.confidence;
+
+                            samplesUsedMap[i] = fit.samplesUsed;
+                            sectorsUsedMap[i] = fit.sectorsUsed;
+                            chosenRadiusMap[i] = radius;
+                            chosenScaleIndexMap[i] = s;
+
+                            trusted[i] = 1;
+                            accepted = true;
+                            break;
+                        }
+                    }
+
+                    if (!accepted && keepBestFallback && bestFallback) {
+                        planeA[i] = bestFallback.a;
+                        planeB[i] = bestFallback.b;
+                        planeC[i] = bestFallback.c;
+
+                        slopeDegMap[i] = bestFallback.slopeDeg;
+                        pitch12Map[i] = bestFallback.pitch12;
+                        azimuthDegMap[i] = bestFallback.azimuthDeg;
+
+                        fitErrorMap[i] = bestFallback.fitError;
+                        riseAcrossRadiusMap[i] = bestFallback.riseAcrossRadius;
+                        confidenceMap[i] = bestFallback.confidence;
+
+                        samplesUsedMap[i] = bestFallback.samplesUsed;
+                        sectorsUsedMap[i] = bestFallback.sectorsUsed;
+                        chosenRadiusMap[i] = bestFallbackRadius;
+                        chosenScaleIndexMap[i] = bestFallbackScale;
+                    }
+                }
+            }
+
+            return {
+                planeA,
+                planeB,
+                planeC,
+                slopeDegMap,
+                pitch12Map,
+                azimuthDegMap,
+                fitErrorMap,
+                riseAcrossRadiusMap,
+                confidenceMap,
+                samplesUsedMap,
+                sectorsUsedMap,
+                chosenRadiusMap,
+                chosenScaleIndexMap,
+                valid,
+                trusted,
+                stencils: actualStencils,
+                candidateRadii: sortedRadii,
+            };
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        type CircularStencilPF = {
+            radiusPixels: number;
+            cellSizeX: number;
+            cellSizeZ: number;
+            dx: Int16Array;
+            dz: Int16Array;
+            ox: Float32Array;
+            oz: Float32Array;
+            w: Float32Array;
+            sector: Uint8Array;
+            count: number;
+            maxDistance: number;
+            sectorCount: number;
+        };
+
+        type DensePlaneField = {
+            planeA: Float32Array;              // h = a*x + b*z + c
+            planeB: Float32Array;
+            planeC: Float32Array;
+
+            slopeDegMap: Float32Array;
+            pitch12Map: Float32Array;
+            azimuthDegMap: Float32Array;       // downslope, 0=+Z, 90=+X
+
+            fitErrorMap: Float32Array;         // RMS residual in dm
+            riseAcrossRadiusMap: Float32Array; // expected rise across support radius, in dm
+            confidenceMap: Float32Array;       // 0..1
+            samplesUsedMap: Uint16Array;
+            sectorsUsedMap: Uint8Array;
+
+            valid: Uint8Array;                 // mathematically solvable
+            trusted: Uint8Array;               // believable on your coarse raster
+
+            stencil: CircularStencilPF;
+        };
+
+        type ComputeDensePlaneFieldOptions = {
+            radius?: number;                   // default 7
+            cellSizeX?: number;                // default 1 dm
+            cellSizeZ?: number;                // default 1 dm
+            distanceWeightPower?: number;      // 0=uniform, 1=1/d, 2=1/d^2
+            sectorCount?: number;              // default 8
+            minNeighbors?: number;             // default 24
+            minSectors?: number;               // default 6
+            minSlopeDegForAzimuth?: number;    // default 3
+            minRiseAcrossRadiusDm?: number;    // default 2
+            robustResidualDm?: number;         // default 1.5
+            robustPasses?: number;             // default 1
+            minConfidence?: number;            // default 0.45
+            noData?: number;
+            mask?: ArrayLike<number> | null;
+            stencil?: CircularStencilPF;
+        };
+
+        function createCircularStencilPF(
+            radiusPixels: number,
+            cellSizeX = 1,
+            cellSizeZ = 1,
+            distanceWeightPower = 1,
+            sectorCount = 8
+        ): CircularStencilPF {
+            const dxs: number[] = [];
+            const dzs: number[] = [];
+            const oxs: number[] = [];
+            const ozs: number[] = [];
+            const ws: number[] = [];
+            const sectors: number[] = [];
+
+            const r2 = radiusPixels * radiusPixels;
+            let maxDistance = 0;
+
+            for (let dz = -radiusPixels; dz <= radiusPixels; dz++) {
+                for (let dx = -radiusPixels; dx <= radiusPixels; dx++) {
+                    const pixelD2 = dx * dx + dz * dz;
+                    if (pixelD2 === 0 || pixelD2 > r2) continue;
+
+                    const ox = dx * cellSizeX;
+                    const oz = dz * cellSizeZ;
+                    const d = Math.hypot(ox, oz);
+                    if (d <= 0) continue;
+
+                    const w = distanceWeightPower === 0
+                        ? 1
+                        : 1 / Math.pow(d, distanceWeightPower);
+
+                    let ang = Math.atan2(oz, ox);
+                    if (ang < 0) ang += 2 * Math.PI;
+                    let sector = Math.floor((ang / (2 * Math.PI)) * sectorCount);
+                    if (sector >= sectorCount) sector = sectorCount - 1;
+
+                    dxs.push(dx);
+                    dzs.push(dz);
+                    oxs.push(ox);
+                    ozs.push(oz);
+                    ws.push(w);
+                    sectors.push(sector);
+
+                    if (d > maxDistance) maxDistance = d;
+                }
+            }
+
+            return {
+                radiusPixels,
+                cellSizeX,
+                cellSizeZ,
+                dx: Int16Array.from(dxs),
+                dz: Int16Array.from(dzs),
+                ox: Float32Array.from(oxs),
+                oz: Float32Array.from(ozs),
+                w: Float32Array.from(ws),
+                sector: Uint8Array.from(sectors),
+                count: dxs.length,
+                maxDistance,
+                sectorCount,
+            };
+        }
+
+        /**
+         * Full-coverage local plane fitting:
+         * fits h = a*x + b*z + c at every valid pixel over a circular neighborhood.
+         *
+         * This gives a dense per-pixel plane field across the whole raster.
+         */
+        function computeDensePlaneField(
+            heights: ArrayLike<number>,
+            width: number,
+            height: number,
+            options: ComputeDensePlaneFieldOptions = {}
+        ): DensePlaneField {
+            const {
+                radius = 7,
+                cellSizeX = 1,
+                cellSizeZ = 1,
+                distanceWeightPower = 1,
+                sectorCount = 8,
+                minNeighbors = 24,
+                minSectors = 6,
+                minSlopeDegForAzimuth = 3,
+                minRiseAcrossRadiusDm = 2,
+                robustResidualDm = 1.5,
+                robustPasses = 1,
+                minConfidence = 0.45,
+                noData,
+                mask = null,
+                stencil = createCircularStencilPF(radius, cellSizeX, cellSizeZ, distanceWeightPower, sectorCount),
+            } = options;
+
+            const n = width * height;
+            if (heights.length !== n) throw new Error(`heights.length must equal width*height`);
+            if (mask && mask.length !== n) throw new Error(`mask.length must equal width*height`);
+
+            const planeA = new Float32Array(n);
+            const planeB = new Float32Array(n);
+            const planeC = new Float32Array(n);
+
+            const slopeDegMap = new Float32Array(n);
+            const pitch12Map = new Float32Array(n);
+            const azimuthDegMap = new Float32Array(n);
+
+            const fitErrorMap = new Float32Array(n);
+            const riseAcrossRadiusMap = new Float32Array(n);
+            const confidenceMap = new Float32Array(n);
+            const samplesUsedMap = new Uint16Array(n);
+            const sectorsUsedMap = new Uint8Array(n);
+
+            const valid = new Uint8Array(n);
+            const trusted = new Uint8Array(n);
+
+            planeA.fill(NaN);
+            planeB.fill(NaN);
+            planeC.fill(NaN);
+            slopeDegMap.fill(NaN);
+            pitch12Map.fill(NaN);
+            azimuthDegMap.fill(NaN);
+            fitErrorMap.fill(NaN);
+            riseAcrossRadiusMap.fill(NaN);
+            confidenceMap.fill(0);
+
+            const hasNoData = noData !== undefined;
+
+            const dxs = stencil.dx;
+            const dzs = stencil.dz;
+            const oxs = stencil.ox;
+            const ozs = stencil.oz;
+            const baseW = stencil.w;
+            const sectors = stencil.sector;
+            const kCount = stencil.count;
+
+            for (let z = 0; z < height; z++) {
+                const rowBase = z * width;
+
+                for (let x = 0; x < width; x++) {
+                    const i = rowBase + x;
+                    const hCenter = heights[i];
+
+                    if (!Number.isFinite(hCenter)) continue;
+                    if (hasNoData && hCenter === noData) continue;
+                    if (mask && mask[i] === 0) continue;
+
+                    let count = 0;
+                    let sectorMask = 0;
+
+                    let sumW = 0;
+                    let meanX = 0;
+                    let meanZ = 0;
+                    let meanH = 0;
+
+                    // Weighted means
+                    for (let k = 0; k < kCount; k++) {
+                        const nx = x + dxs[k];
+                        const nz = z + dzs[k];
+                        if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                        const j = nz * width + nx;
+                        const hj = heights[j];
+                        if (!Number.isFinite(hj)) continue;
+                        if (hasNoData && hj === noData) continue;
+                        if (mask && mask[j] === 0) continue;
+
+                        const w = baseW[k];
+                        sumW += w;
+                        meanX += w * oxs[k];
+                        meanZ += w * ozs[k];
+                        meanH += w * hj;
+                        count++;
+
+                        sectorMask |= (1 << sectors[k]);
+                    }
+
+                    if (count < minNeighbors || sumW <= 0) continue;
+
+                    let sectorsHit = 0;
+                    for (let s = 0; s < stencil.sectorCount; s++) {
+                        if (sectorMask & (1 << s)) sectorsHit++;
+                    }
+
+                    samplesUsedMap[i] = count;
+                    sectorsUsedMap[i] = sectorsHit;
+
+                    if (sectorsHit < minSectors) continue;
+
+                    meanX /= sumW;
+                    meanZ /= sumW;
+                    meanH /= sumW;
+
+                    let a = 0, b = 0, c = 0;
+
+                    // Initial solve
+                    {
+                        let sxx = 0, sxz = 0, szz = 0;
+                        let sxh = 0, szh = 0;
+
+                        for (let k = 0; k < kCount; k++) {
+                            const nx = x + dxs[k];
+                            const nz = z + dzs[k];
+                            if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                            const j = nz * width + nx;
+                            const hj = heights[j];
+                            if (!Number.isFinite(hj)) continue;
+                            if (hasNoData && hj === noData) continue;
+                            if (mask && mask[j] === 0) continue;
+
+                            const w = baseW[k];
+                            const cx = oxs[k] - meanX;
+                            const cz = ozs[k] - meanZ;
+                            const ch = hj - meanH;
+
+                            sxx += w * cx * cx;
+                            sxz += w * cx * cz;
+                            szz += w * cz * cz;
+                            sxh += w * cx * ch;
+                            szh += w * cz * ch;
+                        }
+
+                        const det = sxx * szz - sxz * sxz;
+                        if (Math.abs(det) < 1e-12) continue;
+
+                        a = (sxh * szz - szh * sxz) / det;
+                        b = (szh * sxx - sxh * sxz) / det;
+                        c = meanH - a * meanX - b * meanZ;
+                    }
+
+                    // Robust reweighting
+                    for (let pass = 0; pass < robustPasses; pass++) {
+                        let rSumW = 0;
+                        let rMeanX = 0;
+                        let rMeanZ = 0;
+                        let rMeanH = 0;
+
+                        for (let k = 0; k < kCount; k++) {
+                            const nx = x + dxs[k];
+                            const nz = z + dzs[k];
+                            if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                            const j = nz * width + nx;
+                            const hj = heights[j];
+                            if (!Number.isFinite(hj)) continue;
+                            if (hasNoData && hj === noData) continue;
+                            if (mask && mask[j] === 0) continue;
+
+                            const pred = a * oxs[k] + b * ozs[k] + c;
+                            const absErr = Math.abs(hj - pred);
+                            const rw = baseW[k] * huberWeightAbs(absErr, robustResidualDm);
+
+                            rSumW += rw;
+                            rMeanX += rw * oxs[k];
+                            rMeanZ += rw * ozs[k];
+                            rMeanH += rw * hj;
+                        }
+
+                        if (rSumW <= 0) break;
+
+                        rMeanX /= rSumW;
+                        rMeanZ /= rSumW;
+                        rMeanH /= rSumW;
+
+                        let sxx = 0, sxz = 0, szz = 0;
+                        let sxh = 0, szh = 0;
+
+                        for (let k = 0; k < kCount; k++) {
+                            const nx = x + dxs[k];
+                            const nz = z + dzs[k];
+                            if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                            const j = nz * width + nx;
+                            const hj = heights[j];
+                            if (!Number.isFinite(hj)) continue;
+                            if (hasNoData && hj === noData) continue;
+                            if (mask && mask[j] === 0) continue;
+
+                            const pred = a * oxs[k] + b * ozs[k] + c;
+                            const absErr = Math.abs(hj - pred);
+                            const rw = baseW[k] * huberWeightAbs(absErr, robustResidualDm);
+
+                            const cx = oxs[k] - rMeanX;
+                            const cz = ozs[k] - rMeanZ;
+                            const ch = hj - rMeanH;
+
+                            sxx += rw * cx * cx;
+                            sxz += rw * cx * cz;
+                            szz += rw * cz * cz;
+                            sxh += rw * cx * ch;
+                            szh += rw * cz * ch;
+                        }
+
+                        const det = sxx * szz - sxz * sxz;
+                        if (Math.abs(det) < 1e-12) break;
+
+                        a = (sxh * szz - szh * sxz) / det;
+                        b = (szh * sxx - sxh * sxz) / det;
+                        c = rMeanH - a * rMeanX - b * rMeanZ;
+                    }
+
+                    // Final residual
+                    let rss = 0;
+                    let finalW = 0;
+
+                    for (let k = 0; k < kCount; k++) {
+                        const nx = x + dxs[k];
+                        const nz = z + dzs[k];
+                        if (nx < 0 || nx >= width || nz < 0 || nz >= height) continue;
+
+                        const j = nz * width + nx;
+                        const hj = heights[j];
+                        if (!Number.isFinite(hj)) continue;
+                        if (hasNoData && hj === noData) continue;
+                        if (mask && mask[j] === 0) continue;
+
+                        const err = hj - (a * oxs[k] + b * ozs[k] + c);
+                        const w = baseW[k];
+                        rss += w * err * err;
+                        finalW += w;
+                    }
+
+                    const fitError = finalW > 0 ? Math.sqrt(rss / finalW) : Infinity;
+
+                    const grade = Math.hypot(a, b);
+                    const slopeDeg = Math.atan(grade) * RAD2DEG;
+                    const pitch12 = 12 * grade;
+                    const riseAcrossRadius = grade * stencil.maxDistance;
+
+                    planeA[i] = a;
+                    planeB[i] = b;
+                    planeC[i] = c;
+                    slopeDegMap[i] = slopeDeg;
+                    pitch12Map[i] = pitch12;
+                    fitErrorMap[i] = fitError;
+                    riseAcrossRadiusMap[i] = riseAcrossRadius;
+                    valid[i] = 1;
+
+                    if (slopeDeg >= minSlopeDegForAzimuth) {
+                        const vx = -a;
+                        const vz = -b;
+                        let az = Math.atan2(vx, vz) * RAD2DEG;
+                        if (az < 0) az += 360;
+                        azimuthDegMap[i] = az;
+                    }
+
+                    const sectorScore = clamp01((sectorsHit - minSectors + 1) / Math.max(1, stencil.sectorCount - minSectors + 1));
+                    const neighborScore = clamp01(count / Math.max(minNeighbors, 1));
+                    const riseScore = clamp01(riseAcrossRadius / Math.max(minRiseAcrossRadiusDm, 1e-6));
+                    const fitScore = clamp01(1 - fitError / Math.max(robustResidualDm * 1.5, 1e-6));
+
+                    const confidence =
+                        0.30 * sectorScore +
+                        0.15 * neighborScore +
+                        0.30 * riseScore +
+                        0.25 * fitScore;
+
+                    confidenceMap[i] = confidence;
+
+                    if (
+                        confidence >= minConfidence &&
+                        riseAcrossRadius >= minRiseAcrossRadiusDm &&
+                        fitError <= robustResidualDm * 1.5
+                    ) {
+                        trusted[i] = 1;
+                    }
+                }
+            }
+
+            return {
+                planeA,
+                planeB,
+                planeC,
+                slopeDegMap,
+                pitch12Map,
+                azimuthDegMap,
+                fitErrorMap,
+                riseAcrossRadiusMap,
+                confidenceMap,
+                samplesUsedMap,
+                sectorsUsedMap,
+                valid,
+                trusted,
+                stencil,
+            };
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5423,9 +6759,12 @@ export class Editor {
                             fileInput.value = "";
                             fileInput.remove();
 
-                            let MapHeights = NormalizedHeights.map((Height) => Height / 100);
+                            let MapHeights = NormalizedHeights.map((Height) => Height / 100); // mm to dm //
+                            // Each pixel is 1 dm, and the height are whole numbers measured in dm. //
 
-                            let ModifiedMask = removeBorderConnected(KissMyAss.Mask, Width, Length);
+                            console.log("HEIGHTS", MapHeights);
+
+                            let ModifiedMask = removeBorderConnected(KissMyAss.Mask, Width, Length); // new Uint8Array(KissMyAss.Mask.byteLength).fill(1); // 
 
                             const DrawRGB = new Uint8Array(KissMyAss.RGB);
                             let DrawHeights = [];
@@ -5439,7 +6778,93 @@ export class Editor {
                                 RoofMaxHeight = Math.max(RoofMaxHeight, Height);
                             }
 
-                            const SmoothPixels = computeLocalPlaneMaps(MapHeights, ModifiedMask, Width, Length, {
+                            // const AccuratePixels = computeLocalCircularMaps(MapHeights, Width, Length, {
+                            //     radius: 12, // 4,
+                            //     cellSizeX: 1,     // set to your DSM ground sample distance if known
+                            //     cellSizeZ: 1,
+                            //     distanceWeightPower: 1, // 1,
+                            //     minNeighbors: 10, // 40, // 10,
+                            //     minSlopeDegForAzimuth: 2,
+                            //     computeFitError: true,
+                            //     mask: ModifiedMask,
+                            //     // noData: -9999,
+                            // });
+
+                            // const field = computeDensePlaneField(MapHeights, Width, Length, {
+                            //     radius: 7,
+                            //     cellSizeX: 1,
+                            //     cellSizeZ: 1,
+                            //     distanceWeightPower: 1,
+                            //     minNeighbors: 24,
+                            //     minSectors: 6,
+                            //     minSlopeDegForAzimuth: 3,
+                            //     minRiseAcrossRadiusDm: 2,
+                            //     robustResidualDm: 1.5,
+                            //     robustPasses: 1,
+                            //     minConfidence: 0.45,
+                            //     mask: ModifiedMask,
+                            //     // noData: -9999,
+                            // });
+
+                            const SlopePixels = computeQuantizedLocalRoofMaps(MapHeights, Width, Length, {
+                                radius: 12, // 12,                  // strong default for integer 1 dm heights
+                                cellSizeX: 1,
+                                cellSizeZ: 1,
+                                distanceWeightPower: 1,
+                                minNeighbors: 24,
+                                minSectors: 6,
+                                minSlopeDegForAzimuth: 3,
+                                minRiseAcrossRadiusDm: 2,   // require at least ~2 dm rise over the support radius
+                                robustResidualDm: 1.5,
+                                robustPasses: 1,
+                                minConfidence: 0.45,
+                                mask: ModifiedMask,
+                                // noData: -9999,
+                            });
+
+                            const AccuratePixels = computeQuantizedLocalRoofMaps(MapHeights, Width, Length, {
+                                radius: 4, // 12,                  // strong default for integer 1 dm heights
+                                cellSizeX: 1,
+                                cellSizeZ: 1,
+                                distanceWeightPower: 1,
+                                minNeighbors: 24,
+                                minSectors: 6,
+                                minSlopeDegForAzimuth: 3,
+                                minRiseAcrossRadiusDm: 2,   // require at least ~2 dm rise over the support radius
+                                robustResidualDm: 1.5,
+                                robustPasses: 1,
+                                minConfidence: 0.45,
+                                mask: ModifiedMask,
+                                // noData: -9999,
+                            });
+
+                            // const AccuratePixels = computeAdaptiveQuantizedLocalRoofMaps(MapHeights, Width, Length, {
+                            //     candidateRadii: [2, 3, 4, 7, 9, 12],
+                            //     cellSizeX: 1,
+                            //     cellSizeZ: 1,
+                            //     distanceWeightPower: 1,
+
+                            //     minNeighbors: 12,
+                            //     minSectors: 5,
+                            //     minSlopeDegForAzimuth: 3,
+
+                            //     minRiseAcrossRadiusDm: 2,
+                            //     robustResidualDm: 1.5,
+                            //     robustPasses: 1,
+                            //     minConfidence: .1, // .8, // 0.45,
+
+                            //     minNeighborsByRadius: true,
+                            //     minSectorsByRadius: true,
+
+                            //     keepBestFallback: true,
+                            //     mask: ModifiedMask,
+                            // });
+
+
+
+
+
+                            const SmoothPixelsForEdges = computeLocalPlaneMaps(MapHeights, ModifiedMask, Width, Length, {
                                 radius: 4,
                                 maxResidual: 150, // mm
                                 // maxResidual: 15, // mm
@@ -5457,19 +6882,21 @@ export class Editor {
                             //     cellSizeZ: 1,
                             // });
 
-                            const DifferencePixels = computePlaneBoundaryMapsFromAB(SmoothPixels, Width, Length, {
-                                normalWeight: 1.0,
-                                azimuthWeight: 0.35,
-                                pitchWeight: 0.35,
-                                residualWeight: 0.2,
+                            // const DifferencePixels = computePlaneBoundaryMapsFromAB(SmoothPixels, Width, Length, {
+                            //     normalWeight: 1.0,
+                            //     azimuthWeight: 0.35,
+                            //     pitchWeight: 0.35,
+                            //     residualWeight: 0.2,
 
-                                normalCapDeg: 45,
-                                azimuthCapDeg: 45,
-                                pitchCapDeg: 20,
-                                residualCap: 150 // 0.5
-                            });
+                            //     normalCapDeg: 45,
+                            //     azimuthCapDeg: 45,
+                            //     pitchCapDeg: 20,
+                            //     residualCap: 150 // 0.5
+                            // });
 
-                            const edgeMaps = classifyLocalRoofEdges5x5(SmoothPixels, Width, Length, {
+                            // AccuratePixels
+
+                            const edgeMaps = classifyLocalRoofEdges5x5(SmoothPixelsForEdges, Width, Length, {
                                 radius: 4, // 2,
                                 groupNormalToleranceDeg: 12,
                                 groupAzimuthToleranceDeg: 15,
@@ -5495,8 +6922,47 @@ export class Editor {
                                 // minTwoPlaneSlopeDiffDeg: 4
                             });
 
-                            console.log("SMOOVE", SmoothPixels);
-                            console.log("DIFF", DifferencePixels);
+                            // const edgeMaps = classifyLocalRoofEdges5x5FromCircularMaps(AccuratePixels, Width, Length, {
+                            //     mask: ModifiedMask,
+                            //     minPitch12: 1.5,
+                            //     minSectorSamples: 1.25,
+                            //     minAzimuthSplitDeg: 20,
+                            //     maxPitchDiff12: 3.0,
+                            //     ridgeValleyDotThreshold: 0.45,
+                            //     eaveDotThreshold: 0.55,
+                            //     gableAbsDotThreshold: 0.30,
+                            //     boundaryOutsideFraction: 0.22,
+                            //     fitErrorForSeam: 1.25,
+                            //     preferTrusted: true,
+                            // });
+
+                            // const edgeMaps = classifyLocalRoofEdges5x5FromAdaptiveMaps(AccuratePixels, Width, Length, {
+                            //     mask: ModifiedMask,
+                            //     candidateRadii: [4],
+                            //     preferTrusted: true,
+
+                            //     minPitch12: 1.5,
+                            //     minConfidenceForNeighbor: 0.20,
+
+                            //     minSectorVoteWeight: 1.0,
+                            //     minAzimuthSplitDegSmall: 16,
+                            //     minAzimuthSplitDegLarge: 26,
+                            //     maxPitchDiff12: 3.0,
+
+                            //     ridgeValleyDotThreshold: 0.45,
+                            //     eaveDotThresholdSmall: 0.50,
+                            //     eaveDotThresholdLarge: 0.60,
+                            //     gableAbsDotThreshold: 0.30,
+
+                            //     boundaryOutsideFractionSmall: 0.16,
+                            //     boundaryOutsideFractionLarge: 0.28,
+
+                            //     fitErrorForSeam: 1.25,
+                            //     hipBoundaryFraction: 0.10,
+                            // });
+
+                            console.log("SMOOVE", AccuratePixels);
+                            // console.log("DIFF", DifferencePixels);
 
                             // SmoothPixels.planePoints
 
@@ -5556,7 +7022,7 @@ export class Editor {
                                 // if (fromIndex == toIndex) return true;
 
                                 if (ModifiedMask[toIndex] == 0) return false;
-                                if (SmoothPixels.valid[toIndex] == 0) return false;
+                                if (AccuratePixels.valid[toIndex] == 0) return false;
                                 // if (SmoothPixels.pitch12Map[toIndex] <= 1) return false;
                                 // if (SmoothPixels.pitch12Map[toIndex] <= 2) return false;
 
@@ -5611,8 +7077,9 @@ export class Editor {
                                     // && dzDiff <= 5 * Math.PI / 180
                                     // && angleDifference180Deg(SmoothPixels.azimuthDegMap[fromIndex], SmoothPixels.azimuthDegMap[toIndex]) <= 5
 
-                                    && angleDifferenceDeg(SmoothPixels.azimuthDegMap[fromIndex], SmoothPixels.azimuthDegMap[toIndex]) <= 5
-                                    && angleDifferenceDeg(SmoothPixels.slopeDegMap[fromIndex], SmoothPixels.slopeDegMap[toIndex]) <= 5
+                                    // AccuratePixels
+                                    && angleDifferenceDeg(AccuratePixels.azimuthDegMap[fromIndex], AccuratePixels.azimuthDegMap[toIndex]) <= 4
+                                    && angleDifferenceDeg(SlopePixels.slopeDegMap[fromIndex], SlopePixels.slopeDegMap[toIndex]) <= 2
 
                                     // && slopeDiff <= 2
                                     // && normalDiff <= 5 * Math.PI / 180
@@ -5621,9 +7088,9 @@ export class Editor {
                                     ;
                                 if (!Pass) return false;
 
-                                let WEIGHT = SmoothPixels.pitch12Map[toIndex];
+                                let WEIGHT = SlopePixels.pitch12Map[toIndex];
                                 AzimuthWeight += WEIGHT;
-                                let Rad = (((SmoothPixels.azimuthDegMap[toIndex] % AngleRounding) + AngleRounding) % AngleRounding) * Math.PI / 180;
+                                let Rad = (((AccuratePixels.azimuthDegMap[toIndex] % AngleRounding) + AngleRounding) % AngleRounding) * Math.PI / 180;
                                 HouseAzimuthX += Math.cos(Rad * AR_Rotations) * WEIGHT;
                                 HouseAzimuthY += Math.sin(Rad * AR_Rotations) * WEIGHT;
 
@@ -5652,8 +7119,8 @@ export class Editor {
                                     if (labels[toIndex] !== -1 && labels[toIndex] !== owner) return false;
 
                                     return true
-                                        && angleDifferenceDeg(SmoothPixels.azimuthDegMap[fromIndex], SmoothPixels.azimuthDegMap[toIndex]) <= 5
-                                        && angleDifferenceDeg(SmoothPixels.slopeDegMap[fromIndex], SmoothPixels.slopeDegMap[toIndex]) <= 5
+                                        && angleDifferenceDeg(AccuratePixels.azimuthDegMap[fromIndex], AccuratePixels.azimuthDegMap[toIndex]) <= 10
+                                        && angleDifferenceDeg(SlopePixels.slopeDegMap[fromIndex], SlopePixels.slopeDegMap[toIndex]) <= 5
                                 },
                                 {
                                     circular: true,
@@ -5809,7 +7276,7 @@ export class Editor {
                             //     maxAzimuthDiffDeg: 5, // * Math.PI / 180,
                             // })
 
-                            let SmartPixels = SmoothPixels; // computeLocalPlaneMaps(MapHeights, ModifiedMask, Width, Length, {
+                            // let SmartPixels = SmoothPixels; // computeLocalPlaneMaps(MapHeights, ModifiedMask, Width, Length, {
                             //     radius: 1, // Somehow this seems better than 2?
                             //     maxResidual: 150, // mm
                             //     // maxResidual: 15, // mm
@@ -5837,8 +7304,8 @@ export class Editor {
                             for (let Index in MapHeights) {
                                 if (ModifiedMask[Index] == 0) continue;
                                 let Height = MapHeights[Index];
-                                let Azimuth = Math.round(SmoothPixels.azimuthDegMap[Index]); // * 180 / Math.PI
-                                let Pitch = SmoothPixels.pitch12Map[Index];
+                                let Azimuth = Math.round(AccuratePixels.azimuthDegMap[Index]); // * 180 / Math.PI
+                                let Pitch = AccuratePixels.pitch12Map[Index];
 
                                 RidgeHeights.push(Azimuth);
                                 RidgeHeightCounts[Azimuth] = (RidgeHeightCounts[Azimuth] ?? 0) + 1;
@@ -5932,6 +7399,168 @@ export class Editor {
 
                             console.log("OM", RoofMinHeight, RoofMaxHeight)
 
+                            console.log("AccuratePixels", AccuratePixels);
+                            console.log("edgeMaps", edgeMaps);
+
+                            let CustomLabels = ExpandedBodies.labels; // new Int32Array(YES.labels);
+                            let Groups = [];
+
+                            for (let PixelIndex in CustomLabels) {
+                                let GroupID = CustomLabels[PixelIndex]; if (GroupID == -1) continue;
+                                let Group = Groups[GroupID] ??= [];
+
+                                Group.push({ x: +PixelIndex % Width, y: MapHeights[PixelIndex], z: Math.floor(+PixelIndex / Width), index: PixelIndex })
+                            }
+
+                            for (let GroupID in Groups) {
+                                let Group = Groups[GroupID];
+                                let AzimuthX = 0;
+                                let AzimuthZ = 0;
+                                let SlopeX = 0;
+                                let SlopeZ = 0;
+                                let Count = 0;
+                                for (let Data of Group) {
+                                    let LocalAzimuth = AccuratePixels.azimuthDegMap[Data.index] * Math.PI / 180;
+                                    let LocalSlope = SlopePixels.slopeDegMap[Data.index] * Math.PI / 180;
+                                    if (!Number.isFinite(LocalAzimuth) || !Number.isFinite(LocalSlope)) continue;
+                                    AzimuthX += Math.cos(LocalAzimuth);
+                                    AzimuthZ += Math.sin(LocalAzimuth);
+                                    SlopeX += Math.cos(LocalSlope);
+                                    SlopeZ += Math.sin(LocalSlope);
+                                    Count++;
+                                }
+
+                                let Azimuth = Math.atan2(AzimuthZ, AzimuthX) * 180 / Math.PI; if (Azimuth < 0) Azimuth += 360;
+                                let Slope = Math.atan2(SlopeZ, SlopeX) * 180 / Math.PI; if (Slope < 0) Slope += 360;
+
+                                const Bounds = Vector3.Bounds(Group);
+                                const PlaneAngle = CFrame.fromEulerAnglesYXZ(Slope * Math.PI / 180, Azimuth * Math.PI / 180, 0).TranslateAdd(Bounds[1].Average(Bounds[0]));
+                                const LocalPositions = Group.map((V3) => PlaneAngle.ToObjectSpace(CFrame.fromVector3(V3)));
+                                const LocalBounds = Vector3.Bounds(LocalPositions);
+                                const LocalSize = LocalBounds[1].TranslateSub(LocalBounds[0]);
+                                console.log("LocalPositions", GroupID, LocalPositions, LocalBounds, LocalSize);
+                                // PitySketch.
+
+                                let RUN = LocalSize.Z;
+                                let Angle = (360 - Azimuth) * Math.PI / 180;
+                                let Sketch = new SketchLine(Editor.ActiveEditor, PlaneAngle.X, PlaneAngle.Y, -PlaneAngle.Z, true); // Info.NE.y); // Math.round(p.y));
+                                Sketch.DrawLine.LengthAnchor = 0;
+                                Sketch.DrawLine.RunAnchor = 0;
+                                Sketch.Start();
+
+                                Sketch.DrawLine.Angle = Angle;
+                                Sketch.DrawLine.Length = LocalSize.X;
+                                Sketch.DrawLine.PRIMARY = "D";
+                                Sketch.DrawLine.PITCH = Math.tan(Slope * Math.PI / 180) * 12;
+                                Sketch.DrawLine.RISE = RUN * Math.tan(Slope * Math.PI / 180);
+                                Sketch.DrawLine.RUN = RUN;
+
+                                Sketch.Commit();
+                                Sketch.Commit();
+                                Sketch.DrawLine.UpdateData();
+                                Sketch.DrawLine.Update();
+                            }
+
+                            // const planes = fitPlanesFromLabels(MapHeights, Width, Length, CustomLabels, {
+                            //     cellSizeX: 1,
+                            //     cellSizeZ: 1,
+                            //     minPixels: 8,
+                            //     robustPasses: 1,
+                            //     huberDelta: 1.5,
+                            // });
+
+                            // for (const plane of planes) {
+                            //     if (!plane.valid) continue;
+
+                            //     const segments = extractBoundarySegmentsForLabel(
+                            //         Width,
+                            //         Length,
+                            //         CustomLabels,
+                            //         plane.label,
+                            //         1,
+                            //         1
+                            //     );
+
+                            //     const loops = stitchBoundaryLoops(segments);
+                            //     if (loops.length === 0) continue;
+
+                            //     // largest loop = outer boundary
+                            //     let outer = loops[0];
+                            //     let bestArea = -Infinity;
+
+                            //     for (const loop of loops) {
+                            //         let area2 = 0;
+                            //         for (let i = 0; i < loop.length; i++) {
+                            //             const a = loop[i];
+                            //             const b = loop[(i + 1) % loop.length];
+                            //             area2 += a.x * b.z - b.x * a.z;
+                            //         }
+                            //         const area = Math.abs(area2) * 0.5;
+                            //         if (area > bestArea) {
+                            //             bestArea = area;
+                            //             outer = loop;
+                            //         }
+                            //     }
+
+                            //     const verts3D = liftLoopToPlane(outer, plane);
+
+                            //     console.log("plane", plane.label, {
+                            //         pitch12: plane.pitch12,
+                            //         azimuthDeg: plane.azimuthDeg,
+                            //         rmse: plane.rmse,
+                            //         verts3D,
+                            //     });
+
+
+                            //     const Bounds = Vector3.Bounds(verts3D);
+                            //     const PlaneAngle = CFrame.fromEulerAnglesYXZ(plane.slopeDeg * Math.PI / 180, plane.azimuthDeg * Math.PI / 180, 0).TranslateAdd(Bounds[1].Average(Bounds[0]));
+                            //     const LocalPositions = verts3D.map((V3) => PlaneAngle.ToObjectSpace(CFrame.fromVector3(V3)));
+                            //     const LocalBounds = Vector3.Bounds(LocalPositions);
+                            //     const LocalSize = LocalBounds[1].TranslateSub(LocalBounds[0]);
+                            //     console.log("LocalPositions", LocalPositions, LocalBounds, LocalSize);
+                            //     // PitySketch.
+
+                            //     let RUN = LocalSize.Z;
+                            //     let Angle = (360 - plane.azimuthDeg) * Math.PI / 180;
+                            //     let Sketch = new SketchLine(Editor.ActiveEditor, PlaneAngle.X, PlaneAngle.Y, -PlaneAngle.Z, true); // Info.NE.y); // Math.round(p.y));
+                            //     Sketch.DrawLine.LengthAnchor = 0;
+                            //     Sketch.DrawLine.RunAnchor = 0;
+                            //     Sketch.Start();
+
+                            //     Sketch.DrawLine.Angle = Angle;
+                            //     Sketch.DrawLine.Length = LocalSize.X;
+                            //     Sketch.DrawLine.PRIMARY = "D";
+                            //     Sketch.DrawLine.PITCH = Math.tan(plane.slopeDeg * Math.PI / 180) * 12;
+                            //     Sketch.DrawLine.RISE = RUN * Math.tan(plane.slopeDeg * Math.PI / 180);
+                            //     Sketch.DrawLine.RUN = RUN;
+
+                            //     Sketch.Commit();
+                            //     Sketch.Commit();
+                            //     Sketch.DrawLine.UpdateData();
+                            //     Sketch.DrawLine.Update();
+                            // }
+
+                            let roofMaterial = new BABYLON.Material("E", Editor.ActiveEditor.Scene);
+
+                            // const result = buildRoofPlanesBabylon(Editor.ActiveEditor.Scene, MapHeights, Width, Length, CustomLabels, {
+                            //     cellSizeX: 1,
+                            //     cellSizeZ: 1,
+                            //     minPixels: 10,
+                            //     robustPasses: 1,
+                            //     huberDelta: 1.5,
+                            //     // material: roofMaterial,
+                            // });
+
+                            // for (const face of result.faces) {
+                            //     console.log(face.label, face.plane.pitch12, face.plane.azimuthDeg, face.plane.rmse);
+                            //     let PlaneAngle = CFrame.Angles(0, face.plane.azimuthDeg*Math.PI/180, 0);
+
+
+                            //     let PitySketch = new SketchLine(Editor.ActiveEditor, 0, 0, 0, true);
+                            // }
+
+                            // console.log(result);
+
                             {
                                 const canvas = document.createElement('canvas')
                                 canvas.width = Width
@@ -5991,19 +7620,37 @@ export class Editor {
                                     //     1,
                                     //     YES2.labels[i] == -1 ? 0 : 1
                                     // )
+                                    // let HSV = BABYLON.Color3.FromHSV(
+                                    //     YES.labels[i] == -1 ? 0 : YES.labels[i] / (YES.groupLabels.length) * 360,
+                                    //     // 1 - Math.min(24, Pitch) / 24, // 1,
+                                    //     1,
+                                    //     YES.labels[i] == -1 ? 0 : 1
+                                    // )
                                     let HSV = BABYLON.Color3.FromHSV(
-                                        YES.labels[i] == -1 ? 0 : YES.labels[i] / (YES.groupLabels.length) * 360,
-                                        // 1 - Math.min(24, Pitch) / 24, // 1,
-                                        1,
-                                        YES.labels[i] == -1 ? 0 : 1
-                                    )
-                                    HSV = BABYLON.Color3.FromHSV(
                                         // ExpandedBodies.labels[i] == -1 ? 0 : ExpandedBodies.labels[i] / (ExpandedBodies.groupLabels.length) * 360,
                                         ExpandedBodies.labels[i] == -1 ? 0 : ExpandedBodies.labels[i] / (YES.groupLabels.length) * 360,
                                         // 1 - Math.min(24, Pitch) / 24, // 1,
                                         ExpandedBodies.labels[i] == -1 ? 0 : 1,
                                         ModifiedMask[i] // ExpandedBodies.labels[i] == -1 ? 0 : 1
                                     )
+                                    // SlopePixels
+                                    // let HSV = BABYLON.Color3.FromHSV(
+                                    //     AccuratePixels.azimuthDegMap[i],
+                                    //     Math.min(AccuratePixels.pitch12Map[i], 12) / 12,
+                                    //     ModifiedMask[i] // * (1 - Math.max(0, Fit.RMSE / 10)) // HeightAtPixel / ((maxValue - minValue) * 100)
+                                    // );
+                                    // field
+                                    // HSV = BABYLON.Color3.FromHSV(
+                                    //     field.azimuthDegMap[i],
+                                    //     Math.min(field.pitch12Map[i], 12) / 12,
+                                    //     ModifiedMask[i] // * (1 - Math.max(0, Fit.RMSE / 10)) // HeightAtPixel / ((maxValue - minValue) * 100)
+                                    // );
+                                    // HSV = BABYLON.Color3.FromHSV(
+                                    //     (180 - SmoothPixels.azimuthDegMap[i] + 360) % 360,
+                                    //     Math.min(SmoothPixels.pitch12Map[i], 12) / 12,
+                                    //     ModifiedMask[i] // * (1 - Math.max(0, Fit.RMSE / 10)) // HeightAtPixel / ((maxValue - minValue) * 100)
+                                    // );
+                                    // AccuratePixels.azimuthDegMap
 
                                     // let HSV = BABYLON.Color3.FromHSV(
                                     //     (Math.atan(Sobel5x5.slope) * 180 / Math.PI) / 90 * 360,
@@ -6023,22 +7670,31 @@ export class Editor {
                                     //     1 - Math.min(Fit.RMSE, 1) // Fit.RMSE < 2 ? 1 : 0 // Fit.RMSE < 1 ? 1 : 0 // HeightAtPixel / ((maxValue - minValue) * 100)
                                     // );
                                     let Relativity = (MapHeights[i] - RoofMinHeight) / (RoofMaxHeight - RoofMinHeight); // HouseAzimuth
-                                    let SmoothAzimuth = SmartPixels.valid[i] == 1 ? SmartPixels.azimuthDegMap[i] : HouseAzimuth;
+                                    let SmoothAzimuth = AccuratePixels.valid[i] == 1 ? AccuratePixels.azimuthDegMap[i] : HouseAzimuth;
                                     let RoundedAzimuth = (HouseAzimuth + Math.round((SmoothAzimuth - HouseAzimuth) / AngleRounding) * AngleRounding + 360) % 360;
                                     // HSV = BABYLON.Color3.FromHSV(
                                     //     RoundedAzimuth,
                                     //     1, // Math.min(SmoothPixels.pitch12Map[i], 12) / 12, // ModifiedMask[i], // 
                                     //     SmartPixels.valid[i] // Relativity // - Math.min(Fit.RMSE, 1) // Fit.RMSE < 2 ? 1 : 0 // Fit.RMSE < 1 ? 1 : 0 // HeightAtPixel / ((maxValue - minValue) * 100)
                                     // );
+
+
+                                    // HSV = BABYLON.Color3.FromHSV(
+                                    //     AccuratePixels.azimuthDegMap[i],
+                                    //     Math.min(SlopePixels.pitch12Map[i], 12) / 12, // ModifiedMask[i], // 
+                                    //     ModifiedMask[i] // Relativity // - Math.min(Fit.RMSE, 1) // Fit.RMSE < 2 ? 1 : 0 // Fit.RMSE < 1 ? 1 : 0 // HeightAtPixel / ((maxValue - minValue) * 100)
+                                    // );
+
+
                                     // HSV = BABYLON.Color3.FromHSV(
                                     //     edgeMaps.edgeTypeMap[i] / 8 * 360,
-                                    //     edgeMaps.edgeTypeMap[i] == 6 ? 0 : 1, // Math.min(SmoothPixels.pitch12Map[i], 12) / 12, // ModifiedMask[i], // 
-                                    //     SmartPixels.valid[i] // Relativity // - Math.min(Fit.RMSE, 1) // Fit.RMSE < 2 ? 1 : 0 // Fit.RMSE < 1 ? 1 : 0 // HeightAtPixel / ((maxValue - minValue) * 100)
+                                    //     1, //edgeMaps.edgeTypeMap[i] == 6 ? 0 : 1, // Math.min(SmoothPixels.pitch12Map[i], 12) / 12, // ModifiedMask[i], // 
+                                    //     ModifiedMask[i] // Relativity // - Math.min(Fit.RMSE, 1) // Fit.RMSE < 2 ? 1 : 0 // Fit.RMSE < 1 ? 1 : 0 // HeightAtPixel / ((maxValue - minValue) * 100)
                                     // );
                                     // HSV = BABYLON.Color3.FromHSV(
-                                    //     edgeMaps.edgeTypeMap[i] / 8 * 360,
+                                    //     edgeMaps.labelMap[i] / 8 * 360,
                                     //     1, // edgeMaps.edgeTypeMap[i] == 6 ? 0 : 1, // Math.min(SmoothPixels.pitch12Map[i], 12) / 12, // ModifiedMask[i], // 
-                                    //     SmartPixels.valid[i] == 1 ? edgeMaps.edgeStrengthMap[i] : 0 // Relativity // - Math.min(Fit.RMSE, 1) // Fit.RMSE < 2 ? 1 : 0 // Fit.RMSE < 1 ? 1 : 0 // HeightAtPixel / ((maxValue - minValue) * 100)
+                                    //     AccuratePixels.valid[i] // AccuratePixels.valid[i] == 1 ? edgeMaps.strengthMap[i] : 0 // Relativity // - Math.min(Fit.RMSE, 1) // Fit.RMSE < 2 ? 1 : 0 // Fit.RMSE < 1 ? 1 : 0 // HeightAtPixel / ((maxValue - minValue) * 100)
                                     // );
 
 
@@ -6101,7 +7757,7 @@ export class Editor {
                                     //     GroupID == -1 ? 0 : 1
                                     // )
 
-                                    if (SmartPixels.valid[i] == 1) { //YES.labels[i] == -1) {
+                                    if (AccuratePixels.valid[i] == 1) { //YES.labels[i] == -1) {
                                         DrawRGB[k] = Math.round(HSV.r * 255);
                                         DrawRGB[k + 1] = Math.round(HSV.g * 255);
                                         DrawRGB[k + 2] = Math.round(HSV.b * 255);
@@ -6118,7 +7774,7 @@ export class Editor {
                                     // rgba[j + 3] = 0 < Relativity && Relativity < 1 ? 255 : 0 // ModifiedMask[i] * 255;      // A (opaque)
                                 }
 
-                                createGroundFromHeightArray("E", DrawHeights, DrawRGB, Width, Length, 39.3701 / 10, 39.3701 / 10, Editor.ActiveEditor.Scene);
+                                // createGroundFromHeightArray("E", DrawHeights, DrawRGB, Width, Length, 39.3701 / 10, 39.3701 / 10, Editor.ActiveEditor.Scene);
 
                                 // console.log("RGBA", rgba);
 
