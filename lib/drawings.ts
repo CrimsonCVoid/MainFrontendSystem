@@ -174,15 +174,11 @@ export class ExtrudedLine {
         const thisDirX = -Math.cos(this._Angle);
         const thisDirZ = Math.sin(this._Angle);
 
-        const thisRiseX = -Math.sin(this._Angle);
-        const thisRiseZ = Math.cos(this._Angle);
-
         const otherRiseX = -Math.sin(OtherLine._Angle);
         const otherRiseZ = Math.cos(OtherLine._Angle);
 
         const dx0 = CenterDifference.X;
         const dz0 = CenterDifference.Z;
-        const dy0 = CenterDifference.Y;
 
         // Height on this roof along its own centerline usually stays constant
         // because movement is along line direction, not rise direction.
@@ -202,7 +198,7 @@ export class ExtrudedLine {
 
         if (Math.abs(denom) < 1e-10) return null;
 
-        return (dy0 - OtherLine.PITCH * otherRunAt0) / denom;
+        return (CenterDifference.Y - OtherLine.PITCH * otherRunAt0) / denom;
     }
 
     IntersectionDist(OtherLine: ExtrudedLine, CenterDifference: Vector3) {

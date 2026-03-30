@@ -80,6 +80,10 @@ export class Vector3 {
         }
         return [new Vector3(MinX, MinY, MinZ), new Vector3(MaxX, MaxY, MaxZ)];
     }
+    static CenterBounds(V3s: Vector3[]) {
+        let Bounds = Vector3.Bounds(V3s);
+        return Bounds[0].Average(Bounds[1]);
+    }
     Edit(V3: Vector3) { this.X = V3.X; this.Y = V3.Y; this.Z = V3.Z; return this; };
     EditXY(V3: Vector3) { this.X = V3.X; this.Y = V3.Y; return this; };
 
