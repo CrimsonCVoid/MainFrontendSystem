@@ -14,7 +14,7 @@ import { SketchLine } from "./drawings";
 
 import TestingConfig from "./EditorUI.json";
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
-import { Test } from "./backend"; // DebuggingClass
+import { FromSupabase, Test } from "./backend"; // DebuggingClass
 import { earcut } from "./earcut";
 import { CFrame, Vector3 } from "./positioning";
 
@@ -518,7 +518,7 @@ export class Editor {
 
             ground.rotation = new BABYLON.Vector3(0, -Math.PI / 2, 0);
 
-            // return ground;
+            return ground;
 
             // for (let row = 0; row < rows; row++) {
             //     for (let col = 0; col < columns; col++) {
@@ -536,125 +536,441 @@ export class Editor {
             // }
         }
 
-        function removeBorderConnected(mask, width, height) {
-            const visited = new Uint8Array(width * height);
-            const result = new Uint8Array(mask); // copy
 
-            const stack = [];
 
-            function pushIfValid(x, y) {
-                if (x < 0 || y < 0 || x >= width || y >= height) return;
-                const i = y * width + x;
-                if (visited[i] || mask[i] === 0) return;
-                stack.push(i);
-                visited[i] = 1;
-            }
 
-            // Seed from borders
-            for (let x = 0; x < width; x++) {
-                pushIfValid(x, 0);
-                pushIfValid(x, height - 1);
-            }
-            for (let y = 0; y < height; y++) {
-                pushIfValid(0, y);
-                pushIfValid(width - 1, y);
-            }
 
-            // Flood-fill remove
-            while (stack.length) {
-                const i = stack.pop();
-                result[i] = 0;
 
-                const x = i % width;
-                const y = (i / width) | 0;
 
-                pushIfValid(x + 1, y);
-                pushIfValid(x - 1, y);
-                pushIfValid(x, y + 1);
-                pushIfValid(x, y - 1);
-            }
 
-            return result;
-        }
 
-        function unpackMaskBits(packedMask, size) {
-            const out = new Uint8Array(size);
-            for (let i = 0; i < size; i++) {
-                out[i] = (packedMask[i >> 3] >> (i & 7)) & 1;
-            }
-            return out;
-        }
 
-        function parseGridBinary(buffer) {
-            const view = new DataView(buffer);
-            let offset = 0;
 
-            if (view.getUint8(offset++) !== 75 || view.getUint8(offset++) !== 121 || view.getUint8(offset++) !== 120 || view.getUint8(offset++) !== 82) {
-                throw new Error("Invalid file format");
-            }
 
-            const version = view.getUint8(offset++);
-            if (version !== 1) {
-                throw new Error(`Unsupported version: ${version}`);
-            }
 
-            const width = view.getUint32(offset, true); offset += 4;
-            const height = view.getUint32(offset, true); offset += 4;
-            const minHeight = view.getInt32(offset, true); offset += 4;
-            const heightType = view.getUint8(offset++);
 
-            const size = width * height;
 
-            const rgbBytes = size * 3;
-            const rgb = new Uint8Array(buffer, offset, rgbBytes);
-            offset += rgbBytes;
-            if (offset % 2 !== 0) offset += 1;
 
-            let normalizedHeights;
-            if (heightType === 1) {
-                normalizedHeights = new Uint8Array(buffer, offset, size);
-                offset += size;
-            } else if (heightType === 2) {
-                console.log(offset, size, "WAT");
-                normalizedHeights = new Uint16Array(buffer, offset, size);
-                offset += size * 2;
-            } else if (heightType === 4) {
-                normalizedHeights = new Uint32Array(buffer, offset, size);
-                offset += size * 4;
-            } else {
-                throw new Error(`Invalid height type: ${heightType}`);
-            }
 
-            const maskBytes = (size + 7) >> 3;
-            const packedMask = new Uint8Array(buffer, offset, maskBytes);
 
-            return {
-                Width: width,
-                Length: height,
-                TrueHeight: minHeight,
-                RGB: rgb,
-                NormalizedHeightMap: normalizedHeights,
-                Mask: unpackMaskBits(packedMask, size),
-                getHeight(index) {
-                    return minHeight + normalizedHeights[index];
-                },
-                getMask(index) {
-                    return (packedMask[index >> 3] >> (index & 7)) & 1;
-                },
-                unpackHeights() {
-                    const out = new Int32Array(size);
-                    for (let j = 0; j < size; j++) {
-                        out[j] = minHeight + normalizedHeights[j];
-                    }
-                    return out;
-                },
-            };
-        }
 
-        async function LoadFileKyxR(file) {
-            const buffer = await file.arrayBuffer();
-            return parseGridBinary(buffer);
-        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        // type CircularStencil = {
+        //     radiusPixels: number;
+        //     cellSizeX: number;
+        //     cellSizeZ: number;
+        //     dx: Int16Array;      // pixel offsets
+        //     dz: Int16Array;      // pixel offsets
+        //     ox: Float32Array;    // world offsets
+        //     oz: Float32Array;    // world offsets
+        //     w: Float32Array;     // spatial weights
+        //     count: number;
+        // };
+
+        // type ComputeCircularMapsOptions = {
+        //     radius?: number;
+        //     cellSizeX?: number;
+        //     cellSizeZ?: number;
+        //     distanceWeightPower?: number;   // 0 = uniform, 1 = 1/d, 2 = 1/d^2
+        //     minNeighbors?: number;
+        //     minSlopeDegForAzimuth?: number;
+        //     computeFitError?: boolean;
+        //     noData?: number;
+        //     mask?: ArrayLike<number> | null;
+        //     stencil?: CircularStencil;
+        // };
+
+        // type CircularMaps = {
+        //     slopeDegMap: Float32Array;
+        //     pitch12Map: Float32Array;
+        //     azimuthDegMap: Float32Array;
+        //     dYdXMap: Float32Array;
+        //     dYdZMap: Float32Array;
+        //     fitErrorMap: Float32Array;
+        //     samplesUsedMap: Uint16Array;
+        //     valid: Uint8Array;
+        //     stencil: CircularStencil;
+        // };
+
+        // const RAD2DEG = 180 / Math.PI;
+        // const DEG2RAD = Math.PI / 180;
+
+        // function createCircularStencil(
+        //     radiusPixels: number,
+        //     cellSizeX = 1,
+        //     cellSizeZ = 1,
+        //     distanceWeightPower = 1
+        // ): CircularStencil {
+        //     const dxs: number[] = [];
+        //     const dzs: number[] = [];
+        //     const oxs: number[] = [];
+        //     const ozs: number[] = [];
+        //     const ws: number[] = [];
+
+        //     const r2 = radiusPixels * radiusPixels;
+        //     const weightPow = 0.5 * distanceWeightPower;
+
+        //     for (let dz = -radiusPixels; dz <= radiusPixels; dz++) {
+        //         for (let dx = -radiusPixels; dx <= radiusPixels; dx++) {
+        //             const pixelD2 = dx * dx + dz * dz;
+        //             if (pixelD2 === 0 || pixelD2 > r2) continue;
+
+        //             const ox = dx * cellSizeX;
+        //             const oz = dz * cellSizeZ;
+        //             const worldD2 = ox * ox + oz * oz;
+
+        //             const w = distanceWeightPower === 0
+        //                 ? 1
+        //                 : 1 / Math.pow(worldD2, weightPow);
+
+        //             dxs.push(dx);
+        //             dzs.push(dz);
+        //             oxs.push(ox);
+        //             ozs.push(oz);
+        //             ws.push(w);
+        //         }
+        //     }
+
+        //     return {
+        //         radiusPixels,
+        //         cellSizeX,
+        //         cellSizeZ,
+        //         dx: Int16Array.from(dxs),
+        //         dz: Int16Array.from(dzs),
+        //         ox: Float32Array.from(oxs),
+        //         oz: Float32Array.from(ozs),
+        //         w: Float32Array.from(ws),
+        //         count: dxs.length,
+        //     };
+        // }
+
+        // /**
+        //  * Computes local slope + azimuth using a weighted circular neighborhood.
+        //  *
+        //  * Model:
+        //  *   dh ~= gx * ox + gz * oz
+        //  *
+        //  * where:
+        //  *   gx = dY/dX
+        //  *   gz = dY/dZ
+        //  *
+        //  * This is a local gradient solve over a disk, not a final roof-plane grouping step.
+        //  *
+        //  * Azimuth convention used here:
+        //  *   0° = +Z
+        //  *   90° = +X
+        //  *   180° = -Z
+        //  *   270° = -X
+        //  * and it points DOWNSLOPE.
+        //  */
+        // function computeLocalCircularMaps(
+        //     heights: ArrayLike<number>,
+        //     width: number,
+        //     height: number,
+        //     options: ComputeCircularMapsOptions = {}
+        // ): CircularMaps {
+        //     const {
+        //         radius = 4,
+        //         cellSizeX = 1,
+        //         cellSizeZ = 1,
+        //         distanceWeightPower = 1,
+        //         minNeighbors = 8,
+        //         minSlopeDegForAzimuth = 2,
+        //         computeFitError = true,
+        //         noData,
+        //         mask = null,
+        //         stencil = createCircularStencil(radius, cellSizeX, cellSizeZ, distanceWeightPower),
+        //     } = options;
+
+        //     const n = width * height;
+        //     if (heights.length !== n) {
+        //         throw new Error(`heights.length (${heights.length}) must equal width*height (${n})`);
+        //     }
+        //     if (mask && mask.length !== n) {
+        //         throw new Error(`mask.length (${mask.length}) must equal width*height (${n})`);
+        //     }
+
+        //     const slopeDegMap = new Float32Array(n);
+        //     const pitch12Map = new Float32Array(n);
+        //     const azimuthDegMap = new Float32Array(n);
+        //     const dYdXMap = new Float32Array(n);
+        //     const dYdZMap = new Float32Array(n);
+        //     const fitErrorMap = new Float32Array(n);
+        //     const samplesUsedMap = new Uint16Array(n);
+        //     const valid = new Uint8Array(n);
+
+        //     slopeDegMap.fill(NaN);
+        //     pitch12Map.fill(NaN);
+        //     azimuthDegMap.fill(NaN);
+        //     dYdXMap.fill(NaN);
+        //     dYdZMap.fill(NaN);
+        //     fitErrorMap.fill(NaN);
+
+        //     const dxs = stencil.dx;
+        //     const dzs = stencil.dz;
+        //     const oxs = stencil.ox;
+        //     const ozs = stencil.oz;
+        //     const ws = stencil.w;
+        //     const kCount = stencil.count;
+
+        //     const hasNoData = noData !== undefined;
+
+        //     for (let z = 0; z < height; z++) {
+        //         const rowBase = z * width;
+
+        //         for (let x = 0; x < width; x++) {
+        //             const i = rowBase + x;
+        //             const h0 = heights[i];
+
+        //             if (!Number.isFinite(h0)) continue;
+        //             if (hasNoData && h0 === noData) continue;
+        //             if (mask && mask[i] === 0) continue;
+
+        //             let sxx = 0;
+        //             let sxz = 0;
+        //             let szz = 0;
+        //             let bx = 0;
+        //             let bz = 0;
+        //             let wsum = 0;
+        //             let count = 0;
+
+        //             // First pass: solve local gradient over a circular neighborhood
+        //             for (let k = 0; k < kCount; k++) {
+        //                 const nx = x + dxs[k];
+        //                 if (nx < 0 || nx >= width) continue;
+
+        //                 const nz = z + dzs[k];
+        //                 if (nz < 0 || nz >= height) continue;
+
+        //                 const j = nz * width + nx;
+        //                 const hj = heights[j];
+
+        //                 if (!Number.isFinite(hj)) continue;
+        //                 if (hasNoData && hj === noData) continue;
+        //                 if (mask && mask[j] === 0) continue;
+
+        //                 const dh = hj - h0;
+        //                 const ox = oxs[k];
+        //                 const oz = ozs[k];
+        //                 const w = ws[k];
+
+        //                 sxx += w * ox * ox;
+        //                 sxz += w * ox * oz;
+        //                 szz += w * oz * oz;
+        //                 bx += w * ox * dh;
+        //                 bz += w * oz * dh;
+        //                 wsum += w;
+        //                 count++;
+        //             }
+
+        //             if (count < minNeighbors) continue;
+
+        //             const det = sxx * szz - sxz * sxz;
+        //             if (Math.abs(det) < 1e-12) continue;
+
+        //             const gx = (bx * szz - bz * sxz) / det;
+        //             const gz = (bz * sxx - bx * sxz) / det;
+
+        //             dYdXMap[i] = gx;
+        //             dYdZMap[i] = gz;
+        //             samplesUsedMap[i] = count;
+        //             valid[i] = 1;
+
+        //             const gradMag = Math.hypot(gx, gz);
+        //             const slopeRad = Math.atan(gradMag);
+        //             const slopeDeg = slopeRad * RAD2DEG;
+        //             const pitch12 = 12 * Math.tan(slopeRad);
+
+        //             slopeDegMap[i] = slopeDeg;
+        //             pitch12Map[i] = pitch12;
+
+        //             // Downslope azimuth
+        //             if (slopeDeg >= minSlopeDegForAzimuth) {
+        //                 const vx = -gx;
+        //                 const vz = -gz;
+        //                 let az = Math.atan2(vx, vz) * RAD2DEG; // 0° at +Z, clockwise
+        //                 if (az < 0) az += 360;
+        //                 azimuthDegMap[i] = az;
+        //             }
+
+        //             if (computeFitError) {
+        //                 let rss = 0;
+
+        //                 for (let k = 0; k < kCount; k++) {
+        //                     const nx = x + dxs[k];
+        //                     if (nx < 0 || nx >= width) continue;
+
+        //                     const nz = z + dzs[k];
+        //                     if (nz < 0 || nz >= height) continue;
+
+        //                     const j = nz * width + nx;
+        //                     const hj = heights[j];
+
+        //                     if (!Number.isFinite(hj)) continue;
+        //                     if (hasNoData && hj === noData) continue;
+        //                     if (mask && mask[j] === 0) continue;
+
+        //                     const dh = hj - h0;
+        //                     const ox = oxs[k];
+        //                     const oz = ozs[k];
+        //                     const w = ws[k];
+
+        //                     const predicted = gx * ox + gz * oz;
+        //                     const err = dh - predicted;
+        //                     rss += w * err * err;
+        //                 }
+
+        //                 fitErrorMap[i] = Math.sqrt(rss / wsum);
+        //             }
+        //         }
+        //     }
+
+        //     return {
+        //         slopeDegMap,
+        //         pitch12Map,
+        //         azimuthDegMap,
+        //         dYdXMap,
+        //         dYdZMap,
+        //         fitErrorMap,
+        //         samplesUsedMap,
+        //         valid,
+        //         stencil,
+        //     };
+        // }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         Scene.onKeyboardObservable.add(async (kbInfo) => {
             if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYDOWN) {
@@ -710,119 +1026,25 @@ export class Editor {
 
                         const fileInput = document.createElement("input");
                         fileInput.type = "file";
+                        fileInput.multiple = true;
                         fileInput.style.display = "none";
-                        fileInput.accept = ".kyxr";
+                        fileInput.accept = ".kyxr,.json";
                         document.body.appendChild(fileInput);
 
                         fileInput.addEventListener("change", async () => {
-                            const file = fileInput.files?.[0];
+                            const jsonfile = fileInput.files?.[0];
+                            if (!jsonfile) return;
+                            const file = fileInput.files?.[1];
                             if (!file) return;
 
-                            const KissMyAss = await LoadFileKyxR(file);
-                            const NormalizedHeights = KissMyAss.NormalizedHeightMap;
-                            const Length = KissMyAss.Length;
-                            const Width = KissMyAss.Width;
-
-                            console.log(KissMyAss);
 
                             fileInput.value = "";
                             fileInput.remove();
 
-                            let MinHeight = Infinity;
-                            let MaxHeight = -Infinity;
-                            for (let y of NormalizedHeights) {
-                                MinHeight = Math.min(MinHeight, y);
-                                MaxHeight = Math.max(MaxHeight, y);
-                            }
-                            console.log("NORMALIZED HEIGHTS (MM)", NormalizedHeights, MinHeight, MaxHeight);
+                            const Results = await FromSupabase(file, jsonfile);
 
-                            // i didn't realize that .map was turning it into whole numbers... oml.
-                            let MapHeights = []; // NormalizedHeights.map((Height) => Height / 100); // mm to dm //
-                            for (let Height of NormalizedHeights) {
-                                MapHeights.push(Height / 100);
-                                // MapHeights.push(Math.round(Height / 100)); // Might have this re-enabled to prevent people from just taking the DSMs, idk.
-                            }
-
-                            let MinHeightInDM = Infinity;
-                            let MaxHeightInDM = -Infinity;
-                            for (let y of MapHeights) {
-                                MinHeightInDM = Math.min(MinHeightInDM, y);
-                                MaxHeightInDM = Math.max(MaxHeightInDM, y);
-                            }
-
-                            console.log("MAP HEIGHTS (DM)", MapHeights, MinHeightInDM, MaxHeightInDM);
-                            // console.log("Min Height", Math.min(...MapHeights));
-                            // console.log("Max Height", Math.max(...MapHeights));
-                            // Each pixel is 1 dm, and the height are whole numbers measured in dm. //
-
-                            let ModifiedMask = removeBorderConnected(KissMyAss.Mask, Width, Length); // new Uint8Array(KissMyAss.Mask.byteLength).fill(1); // 
-
-                            /*
-                            Forgetting the previous questions regarding roofing to prevent any bias and repetition. I have a DSM raster that consists of heights measured in whole decimeters, each pixel is 1dm in width and height, it is also not aligned with the house at all. I am trying to recreate a roof with each roof plane split up as its own. I would like each roof plane to be as complete as possible where obstructions above it do not affect its geometry unless it is a gap of some sort, due to this, I would like it to reconstruct those areas like if a tree was covering part of the roof and it detected the height being much higher than it should be, especially if the (slightly unreliable) roof mask (consisting of 0 and 1s for non-roof and roof) determined it was not a roof at that point. I would like to use multi-plane fitting to determine shared edges between these roof planes. These roof planes need to be simple and sharp with straight lines, no jagged/stair-stepping, that way I can layer a custom roof model on top of them. The 3D model is being made in Babylon.js. All I have to feed it should be the DSM raster, roof mask (slightly unreliable, but helps with figuring out where to start), width, height, the Babylon scene, and the scalar. I'd advise for the most consistent results to use intersections on every height from top to bottom (via azimuth) within the height boundaries of each roof plane to stretch it both ways unless it detects that it is a gable or whatever other limiter that makes sense. This would allow for straight and shared lines.
-                            
-                            */
-
-                            // if (true) return;
-
-                            console.log("HEIGHTS", MapHeights);
-                            const DrawRGB = new Uint8Array(KissMyAss.RGB);
-                            let DrawHeights = [];
-                            let RoofMinHeight = Infinity; // = Math.min(...Array.from(MapHeights));
-                            let RoofMaxHeight = -Infinity; // = Math.max(...Array.from(MapHeights));
-
-                            for (let Index in MapHeights) {
-                                if (ModifiedMask[Index] == 0) continue;
-                                let Height = MapHeights[Index];
-                                RoofMinHeight = Math.min(RoofMinHeight, Height);
-                                RoofMaxHeight = Math.max(RoofMaxHeight, Height);
-                            }
-
-                            for (let Index in MapHeights) {
-                                if (ModifiedMask[Index] == 0) {
-                                    // DrawHeights.push(0);
-                                    // DrawHeights.push(MapHeights[Index]);
-                                    DrawHeights.push(Math.min(RoofMinHeight, MapHeights[Index]));
-                                    continue;
-                                };
-                                DrawHeights.push(MapHeights[Index]);
-                            }
-
-                            console.log("OM", RoofMinHeight, RoofMaxHeight)
-
-                            // console.log(result);
-
-                            {
-                                // console.log("LENGTH OF RGB???", width, height, rasters.length, rasters)
-                                for (let i = 0, k = 0; i < Width * Length; i++, k += 3) {
-                                    // let HeightAtPixel = NormalizedHeights[i];
-                                    // let HeightAtPixelSimp = Math.round(NormalizedHeights[i] / 10);
-                                    // let Most = HeightCounts[0];
-                                    // let MostSimp = HeightCountsSimp[0];
-                                    // let N = Math.max(0, Math.floor(HeightAtPixel));
-                                    // let HSV = BABYLON.Color3.FromHSV(HeightAtPixel / ((maxValue - minValue) * 1000) * 270, 1, 1);
-                                    // let HSV = BABYLON.Color3.FromHSV(CountHeights[HeightAtPixel] / Most.Count * 270, 1, 1);
-                                    // let HSV = BABYLON.Color3.FromHSV(CountHeightsSimp[HeightAtPixelSimp] / MostSimp.Count * 270, 1, 1);
-                                    // let HSV = BABYLON.Color3.FromHSV(Math.min(Slopes[i] / Math.min(MaxSlope, 1), 1) * 270, 1, 1);
-                                    // let HSV = BABYLON.Color3.FromHSV(((Slopes[i] - MinSlope) / (MaxSlope - MinSlope) * 360), 1, 1);
-                                    // let HSV = BABYLON.Color3.FromHSV((Math.atan2(Slopes[i], 12) * 180 / Math.PI) * 4, 1, 1);
-                                    // let HSV = BABYLON.Color3.FromHSV(CountSlopes[Slopes[i]] / SlopeCounts[0].Count * 270, 1, 1);
-                                    // let HSV = BABYLON.Color3.FromHSV((Slopes[i] - MinSlope) / ((MaxSlope - MinSlope)) * 360, 1, 1);
-                                    // let HSV = BABYLON.Color3.FromHSV((Slopes[i] * 180 / Math.PI + 180) % 360, 1, 1);
-
-                                    let Relativity = (MapHeights[i] - RoofMinHeight) / (RoofMaxHeight - RoofMinHeight); // HouseAzimuth
-                                    if (ModifiedMask[i] == 1) {
-                                        DrawRGB[k] = KissMyAss.RGB[k] * Relativity;
-                                        DrawRGB[k + 1] = KissMyAss.RGB[k + 1] * Relativity;
-                                        DrawRGB[k + 2] = KissMyAss.RGB[k + 2] * Relativity;
-                                    }
-                                }
-
-                                createGroundFromHeightArray("E", DrawHeights, DrawRGB, Width, Length, 39.3701 / 10, 39.3701 / 10, Editor.ActiveEditor.Scene);
-
-                                // let RGB_Index = await NewPDF.AddImage(pngBytes);
-                                // NewPDF.PageIndex = 0;
-                                // NewPDF.DrawImage(RGB_Index);
-                            }
+                            const ground = createGroundFromHeightArray("E", Results.DrawHeights, Results.DrawRGB, Results.Width, Results.Length, 39.3701 / 10, 39.3701 / 10, Editor.ActiveEditor.Scene);
+                            ground.position.y -= 5;
                         });
 
                         fileInput.click();

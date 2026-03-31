@@ -230,16 +230,11 @@ export default function RoofViewer3D({
       const Engine = new BABYLON.Engine(canvasRef.current, true, {
         antialias: true,
         powerPreference: "high-performance",
-        stencil: true, preserveDrawingBuffer: true, alpha: true
+        stencil: true, preserveDrawingBuffer: true, // alpha: true
       });
       Engine.setHardwareScalingLevel(1 / Math.min(window.devicePixelRatio || 1, 2));
       engineRef.current = Engine;
 
-      for (let i in SketchLine.AllRelations) {
-        delete SketchLine.AllRelations[i];
-        // SketchLine.AllRelations[i] = undefined;
-      }
-      SketchLine.AllRelations = [];
       for (let i in SketchLine.AllDrawings) {
         SketchLine.AllDrawings[i].Delete();
         delete SketchLine.AllDrawings[i];
