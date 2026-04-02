@@ -25,26 +25,27 @@
  */
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import * as BABYLON from "@babylonjs/core";
 
 declare global { interface Window { BABYLON?: any } }
 
-// Babylon.js CDN loader - ensures library is loaded before creating scene
-let babylonReady: Promise<void> | null = null;
-async function ensureBabylon() {
-  if (typeof window === "undefined" || window.BABYLON) return;
-  if (!babylonReady) {
-    const add = (src: string) =>
-      new Promise<void>((res, rej) => {
-        const s = document.createElement("script");
-        s.src = src; s.async = true;
-        s.onload = () => res();
-        s.onerror = () => rej(new Error(`Failed to load ${src}`));
-        document.head.appendChild(s);
-      });
-    babylonReady = Promise.resolve().then(() => add("https://cdn.babylonjs.com/babylon.js"));
-  }
-  await babylonReady;
-}
+// // Babylon.js CDN loader - ensures library is loaded before creating scene
+// let babylonReady: Promise<void> | null = null;
+// async function ensureBabylon() {
+//   if (typeof window === "undefined" || window.BABYLON) return;
+//   if (!babylonReady) {
+//     const add = (src: string) =>
+//       new Promise<void>((res, rej) => {
+//         const s = window.document.createElement("script");
+//         s.src = src; s.async = true;
+//         s.onload = () => res();
+//         s.onerror = () => rej(new Error(`Failed to load ${src}`));
+//         window.document.head.appendChild(s);
+//       });
+//     babylonReady = Promise.resolve().then(() => add("https://cdn.babylonjs.com/babylon.js"));
+//   }
+//   await babylonReady;
+// }
 
 type PanelProfile = "standing-seam" | "r-panel" | "5v-crimp" | "pbr-panel";
 
@@ -68,31 +69,39 @@ type Props = {
   color?: string;
   /** hide all UI controls (for hero/landing page) */
   hideControls?: boolean;
+  /** real roof data from algorithm — overrides width/depth/pitch when present */
+  roofData?: any;
+  /** callback when canvas is ready for screenshot capture */
+  onCanvasReady?: (canvas: HTMLCanvasElement) => void;
 };
 
 export default function RoofViewer3D({
   className = "",
-  width = 12,
-  depth = 8,
-  pitch = 0.5,
+  width: widthProp = 12,
+  depth: depthProp = 8,
+  pitch: pitchProp = 0.5,
   overhang = 0.20,
   thickness = 0.035,
   seamSpacing = 0.4572,
   spin = true,
   color = "#4B5563",
   hideControls = false,
+  roofData,
+  onCanvasReady,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<any>(null);
   const panelMaterialRef = useRef<any>(null);
   const cameraRef = useRef<any>(null);
+  const meshesRef = useRef<any>(null);
   const [selectedColor, setSelectedColor] = useState(color);
   const [selectedSeries, setSelectedSeries] = useState<"select" | "reserve" | "benchmark">("select");
   const [isRotating, setIsRotating] = useState(spin);
   const [currentView, setCurrentView] = useState<"perspective" | "top" | "front" | "side">("perspective");
   const [panelProfile, setPanelProfile] = useState<PanelProfile>("standing-seam");
   const [showColorPicker, setShowColorPicker] = useState(true);
+  const [standingSeamWidth, setStandingSeamWidth] = useState(16); // Default 16 inches
 
   // MMR color collections (official color chart)
   const roofColors = {
@@ -182,10 +191,26 @@ export default function RoofViewer3D({
     },
   ];
 
-  // KY - INTEGRATION POINT:
-  // Replace these mock dimensions with real roof data from your rendering algorithm
-  // Add roofData prop to component: roofData?: { planes: [], measurements: {}, total_area_sf: number }
-  // Then use roofData.planes to render actual geometry instead of simple mock roof
+  // Derive effective dimensions from roofData when available, fall back to props
+  const { width, depth, pitch } = useMemo(() => {
+    if (roofData?.total_area_sf && roofData.total_area_sf > 0) {
+      // Convert total area from sq ft to sq meters for 3D scene
+      const areaM2 = roofData.total_area_sf / 10.7639;
+      // Approximate roof footprint as rectangle (width:depth ≈ 1.4:1)
+      const effectiveWidth = Math.sqrt(areaM2 * 1.4);
+      const effectiveDepth = areaM2 / effectiveWidth;
+      // Use average slope from planes, convert degrees to rise/run
+      const avgSlope = roofData.planes?.length
+        ? roofData.planes.reduce((sum: number, p: any) => sum + (p.slope || 0), 0) / roofData.planes.length
+        : 0;
+      const effectivePitch = avgSlope > 0
+        ? Math.tan((avgSlope * Math.PI) / 180)
+        : pitchProp;
+      return { width: effectiveWidth, depth: effectiveDepth, pitch: effectivePitch };
+    }
+    return { width: widthProp, depth: depthProp, pitch: pitchProp };
+  }, [roofData, widthProp, depthProp, pitchProp]);
+
   const dims = useMemo(() => {
     const run = depth / 2;
     const rise = pitch * run;
@@ -212,106 +237,208 @@ export default function RoofViewer3D({
   useEffect(() => {
     let disposed = false;
     (async () => {
-      await ensureBabylon();
-      const B = window.BABYLON!;
       if (!canvasRef.current || disposed) return;
 
-      try { engineRef.current?.dispose?.(); } catch {}
-      const engine = new B.Engine(canvasRef.current, true, {
+      try { engineRef.current?.dispose?.(); } catch { }
+      meshesRef.current = [];
+      const Engine = new BABYLON.Engine(canvasRef.current, true, {
         antialias: true,
         powerPreference: "high-performance",
+        stencil: true, preserveDrawingBuffer: true, alpha: true
       });
-      engine.setHardwareScalingLevel(1 / Math.min(window.devicePixelRatio || 1, 2));
-      engineRef.current = engine;
+      Engine.setHardwareScalingLevel(1 / Math.min(window.devicePixelRatio || 1, 2));
+      engineRef.current = Engine;
 
-      const scene = new B.Scene(engine);
-      scene.clearColor = new B.Color4(1, 1, 1, 1);
-      scene.environmentTexture = B.CubeTexture.CreateFromPrefilteredData(
-        "https://assets.babylonjs.com/environments/environmentSpecular.env",
-        scene
-      );
+      const Scene = new BABYLON.Scene(Engine);
+      Scene.clearColor = new BABYLON.Color4(0.92, 0.93, 0.95, 1); // Light gray sky
+      // Environment texture optional for StandardMaterial
 
       const { run, rise, slopeAngle, slopedLen, wTop } = dims;
 
-      // camera
-      const cam = new B.ArcRotateCamera(
-        "cam",
-        B.Tools.ToRadians(35),
-        B.Tools.ToRadians(60),
-        Math.max(wTop, run * 2) * 1.2,
-        new B.Vector3(0, rise * 0.6, 0),
-        scene
+      // Camera — start at a generous radius; will be auto-fitted after mesh creation
+      const Camera = new BABYLON.ArcRotateCamera(
+        "Camera",
+        BABYLON.Tools.ToRadians(45),
+        BABYLON.Tools.ToRadians(55),
+        1500,
+        BABYLON.Vector3.Zero(),
+        Scene
       );
-      cam.attachControl(canvasRef.current, false);
-      cam.panningSensibility = 0;
-      cam.wheelDeltaPercentage = 0.012;
-      cam.lowerRadiusLimit = Math.max(1, Math.min(wTop, run) * 0.6);
-      cam.upperRadiusLimit = Math.max(wTop, run) * 4;
-      cameraRef.current = cam;
+      Camera.attachControl(canvasRef.current, true);
+      Camera.minZ = 1;
+      Camera.maxZ = 100000;
+      Camera.lowerRadiusLimit = 50;
+      Camera.upperRadiusLimit = 10000;
+      Camera.wheelDeltaPercentage = 0.01;
+      Camera.panningSensibility = 5;
+      cameraRef.current = Camera;
 
-      // light
-      new B.HemisphericLight("h", new B.Vector3(0, 1, 0), scene).intensity = 0.8;
-      const sun = new B.DirectionalLight("sun", new B.Vector3(-0.6, -1, -0.3), scene);
-      sun.position = new B.Vector3(15, 20, 12);
-      sun.intensity = 1.1;
+      // Lighting — bright enough for metallic PBR materials
+      const hemiLight = new BABYLON.HemisphericLight("h", new BABYLON.Vector3(0, 1, 0), Scene);
+      hemiLight.intensity = 1.2;
+      hemiLight.groundColor = BABYLON.Color3.FromHexString("#6080a0");
 
-      // Root transform node for rotation control
-      const root = new B.TransformNode("root", scene);
+      const sun = new BABYLON.DirectionalLight("sun", new BABYLON.Vector3(-0.5, -1, -0.3), Scene);
+      sun.position = new BABYLON.Vector3(500, 1000, 500);
+      sun.intensity = 1.5;
+      sun.diffuse = BABYLON.Color3.FromHexString("#fffaf0");
 
-      // Metal roof panel material (PBR with metallic properties)
-      const panelMat = new B.PBRMetallicRoughnessMaterial("panelMat", scene);
-      panelMat.baseColor = B.Color3.FromHexString(selectedColor);
-      panelMat.metallic = 1; panelMat.roughness = 0.25;
+      // Root transform for rotation
+      const root = new BABYLON.TransformNode("root", Scene);
+
+      // Roof panel material — StandardMaterial for reliable visibility
+      const panelMat = new BABYLON.StandardMaterial("panelMat", Scene);
+      panelMat.diffuseColor = BABYLON.Color3.FromHexString(selectedColor);
+      panelMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
       panelMat.backFaceCulling = false;
       panelMaterialRef.current = panelMat;
 
-      // KY - INTEGRATION POINT:
-      // Replace makePanel logic with actual roof geometry from roofData.planes
-      // Loop through roofData.planes and create meshes from vertices:
-      // roofData.planes.forEach(plane => {
-      //   const mesh = B.MeshBuilder.CreatePolygon("plane", { shape: plane.vertices }, scene);
-      //   mesh.material = panelMat;
-      // });
+      // Check for renderable roof data from backend planes[].vertices
+      const hasRoofData = roofData?.planes?.length > 0 && roofData.planes.some((p: any) => p.vertices?.length >= 3);
+      console.log("[RoofViewer3D] hasRoofData:", hasRoofData, "planes:", roofData?.planes?.length ?? 0);
 
-      const makePanel = (name: string, side: "left" | "right") => {
-        const box = B.MeshBuilder.CreateBox(name, {
-          width: wTop,
-          height: thickness,
-          depth: slopedLen,
-        }, scene);
-        box.material = panelMat;
-        const sign = side === "left" ? -1 : +1;
-        box.rotation.x = sign * slopeAngle;
 
-        const zEdge = (slopedLen / 2) * Math.cos(slopeAngle);
-        const yEdge = (slopedLen / 2) * Math.sin(slopeAngle);
-        box.position.z = sign * zEdge;
-        box.position.y = rise - yEdge;
-        box.parent = root;
-        return box;
-      };
 
-      makePanel("panelL", "left");
-      makePanel("panelR", "right");
 
-      // ridge cap
-      const ridge = B.MeshBuilder.CreateBox("ridge", {
-        width: wTop * 1.01,
-        height: Math.max(0.06, thickness * 1.2),
-        depth: 0.20,
-      }, scene);
-      const ridgeMat = new B.PBRMetallicRoughnessMaterial("ridgeMat", scene);
-      ridgeMat.baseColor = B.Color3.FromHexString("#374151");
-      ridgeMat.metallic = 1; ridgeMat.roughness = 0.3;
-      ridge.material = ridgeMat;
-      ridge.position.set(0, rise + ridge.getBoundingInfo().boundingBox.extendSize.y, 0);
-      ridge.parent = root;
+
+
+
+
+
+
+
+
+
+
+      if (hasRoofData) {
+        // --- RENDER ROOF FROM BACKEND planes[].vertices ---
+        // Backend computes 4-corner vertices per plane in meters relative to building center
+        // Vertices: [[x,y,z], [x,y,z], [x,y,z], [x,y,z]]
+        // x = east-west, y = height, z = north-south
+        // Maps directly to Babylon: X = east-west, Y = height, Z = north-south
+        const createdMeshes: BABYLON.Mesh[] = [];
+
+        for (let i = 0; i < roofData.planes.length; i++) {
+          const plane = roofData.planes[i];
+          if (!plane.vertices || plane.vertices.length < 3) continue;
+
+          // Flatten vertices into position array
+          const positions: number[] = [];
+          for (const v of plane.vertices) {
+            positions.push(v[0], v[1], v[2]);
+          }
+
+          // Triangulate with front + back faces (double-sided)
+          const indices: number[] = [];
+          const numVerts = plane.vertices.length;
+          for (let t = 1; t < numVerts - 1; t++) {
+            indices.push(0, t, t + 1);     // front
+            indices.push(0, t + 1, t);     // back
+          }
+
+          const normals: number[] = [];
+          BABYLON.VertexData.ComputeNormals(positions, indices, normals);
+
+          const mesh = new BABYLON.Mesh(`plane-${i}`, Scene);
+          const vertexData = new BABYLON.VertexData();
+          vertexData.positions = positions;
+          vertexData.indices = indices;
+          vertexData.normals = normals;
+          vertexData.applyToMesh(mesh);
+
+          mesh.material = panelMat;
+          mesh.parent = root;
+          createdMeshes.push(mesh);
+          meshesRef.current.push([mesh, null, `plane-${i}`]);
+        }
+
+        console.log(`[RoofViewer3D] Rendered ${createdMeshes.length} roof planes from backend vertices`);
+
+        // Auto-center and fit camera to all geometry
+        if (createdMeshes.length > 0) {
+          let bMin = new BABYLON.Vector3(Infinity, Infinity, Infinity);
+          let bMax = new BABYLON.Vector3(-Infinity, -Infinity, -Infinity);
+          for (const mesh of createdMeshes) {
+            mesh.computeWorldMatrix(true);
+            const bi = mesh.getBoundingInfo();
+            bMin = BABYLON.Vector3.Minimize(bMin, bi.boundingBox.minimumWorld);
+            bMax = BABYLON.Vector3.Maximize(bMax, bi.boundingBox.maximumWorld);
+          }
+
+          const cx = (bMin.x + bMax.x) / 2;
+          const cy = (bMin.y + bMax.y) / 2;
+          const cz = (bMin.z + bMax.z) / 2;
+          root.position.set(-cx, -cy, -cz);
+
+          const span = BABYLON.Vector3.Distance(bMin, bMax);
+
+          Camera.setTarget(BABYLON.Vector3.Zero());
+          Camera.radius = span * 0.9;
+          Camera.lowerRadiusLimit = span * 0.2;
+          Camera.upperRadiusLimit = span * 4;
+          Camera.minZ = 0.01;
+          Camera.maxZ = span * 10;
+
+          // Ground plane
+          const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: span * 2, height: span * 2 }, Scene);
+          const groundMat = new BABYLON.StandardMaterial("groundMat", Scene);
+          groundMat.diffuseColor = BABYLON.Color3.FromHexString("#3a4a3a");
+          groundMat.specularColor = BABYLON.Color3.Black();
+          ground.material = groundMat;
+          ground.position.y = -(bMax.y - bMin.y) / 2 - 0.05;
+          ground.parent = root;
+
+          console.log(`[RoofViewer3D] Span: ${span.toFixed(1)}m, camera: ${(span * 0.9).toFixed(1)}`);
+        }
+      }
+
+      // --- FALLBACK: Mock gable roof when no real data ---
+      if (!hasRoofData) {
+        const makePanel = (name: string, side: "left" | "right") => {
+          const boxSettings: any = {
+            width: wTop,
+            height: thickness,
+            depth: slopedLen,
+            updatable: true,
+          };
+          const box = BABYLON.MeshBuilder.CreateBox(name, boxSettings, Scene);
+          boxSettings.instance = box;
+          box.material = panelMat;
+          meshesRef.current.push([box, boxSettings, name]);
+
+          const sign = side === "left" ? -1 : +1;
+          box.rotation.x = sign * slopeAngle;
+
+          const zEdge = (slopedLen / 2) * Math.cos(slopeAngle);
+          const yEdge = (slopedLen / 2) * Math.sin(slopeAngle);
+          box.position.z = sign * zEdge;
+          box.position.y = rise - yEdge;
+          box.parent = root;
+          return box;
+        };
+
+        makePanel("panelL", "left");
+        makePanel("panelR", "right");
+
+        // ridge cap
+        const ridge = BABYLON.MeshBuilder.CreateBox("ridge", {
+          width: wTop * 1.01,
+          height: Math.max(0.06, thickness * 1.2),
+          depth: 0.20,
+        }, Scene);
+        const ridgeMat = new BABYLON.StandardMaterial("ridgeMat", Scene);
+        ridgeMat.diffuseColor = BABYLON.Color3.FromHexString("#374151");
+        ridgeMat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+        ridge.material = ridgeMat;
+        ridge.position.set(0, rise + ridge.getBoundingInfo().boundingBox.extendSize.y, 0);
+        ridge.parent = root;
+      }
 
       // spin
       let rotationEnabled = isRotating;
-      scene.onBeforeRenderObservable.add(() => {
+      Scene.onBeforeRenderObservable.add(() => {
         if (rotationEnabled) {
-          root.rotation.y += engine.getDeltaTime() * 0.0006;
+          root.rotation.y += Engine.getDeltaTime() * 0.0006;
         }
       });
 
@@ -319,29 +446,38 @@ export default function RoofViewer3D({
         rotationEnabled = enabled;
       };
 
-      [panelMat, ridgeMat].forEach(m => m.freeze?.());
-      scene.blockMaterialDirtyMechanism = true;
+      [panelMat].forEach(m => m.freeze?.());
+      Scene.blockMaterialDirtyMechanism = true;
 
-      engine.runRenderLoop(() => scene.render());
-      engine.resize();
+      Engine.runRenderLoop(() => Scene.render());
+      Engine.resize();
+
+      // Notify parent that canvas is ready for screenshot capture
+      if (onCanvasReady && canvasRef.current) {
+        onCanvasReady(canvasRef.current);
+      }
 
       return () => {
-        try { engine.stopRenderLoop(); } catch {}
-        try { scene.dispose(); } catch {}
-        try { engine.dispose(); } catch {}
+        try { Engine.stopRenderLoop(); } catch { }
+        try { Scene.dispose(); } catch { }
+        try { Engine.dispose(); } catch { }
       };
     })();
 
     return () => { disposed = true; };
-  }, [dims, overhang, thickness, seamSpacing, spin, selectedColor]);
+  }, [dims, overhang, thickness, seamSpacing, spin, onCanvasReady, roofData]); // , selectedColor]);
 
   // Update material color when selectedColor changes
   useEffect(() => {
-    if (panelMaterialRef.current && window.BABYLON) {
-      const B = window.BABYLON;
-      panelMaterialRef.current.baseColor = B.Color3.FromHexString(selectedColor);
+    if (panelMaterialRef.current) {
+      panelMaterialRef.current.diffuseColor = BABYLON.Color3.FromHexString(selectedColor);
     }
   }, [selectedColor]);
+
+  // Standing seam width change — currently visual only (future: update mesh geometry)
+  useEffect(() => {
+    // Panel profile changes will trigger scene rebuild via roofData dependency
+  }, [standingSeamWidth, panelProfile]);
 
   // Update rotation when isRotating changes
   useEffect(() => {
@@ -352,248 +488,381 @@ export default function RoofViewer3D({
 
   // Update camera view when currentView changes
   useEffect(() => {
-    if (!cameraRef.current || !window.BABYLON) return;
+    if (!cameraRef.current) return;
     const cam = cameraRef.current;
-    const B = window.BABYLON;
 
     const { run, rise } = dims;
-    const target = new B.Vector3(0, rise * 0.6, 0);
+    const target = new BABYLON.Vector3(0, rise * 0.6, 0);
     const radius = Math.max(width, run * 2) * 1.2;
 
     switch (currentView) {
       case "top":
-        cam.setPosition(new B.Vector3(0, rise + radius, 0));
+        cam.setPosition(new BABYLON.Vector3(0, rise + radius, 0));
         cam.setTarget(target);
         break;
       case "front":
-        cam.setPosition(new B.Vector3(0, rise * 0.6, -radius));
+        cam.setPosition(new BABYLON.Vector3(0, rise * 0.6, -radius));
         cam.setTarget(target);
         break;
       case "side":
-        cam.setPosition(new B.Vector3(radius, rise * 0.6, 0));
+        cam.setPosition(new BABYLON.Vector3(radius, rise * 0.6, 0));
         cam.setTarget(target);
         break;
       case "perspective":
       default:
-        cam.alpha = B.Tools.ToRadians(35);
-        cam.beta = B.Tools.ToRadians(60);
+        cam.alpha = BABYLON.Tools.ToRadians(35);
+        cam.beta = BABYLON.Tools.ToRadians(60);
         cam.radius = radius;
         cam.setTarget(target);
         break;
     }
   }, [currentView, dims, width]);
 
+  // Get current color info
+  const currentColorInfo = [...roofColors.select, ...roofColors.reserve, ...roofColors.benchmark]
+    .find(c => c.hex === selectedColor);
+
+  // Minimal mode (hideControls)
+  if (hideControls) {
+    return (
+      <div className={`relative ${className}`} style={{ height: '100%', minHeight: '400px' }}>
+        <div ref={wrapRef} className="absolute inset-0">
+          <canvas ref={canvasRef} className="block w-full h-full" />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`flex flex-col lg:flex-row gap-6 ${className}`}>
-      {/* 3D Viewport - Takes more space */}
-      <div className="flex-1">
-        <div className={`bg-white dark:bg-card border-2 border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col ${hideControls ? 'border-0 rounded-xl' : ''}`} style={{ height: hideControls ? '100%' : '700px' }}>
-          {/* Header - Hidden when hideControls is true */}
-          {!hideControls && (
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                  <span className="text-white text-lg font-black">3D</span>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Metal Roof Configurator</h3>
-                  <p className="text-xs text-white/80">Interactive visualization</p>
-                </div>
-              </div>
+    <div className={`relative bg-[#1a1d23] overflow-hidden ${className}`} style={{ height: '100%', minHeight: '600px' }}>
+      {/* Full-bleed 3D Canvas */}
+      <div ref={wrapRef} className="absolute inset-0">
+        <canvas ref={canvasRef} className="block w-full h-full" />
+      </div>
 
-              {/* Controls */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowColorPicker(!showColorPicker)}
-                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-                    showColorPicker
-                      ? "bg-white text-blue-600"
-                      : "bg-white/20 text-white hover:bg-white/30"
-                  }`}
-                >
-                  Colors
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsRotating(!isRotating)}
-                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-                    isRotating
-                      ? "bg-white text-blue-600"
-                      : "bg-white/20 text-white hover:bg-white/30"
-                  }`}
-                >
-                  {isRotating ? "Stop" : "Rotate"}
-                </button>
-              </div>
-            </div>
-          )}
+      {/* Floating Top Bar - Logo Only */}
+      <div className="absolute top-0 left-0 z-10 p-4">
+        <div className="flex items-center gap-3 bg-black/40 backdrop-blur-xl rounded-xl px-4 py-2.5 border border-white/10">
+          <div className="w-8 h-8 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-lg flex items-center justify-center">
+            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-sm font-bold text-white">Roof Configurator</h1>
+            <p className="text-[10px] text-white/50 uppercase tracking-wider">3D Preview</p>
+          </div>
+        </div>
+      </div>
 
-          {/* Canvas */}
-          <div ref={wrapRef} className="relative bg-gradient-to-br from-gray-100 via-gray-50 to-white dark:from-gray-900 dark:via-gray-950 dark:to-black" style={{ height: hideControls ? '100%' : '400px' }}>
-            <canvas ref={canvasRef} className="block w-full h-full" />
-
-            {/* View Selector - Hidden when hideControls is true */}
-            {!hideControls && (
-              <div className="absolute bottom-4 right-4 flex gap-2">
-                {[
-                  { id: "perspective", label: "3D" },
-                  { id: "top", label: "Top" },
-                  { id: "front", label: "Front" },
-                  { id: "side", label: "Side" },
-                ].map((view) => (
-                  <button
-                    key={view.id}
-                    type="button"
-                    onClick={() => setCurrentView(view.id as any)}
-                    className={`px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-                      currentView === view.id
-                        ? "bg-blue-500 text-white shadow-lg"
-                        : "bg-white/95 dark:bg-gray-900/95 text-muted-foreground hover:bg-blue-100"
-                    }`}
-                  >
-                    {view.label}
-                  </button>
-                ))}
-              </div>
+      {/* Bottom Left - Panel Profile Selector + View Controls */}
+      <div className="absolute bottom-4 left-4 z-10 flex items-end gap-3">
+        <div className="bg-black/50 backdrop-blur-xl rounded-2xl p-4 border border-white/10 max-w-sm">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-bold text-white/80 uppercase tracking-wider">Panel Profile</h3>
+            {panelProfile === "standing-seam" && (
+              <span className="text-xs font-bold text-cyan-400">{standingSeamWidth}" width</span>
             )}
           </div>
 
-          {/* Panel Profile Selector - Hidden when hideControls is true */}
-          {!hideControls && (
-            <div className="p-4 border-t border-border flex-shrink-0">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Panel Profile</p>
-              <div className="grid grid-cols-4 gap-2">
-                {panelProfiles.map((profile) => (
+          <div className="grid grid-cols-4 gap-2">
+            {panelProfiles.map((profile) => (
+              <button
+                key={profile.id}
+                type="button"
+                onClick={() => {
+                  setPanelProfile(profile.id);
+                }}
+                className={`group relative p-3 rounded-xl transition-all ${
+                  panelProfile === profile.id
+                    ? "bg-gradient-to-br from-cyan-500/30 to-blue-600/30 border-2 border-cyan-400"
+                    : "bg-white/5 border border-white/10 hover:border-white/30 hover:bg-white/10"
+                }`}
+              >
+                <div className="flex justify-center mb-2">
+                  {profile.id === "standing-seam" && (
+                    <div className="flex gap-0.5">
+                      {[...Array(4)].map((_, i) => (
+                        <div key={i} className={`w-1.5 h-6 rounded-t ${panelProfile === profile.id ? "bg-cyan-400" : "bg-white/40"}`} />
+                      ))}
+                    </div>
+                  )}
+                  {profile.id === "r-panel" && (
+                    <div className="flex gap-1">
+                      {[...Array(3)].map((_, i) => (
+                        <div key={i} className={`w-3 h-5 rounded-t-full ${panelProfile === profile.id ? "bg-cyan-400" : "bg-white/40"}`} />
+                      ))}
+                    </div>
+                  )}
+                  {profile.id === "5v-crimp" && (
+                    <div className="flex">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className={`w-2 h-5 ${panelProfile === profile.id ? "bg-cyan-400" : "bg-white/40"}`}
+                             style={{ clipPath: "polygon(50% 0%, 100% 100%, 0% 100%)" }} />
+                      ))}
+                    </div>
+                  )}
+                  {profile.id === "pbr-panel" && (
+                    <div className="flex gap-0.5">
+                      {[...Array(3)].map((_, i) => (
+                        <div key={i} className={`w-3 h-5 rounded-b-lg ${panelProfile === profile.id ? "bg-cyan-400" : "bg-white/40"}`} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className={`text-[10px] font-semibold text-center ${panelProfile === profile.id ? "text-white" : "text-white/60"}`}>
+                  {profile.name.split(" ")[0]}
+                </p>
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30">
+                  {profile.description}
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {panelProfile === "standing-seam" && (
+            <div className="mt-4 pt-3 border-t border-white/10">
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-medium text-white/50 uppercase w-8">10"</span>
+                <input
+                  type="range"
+                  min={10}
+                  max={30}
+                  step={0.5}
+                  value={standingSeamWidth}
+                  onChange={(e) => setStandingSeamWidth(parseFloat(e.target.value))}
+                  className="flex-1 h-1.5 bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-cyan-400/50 [&::-webkit-slider-thumb]:cursor-pointer"
+                />
+                <span className="text-[10px] font-medium text-white/50 uppercase w-8 text-right">30"</span>
+              </div>
+              <div className="flex justify-center gap-1 mt-2">
+                {[12, 14, 16, 16.5, 18, 20, 24].map((w) => (
                   <button
-                    key={profile.id}
+                    key={w}
                     type="button"
-                    onClick={() => setPanelProfile(profile.id)}
-                    className={`p-3 rounded-xl border-2 transition-all text-center ${
-                      panelProfile === profile.id
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
-                        : "border-border hover:border-blue-300"
+                    onClick={() => setStandingSeamWidth(w)}
+                    className={`px-2 py-0.5 text-[10px] font-medium rounded transition-all ${
+                      standingSeamWidth === w
+                        ? "bg-cyan-500 text-white"
+                        : "bg-white/10 text-white/50 hover:bg-white/20 hover:text-white/70"
                     }`}
                   >
-                    <div className="text-2xl font-bold mb-1 text-blue-500">{profile.icon}</div>
-                    <div className="text-xs font-semibold text-foreground">{profile.name}</div>
+                    {w}"
                   </button>
                 ))}
               </div>
             </div>
           )}
         </div>
+
+        {/* View Controls - Next to Panel Profile */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center bg-black/50 backdrop-blur-xl rounded-xl p-1 border border-white/10">
+            {[
+              { id: "perspective", label: "3D" },
+              { id: "top", label: "Top" },
+              { id: "front", label: "Front" },
+              { id: "side", label: "Side" },
+            ].map((view) => (
+              <button
+                key={view.id}
+                type="button"
+                onClick={() => setCurrentView(view.id as any)}
+                className={`px-3 py-2 text-xs font-semibold rounded-lg transition-all ${
+                  currentView === view.id
+                    ? "bg-white text-gray-900"
+                    : "text-white/70 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                {view.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Rotation Toggle */}
+          <button
+            type="button"
+            onClick={() => setIsRotating(!isRotating)}
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl transition-all border ${
+              isRotating
+                ? "bg-cyan-500 text-white border-cyan-400"
+                : "bg-black/50 backdrop-blur-xl text-white/70 hover:text-white border-white/10"
+            }`}
+            title={isRotating ? "Stop rotation" : "Auto-rotate"}
+          >
+            <svg className={`w-4 h-4 ${isRotating ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span className="text-xs font-semibold">{isRotating ? "Stop" : "Rotate"}</span>
+          </button>
+        </div>
       </div>
 
-      {/* Color Picker Sidebar - Hidden when hideControls is true */}
-      {!hideControls && showColorPicker && (
-        <div className="lg:w-80">
-          <div className="bg-white dark:bg-card border-2 border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col" style={{ height: '700px' }}>
-            {/* Header */}
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-3 flex-shrink-0">
+      {/* Floating Help Text - Top Center */}
+      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10">
+        <div className="bg-black/30 backdrop-blur-sm rounded-full px-4 py-1.5 border border-white/10">
+          <p className="text-[10px] text-white/50 uppercase tracking-wider">
+            <span className="text-white/70">Drag</span> rotate • <span className="text-white/70">Scroll</span> zoom • <span className="text-white/70">Right-click</span> pan
+          </p>
+        </div>
+      </div>
+
+      {/* Roof Data Stats Overlay */}
+      {roofData?.total_area_sf && (
+        <div className="absolute top-4 right-4 z-10" style={{ right: showColorPicker ? 'calc(30% + 16px)' : '16px' }}>
+          <div className="bg-black/50 backdrop-blur-xl rounded-xl p-4 border border-white/10 min-w-[200px]">
+            <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">Roof Data</h3>
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
-                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white">Colors</h3>
-                    <p className="text-xs text-white/80">MMR</p>
-                  </div>
+                <span className="text-xs text-white/50">Total Area</span>
+                <span className="text-sm font-bold text-cyan-400">
+                  {roofData.total_area_sf.toLocaleString(undefined, { maximumFractionDigits: 0 })} sf
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-white/50">Planes</span>
+                <span className="text-sm font-bold text-white">{roofData.planes?.length || 0}</span>
+              </div>
+              {roofData.planes?.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-white/50">Avg Pitch</span>
+                  <span className="text-sm font-bold text-white">
+                    {(roofData.planes.reduce((s: number, p: any) => s + (p.slope || 0), 0) / roofData.planes.length).toFixed(1)}°
+                  </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowColorPicker(false)}
-                  className="text-white hover:bg-white/10 rounded-lg p-1"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="flex flex-col gap-4 p-4 overflow-y-auto flex-1">
-              {/* Series Tabs */}
-              <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-900 rounded-lg">
-                {(["select", "reserve", "benchmark"] as const).map((series) => (
-                  <button
-                    key={series}
-                    type="button"
-                    onClick={() => setSelectedSeries(series)}
-                    className={`flex-1 px-2 py-2 text-xs font-bold rounded-lg transition-all ${
-                      selectedSeries === series
-                        ? "bg-white dark:bg-card shadow-md text-orange-600"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {series.charAt(0).toUpperCase() + series.slice(1)}
-                  </button>
-                ))}
-              </div>
-
-              {/* Color Grid */}
-              <div>
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Available Colors</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {roofColors[selectedSeries].map((colorOption) => (
-                    <button
-                      key={colorOption.hex}
-                      type="button"
-                      onClick={() => setSelectedColor(colorOption.hex)}
-                      className={`aspect-square rounded-lg transition-all relative group ${
-                        selectedColor === colorOption.hex
-                          ? "ring-3 ring-orange-500 ring-offset-2 shadow-lg scale-105"
-                          : "hover:shadow-md hover:scale-105 border-2 border-border"
-                      }`}
-                      style={{ backgroundColor: colorOption.hex }}
-                      title={colorOption.name}
-                    >
-                      {selectedColor === colorOption.hex && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center shadow-lg">
-                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        </div>
-                      )}
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                        {colorOption.name}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Selected Color Display */}
-              {selectedColor && (
-                <div className="pt-3 border-t border-border">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Current Selection</p>
-                  <div className="bg-muted/50 rounded-lg p-3 flex items-center gap-3">
-                    <div
-                      className="w-12 h-12 rounded-lg border-2 border-border shadow-sm flex-shrink-0"
-                      style={{ backgroundColor: selectedColor }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-foreground truncate">
-                        {[...roofColors.select, ...roofColors.reserve, ...roofColors.benchmark]
-                          .find(c => c.hex === selectedColor)?.name || 'Custom'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {[...roofColors.select, ...roofColors.reserve, ...roofColors.benchmark]
-                          .find(c => c.hex === selectedColor)?.coating || 'N/A'}
-                      </p>
-                    </div>
-                  </div>
+              )}
+              {roofData.measurements?.ridge_length_ft > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-white/50">Ridge</span>
+                  <span className="text-sm font-bold text-white">{roofData.measurements.ridge_length_ft.toFixed(0)} ft</span>
                 </div>
               )}
             </div>
           </div>
         </div>
+      )}
+
+      {/* Right Side Panel - Color Selector (30% width, collapsible) */}
+      <div
+        className={`absolute top-0 right-0 h-full z-20 transition-all duration-300 ease-in-out ${
+          showColorPicker ? 'w-[30%] min-w-[320px]' : 'w-0'
+        }`}
+      >
+        {showColorPicker && (
+          <div className="h-full bg-black/70 backdrop-blur-xl border-l border-white/10 flex flex-col">
+            {/* Panel Header */}
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-xl shadow-lg border-2 border-white/20"
+                  style={{ backgroundColor: selectedColor }}
+                />
+                <div>
+                  <h2 className="text-sm font-bold text-white">Color Selection</h2>
+                  <p className="text-xs text-white/50">{currentColorInfo?.name || 'Custom'}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowColorPicker(false)}
+                className="p-2 rounded-lg bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Series Tabs */}
+            <div className="p-4 border-b border-white/10">
+              <div className="flex gap-1 p-1 bg-white/10 rounded-xl">
+                {(["select", "reserve", "benchmark"] as const).map((series) => (
+                  <button
+                    key={series}
+                    type="button"
+                    onClick={() => setSelectedSeries(series)}
+                    className={`flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
+                      selectedSeries === series
+                        ? "bg-white text-gray-900 shadow-lg"
+                        : "text-white/60 hover:text-white hover:bg-white/10"
+                    }`}
+                  >
+                    {series}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Color Grid */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="grid grid-cols-4 gap-3">
+                {roofColors[selectedSeries].map((colorOption) => (
+                  <button
+                    key={colorOption.hex}
+                    type="button"
+                    onClick={() => setSelectedColor(colorOption.hex)}
+                    className={`group relative aspect-square rounded-xl transition-all hover:scale-105 ${
+                      selectedColor === colorOption.hex
+                        ? "ring-3 ring-cyan-400 ring-offset-2 ring-offset-black/70 scale-105"
+                        : "hover:ring-2 hover:ring-white/30"
+                    }`}
+                    style={{ backgroundColor: colorOption.hex }}
+                  >
+                    {selectedColor === colorOption.hex && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <svg className="w-6 h-6 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
+                    {/* Color name tooltip */}
+                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30">
+                      {colorOption.name}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Selected Color Details */}
+            {currentColorInfo && (
+              <div className="p-4 border-t border-white/10 bg-white/5">
+                <div className="flex items-center gap-4">
+                  <div
+                    className="w-16 h-16 rounded-xl shadow-xl border-2 border-white/20"
+                    style={{ backgroundColor: selectedColor }}
+                  />
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-white">{currentColorInfo.name}</h3>
+                    <p className="text-xs text-white/50 uppercase tracking-wider mt-1">{currentColorInfo.coating}</p>
+                    <p className="text-xs text-cyan-400 mt-1">{currentColorInfo.hex}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Color Panel Toggle Button (when collapsed) - Top Right */}
+      {!showColorPicker && (
+        <button
+          type="button"
+          onClick={() => setShowColorPicker(true)}
+          className="absolute top-4 right-4 z-20 flex items-center gap-3 px-4 py-3 bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 hover:bg-black/70 transition-all group"
+        >
+          <div
+            className="w-8 h-8 rounded-lg shadow-lg border-2 border-white/20"
+            style={{ backgroundColor: selectedColor }}
+          />
+          <div className="text-left">
+            <p className="text-xs font-bold text-white">Colors</p>
+            <p className="text-[10px] text-white/50">{currentColorInfo?.name || 'Custom'}</p>
+          </div>
+          <svg className="w-5 h-5 text-white/50 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
       )}
     </div>
   );

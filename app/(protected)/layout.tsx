@@ -3,23 +3,51 @@ import { redirect } from "next/navigation";
 import { MainLayout } from "@/components/layout/main-layout";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { ensureUserRecord } from "@/lib/auth";
+import { OrgProvider } from "@/components/providers/org-provider";
+import { TutorialProvider } from "@/components/tutorial/TutorialProvider";
+import { ensureUserHasOrg } from "@/lib/org-auth";
 
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
 
-  const user = session?.user;
+  // Use getUser() for secure server-side auth validation
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) {
     redirect("/signin");
   }
 
-  try {
-    await ensureUserRecord(user, supabase);
-  } catch (err) {
-    console.warn("ensureUserRecord failed inside protected layout:", err);
+  if (user) {
+    try {
+      await ensureUserRecord(user, supabase);
+    } catch (err) {
+      console.warn("ensureUserRecord failed inside protected layout:", err);
+    }
+
+    // Ensure user has at least one organization (if org tables exist)
+    if (user.email) {
+      try {
+        const { error: tableCheck } = await supabase
+          .from("organizations")
+          .select("id")
+          .limit(1);
+
+        if (!tableCheck || !tableCheck.message?.includes("does not exist")) {
+          await ensureUserHasOrg(supabase, user.id, user.email);
+        }
+      } catch (err) {
+        // Silently ignore - org tables may not exist yet
+      }
+    }
   }
 
-  return <MainLayout>{children}</MainLayout>;
+  return (
+    <OrgProvider>
+      <TutorialProvider>
+        <MainLayout>{children}</MainLayout>
+      </TutorialProvider>
+    </OrgProvider>
+  );
 }

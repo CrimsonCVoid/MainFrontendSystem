@@ -1,23 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { Sidebar } from "./sidebar";
-import { Topbar } from "./topbar";
+import { SFPoolIndicator } from "./global-header";
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+      {children}
+    </div>
+  );
+}
 
-      <div className="lg:pl-64">
-        <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-
-        <main className="p-4 lg:p-8 bg-background">
-          {children}
-        </main>
-      </div>
+/**
+ * Floating SF Pool indicator that can be added to any page
+ * Shows in bottom-right corner on mobile
+ */
+export function FloatingSFPool() {
+  return (
+    <div className="fixed bottom-4 right-4 z-40 lg:hidden">
+      <SFPoolIndicator className="shadow-lg" />
     </div>
   );
 }

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/carterbrady/Backend-api/lazy/**)",
+      "Read(//Users/carterbrady/Backend-api/**)",
+      "mcp__supabase__execute_sql",
+      "Read(//tmp/ref-websitedesign/components/**)",
+      "Read(//private/tmp/ref-websitedesign/components/**)",
+      "Read(//private/tmp/ref-websitedesign/**)"
+    ]
+  }
+}

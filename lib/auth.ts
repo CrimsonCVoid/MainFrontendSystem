@@ -4,13 +4,17 @@
  * Wraps Supabase Auth for cleaner, predictable auth flow throughout the app.
  * All auth operations funnel through these functions.
  *
- * KY - KEY CONCEPTS:
- * - Google OAuth is the only sign-in method
- * - Supabase Auth handles user creation and sessions
- * - ensureUserRecord() syncs auth.users -> public.users table (for app data)
- * - onAuthStateChange() subscribes to auth events (sign-in, sign-out, token refresh)
+ * Supports:
+ * - Email/password sign-up and sign-in (no email verification required)
+ * - Google OAuth sign-in
  *
- * KY - USER FLOW:
+ * KY - USER FLOW (Email/Password):
+ * 1. User enters email + password on /signup
+ * 2. signUpWithEmail() creates account and auto-signs in
+ * 3. ensureUserRecord creates row in public.users table
+ * 4. User redirects to /dashboard
+ *
+ * KY - USER FLOW (Google OAuth):
  * 1. User clicks "Sign in with Google"
  * 2. signInWithGoogle() redirects to Google OAuth
  * 3. Google redirects back to /callback
@@ -22,7 +26,7 @@
 
 import type { AuthChangeEvent, Session, SupabaseClient, User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "./supabaseClient";
-import type { Database, Tables } from "./database.types";
+import type { Database } from "./database.types";
 
 type GenericClient = SupabaseClient<Database>;
 
@@ -54,6 +58,52 @@ export async function signInWithGoogle(redirectPath = "/callback?redirect=/dashb
 
   // If data.url exists, the redirect happens automatically
   // Otherwise, return the data for handling
+  return data;
+}
+
+/**
+ * Signs up a new user with email and password.
+ * Email confirmation is disabled — user is signed in immediately.
+ */
+export async function signUpWithEmail(email: string, password: string) {
+  const client = resolveClient();
+
+  const { data, error } = await client.auth.signUp({
+    email,
+    password,
+    options: {
+      // No email redirect needed — confirmation is disabled
+      data: {},
+    },
+  });
+
+  if (error) throw new Error(error.message);
+
+  // With email confirmation disabled, user + session are returned immediately
+  if (data.user) {
+    await ensureUserRecord(data.user, client);
+  }
+
+  return data;
+}
+
+/**
+ * Signs in an existing user with email and password.
+ */
+export async function signInWithEmail(email: string, password: string) {
+  const client = resolveClient();
+
+  const { data, error } = await client.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) throw new Error(error.message);
+
+  if (data.user) {
+    await ensureUserRecord(data.user, client);
+  }
+
   return data;
 }
 
