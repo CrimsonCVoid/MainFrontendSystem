@@ -759,7 +759,7 @@ function getSegmentHitAtX(
     }];
 }
 
-function getTopBottomAtX(
+export function getTopBottomAtX(
     leftSide: Vector3[],
     rightSide: Vector3[],
     x: number,
@@ -1157,7 +1157,9 @@ export class ExtrudedLine {
             // let RightX = -Infinity;
             // for (const V3 of this.LeftSidePoints) LeftX = Math.min(LeftX, V3.X), RightX = Math.max(RightX, V3.X);
             // for (const V3 of this.RightSidePoints) LeftX = Math.min(LeftX, V3.X), RightX = Math.max(RightX, V3.X);
-            return getTopBottomAtX(this.LeftSidePoints, this.RightSidePoints, X).top?.point.Z;
+            const Top = getTopBottomAtX(this.LeftSidePoints, this.RightSidePoints, X).top?.point.Z;
+            if (Top != Top || Top == null) return (this.RUN ** 2 + this.RISE ** 2) ** .5
+            return Top;
         }
         // return this.GetBottomAtX(X);
         // let ExtrudeA = Math.max(0, this.ExtrudeA);

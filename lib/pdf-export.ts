@@ -141,6 +141,7 @@ class Draw {
         this.Points.forEach(value => { AveragePosition.x += value.x; AveragePosition.z += value.z });
         AveragePosition.x /= this.Points.length; AveragePosition.z /= this.Points.length;
         let ActualTextSize = this.DrawingType.TextSize ?? this.TextSize ?? 8;
+        if (!Number.isFinite(ActualTextSize) || Number.isNaN(ActualTextSize)) ActualTextSize = 8;
         if (this.TextWidth)
             while (ActualTextSize > 1 && ThisPDF.CurrentFont.widthOfTextAtSize(this.Text, ActualTextSize) > this.TextWidth && ThisPDF.Scale > 0)
                 ActualTextSize -= ThisPDF.Scale;
