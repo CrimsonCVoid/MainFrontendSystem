@@ -232,6 +232,7 @@ export default function RoofViewer3D({
         powerPreference: "high-performance",
         stencil: true, preserveDrawingBuffer: true, // alpha: true
       });
+      Engine.useReverseDepthBuffer = true;
       Engine.setHardwareScalingLevel(1 / Math.min(window.devicePixelRatio || 1, 2));
       engineRef.current = Engine;
 
@@ -467,12 +468,18 @@ export default function RoofViewer3D({
       console.log("EDITOR WINDOW", window);
       let ActiveEditor = Editor.ActiveEditor = new Editor(Engine, Scene, Camera, RoofUI, window);
 
-      Editor.RoofPBR_Material?.dispose();
-      let RoofPBR_Material = Editor.RoofPBR_Material = new BABYLON.PBRMetallicRoughnessMaterial("PanelMaterial", Scene);
+      // Editor.RoofPBR_Material?.dispose();
+      // Editor.RoofPBR_Material?.resetDrawCache?.();
+      // let RoofPBR_Material = Editor.RoofPBR_Material = new BABYLON.PBRMetallicRoughnessMaterial("PanelMaterial", Scene);
 
-      RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString(selectedColor);
-      RoofPBR_Material.metallic = .5; RoofPBR_Material.roughness = 0.25;
-      RoofPBR_Material.backFaceCulling = false;
+      Editor.RoofColor = BABYLON.Color3.FromHexString(selectedColor);
+      // RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString(selectedColor);
+      // console.log(RoofPBR_Material.baseColor, RoofPBR_Material);
+      // RoofPBR_Material.metallic = .5; RoofPBR_Material.roughness = 0.25;
+      // RoofPBR_Material.backFaceCulling = false;
+      // RoofPBR_Material.useLogarithmicDepth = true; // Disappears?
+
+      // RoofPBR_Material.needDepthPrePass = true;
       // Editor.MapDebugging.CreateGoogleDebugMesh();
       // Editor.meshesRef = meshesRef;
 
@@ -564,18 +571,20 @@ export default function RoofViewer3D({
     // Editor.RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString(selectedColor);
     // Editor.RoofPBR_Material.metallic = .5; Editor.RoofPBR_Material.roughness = 0.25;
     // Editor.RoofPBR_Material.backFaceCulling = false;
+    Editor.RoofColor = BABYLON.Color3.FromHexString(selectedColor);
     for (let Sketch of SketchLine.AllDrawings) {
-      for (let LineID in Sketch.Lines) {
-        // if (Sketch.Lines[LineID].PanelSettings.instance) Sketch.Lines[LineID].PanelSettings.instance.material = Editor.RoofPBR_Material;
-        Sketch.Lines[LineID].SelectedProfile = panelProfile;
-        Sketch.Lines[LineID].UpdatePanelMesh();
-      }
+      if (Sketch.DrawLine.MAT) Sketch.DrawLine.MAT.baseColor = Editor.RoofColor;
+      Sketch.DrawLine.SelectedProfile = panelProfile;
+      Sketch.DrawLine.UpdatePanelMesh();
     }
   }, [panelProfile]);
 
   // Update material color when selectedColor changes
   useEffect(() => {
-    Editor.RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString(selectedColor);
+    Editor.RoofColor = BABYLON.Color3.FromHexString(selectedColor);
+    for (let Sketch of SketchLine.AllDrawings) {
+      if (Sketch.DrawLine.MAT) Sketch.DrawLine.MAT.baseColor = Editor.RoofColor;
+    }
     // if (panelMaterialRef.current) {
     //   // Editor.meshesRef = meshesRef;
     //   // panelMaterialRef.current.baseColor = BABYLON.Color3.FromHexString(selectedColor);

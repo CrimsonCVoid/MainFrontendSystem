@@ -4,18 +4,11 @@ import * as BABYLON from "@babylonjs/core";
 import * as BABYLON_UI from "@babylonjs/gui";
 import { GridMaterial } from "@babylonjs/materials";
 
-// import { PanelEngine } from "./panelview.bl.js";
-// import { Scene, Camera, Engine, RoofUI } from "./roofedit.bl.js";
-// import { CFrame, Vector3 } from "./positioning";
-// import * from "./Editor.d.ts";
 import { SketchLine } from "./drawings";
-
-// import { CreateMarker } from "./editor-utils"; // SwitchMap
 
 import TestingConfig from "./EditorUI.json";
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
-import { FromSupabase, Test } from "./backend"; // DebuggingClass
-import { earcut } from "./earcut";
+import { FromSupabase } from "./backend"; // DebuggingClass
 import { CFrame, Vector3 } from "./positioning";
 
 type xyz_Class = { x: number, y: number, z: number };
@@ -129,7 +122,8 @@ export class Editor {
     UI_Controls: EditorControls;
 
     // Root: BABYLON.TransformNode;
-    static RoofPBR_Material: BABYLON.PBRMetallicRoughnessMaterial;
+    // static RoofPBR_Material: BABYLON.PBRMetallicRoughnessMaterial;
+    RoofColor = BABYLON.Color3.FromHexString("#FFFFFF");
 
     PanelEngine?: BABYLON.Engine;
 
@@ -284,35 +278,9 @@ export class Editor {
             LiveYLine: LiveYLine,
         }
 
-        let PrimaryText0 = UI_Controls.PrimaryText0 = UI_Controls.Primary0.children[0] as BABYLON_UI.TextBlock;
-        let PrimaryText1 = UI_Controls.PrimaryText1 = UI_Controls.Primary1.children[0] as BABYLON_UI.TextBlock;
-        let PrimaryText2 = UI_Controls.PrimaryText2 = UI_Controls.Primary2.children[0] as BABYLON_UI.TextBlock;
-        let PrimaryText3 = UI_Controls.PrimaryText3 = UI_Controls.Primary3.children[0] as BABYLON_UI.TextBlock;
-
         // Camera.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
         Camera.minZ = 0.1;
         Camera.maxZ = 100000;
-
-        // let FlatMapElement = window.document.getElementById("flatmap");
-
-        // let mapContainer = window.document.createElement("div");
-        // // overlayMeshDiv.innerHTML = `<p style="padding: 60px; font-size: 80px;">This is an overlay. It is positioned in front of the canvas. This allows it to have transparency and to be non-rectangular, but it will always show over any other content in the scene</p>`;
-        // mapContainer.style.backgroundColor = 'rgba(0, 0, 0, 0)';
-        // mapContainer.style.width = '100%';
-        // mapContainer.style.height = '100%';
-        // mapContainer.style.border = 'none';
-        // mapContainer.style.overflow = 'hidden';
-        // mapContainer.style.pointerEvents = "none";
-        // // mapContainer.style.zIndex = -1;
-        // // mapContainer.style.
-
-        // let mapDiv = window.document.createElement("div");
-        // mapDiv.style.position = "absolute";
-        // mapDiv.style.inset = "0";
-        // mapDiv.style.width = "100%";
-        // mapDiv.style.height = "100%";
-
-        // mapContainer.appendChild(mapDiv);
 
         let RenderWidth = Engine.getRenderWidth();
         let RenderHeight = Engine.getRenderHeight();
@@ -327,26 +295,9 @@ export class Editor {
             Camera.orthoRight = zoom * ratio;
             Camera.orthoBottom = -zoom;
             Camera.orthoTop = zoom;
-
-
-            // console.log(zoom, 1500 / zoom)
-            // let Scale = 1 / Camera.radius * SketchLine.DrawingScale / ratio * 1450; // zoom; // * .9366666; // 25; // * .9;
-            // Editor.MapDebugging.FlatMapElement.style.scale = Scale.toString();
-            // // console.log(Camera.orthoTop, Scale);
-            // // May still not be perfect, but honestly, idrk anymore.
-            // Editor.MapDebugging.FlatMapElement.style.left = -(Editor.MapDebugging.FlatMapElement.clientWidth - RenderWidth) / 2 + "px";
-            // Editor.MapDebugging.FlatMapElement.style.top = -(Editor.MapDebugging.FlatMapElement.clientHeight - RenderHeight) / 2 + "px";
         };
 
         // Scene.onBeforeRenderObservable.add(() => {
-        //     Editor.MapDebugging.FlatMapElement.style.rotate = Camera.alpha + "rad";
-        //     // FlatMapElement.style.transform // Need to look into using skew.
-        //     // console.log(Camera.alpha);
-
-        //     let Scale = 1500 / Camera.radius * .921 * .8;
-
-        //     let CheapCF = CFrame.Angles(0, -Camera.alpha, 0).ToWorldSpace(CFrame.fromXYZ(-Camera.target.z * Scale, 0, -Camera.target.x * Scale));
-        //     Editor.MapDebugging.FlatMapElement.style.translate = `${CheapCF.x}px ${CheapCF.z}px`;
         //     if (!FirstRotation) DesignGrid.rotation.y = -Camera.alpha;
         // });
 
@@ -514,7 +465,7 @@ export class Editor {
             ground.updateVerticesData(BABYLON.VertexBuffer.NormalKind, normals);
             ground.setVerticesData(BABYLON.VertexBuffer.ColorKind, colors, true);
 
-            ground.convertToFlatShadedMesh();
+            // ground.convertToFlatShadedMesh();
 
             ground.rotation = new BABYLON.Vector3(0, -Math.PI / 2, 0);
 
@@ -535,45 +486,6 @@ export class Editor {
             //     }
             // }
         }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
         // type CircularStencil = {
         //     radiusPixels: number;
@@ -858,120 +770,6 @@ export class Editor {
         //     };
         // }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         Scene.onKeyboardObservable.add(async (kbInfo) => {
             if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYDOWN) {
                 // console.log(kbInfo.event.key)
@@ -1043,8 +841,186 @@ export class Editor {
 
                             const Results = await FromSupabase(file, jsonfile);
 
-                            const ground = createGroundFromHeightArray("E", Results.DrawHeights, Results.DrawRGB, Results.Width, Results.Length, 39.3701 / 10, 39.3701 / 10, Editor.ActiveEditor.Scene);
-                            ground.position.y -= 5;
+                            // console.log("DrawHeights", Results.DrawHeights);
+
+                            // const ground = createGroundFromHeightArray("E", Results.DrawHeights, Results.DrawRGB, Results.Width, Results.Length, 39.3701 / 10, 39.3701 / 10, Editor.ActiveEditor.Scene);
+                            // ground.position.y -= 5;
+
+                            // if (true) return;
+
+
+
+
+
+
+
+
+
+
+
+                            // if (true) return;
+
+                            // const result = segmentRoofPlanesMultiFit(
+                            //     // Results.MapHeights,   // Float32Array | Float64Array | number[]
+                            //     Results.NormalizedHeights,   // Float32Array | Float64Array | number[]
+                            //     Results.ModifiedMask,   // Uint8Array | number[]
+                            //     Results.Width,
+                            //     Results.Length,
+                            //     {
+                            //         pixelSizeMm: 100,
+
+                            //         localRadiusPx: 2,
+                            //         localMinSamples: 9,
+                            //         localRobustIters: 4,
+
+                            //         seedRmseMm: 5,
+                            //         seedMeanEdgeMax: 1.2,
+                            //         seedNormalDeg: 3,
+                            //         seedPlaneDiffMm: 25,
+                            //         minSeedSize: 12,
+
+                            //         growResidualMm: 20,
+                            //         growNormalDeg: 8,
+                            //         growEdgeScore: 1.75,
+                            //         growMaxScore: 3.0,
+                            //         refitEvery: 32,
+
+                            //         mergeNormalDeg: 4,
+                            //         mergeEdgeScore: 1.0,
+                            //         mergeRmseBumpMm: 10,
+
+                            //         includeExteriorBorders: true,
+                            //     }
+                            //     // {
+                            //     //     pixelSizeMm: 100,
+
+                            //     //     localRadiusPx: 2,
+                            //     //     localMinSamples: 10,
+
+                            //     //     seedRmseMm: 5,
+                            //     //     growEdgeScore: 1.5,
+                            //     //     mergeNormalDeg: 0,
+
+                            //     //     growResidualMm: 20,
+                            //     //     growNormalDeg: 1,
+                            //     // }
+                            //     // {
+                            //     //     pixelSizeMm: 1,
+
+                            //     //     localRadiusPx: 2,
+                            //     //     localMinSamples: 4,
+
+                            //     //     seedRmseMm: .01,
+                            //     //     growEdgeScore: .5,
+                            //     //     mergeNormalDeg: 10,
+
+                            //     //     growResidualMm: .5,
+                            //     //     growNormalDeg: 10,
+                            //     // }
+                            // );
+
+                            // const { labels, regions, borderSegments, local, edges } = result;
+
+                            // const seg0 = segmentRoofPlanesMultiFit(...);
+
+                            // const cleaned = cleanupLabelsPostProcess(
+                            //     Results.NormalizedHeights,
+                            //     Results.ModifiedMask,
+                            //     Results.Width,
+                            //     Results.Length,
+                            //     result.labels,
+                            //     result.regions,
+                            //     result.local,
+                            //     result.edges,
+                            //     {
+                            //         pixelSizeMm: 100,
+                            //         minRegionSizePx: 20,
+                            //         maxHoleSizePx: 80,
+                            //         fillResidualMm: 100,
+                            //         fillNormalDeg: 8,
+                            //     }
+                            // );
+
+                            // const orientedBorders = extractOrientedBorderSegments(
+                            //     cleaned.labels,
+                            //     Results.ModifiedMask,
+                            //     Results.Width,
+                            //     Results.Length,
+                            //     100,
+                            //     true
+                            // );
+
+                            // const polylines = traceBorderPolylines(orientedBorders);
+
+                            // const classified = classifyBorderPolylines(
+                            //     polylines,
+                            //     cleaned.regions,
+                            //     orientedBorders
+                            // );
+
+                            // console.log("RESULT", result, cleaned, orientedBorders, polylines, classified);
+
+                            // for (let yes of classified) {
+                            //     // let projpoints = [];
+                            //     // for (let point of yes.points) {
+                            //     //     // const marker = BABYLON.MeshBuilder.CreateSphere("marker", { diameter: 0.1 }, Editor.ActiveEditor.Scene);
+                            //     //     // marker.position.set(point.x / 39.3701 * 10, 0, point.y / 39.3701 * 10);
+                            //     //     projpoints.push(new BABYLON.Vector3(point.x / 1000 * 39.3701, 0, point.y / 1000 * 39.3701));
+                            //     // }
+                            //     // BABYLON.MeshBuilder.CreateLines("e", { points: projpoints }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(1, 0, 1);
+                            //     for (let segment of yes.segments) {
+                            //         BABYLON.MeshBuilder.CreateLines("e", {
+                            //             points: [
+                            //                 new BABYLON.Vector3(segment.x1 / 1000 * 39.3701, 0, segment.y1 / 1000 * 39.3701),
+                            //                 new BABYLON.Vector3(segment.x2 / 1000 * 39.3701, 0, segment.y2 / 1000 * 39.3701)
+                            //             ]
+                            //         }, Editor.ActiveEditor.Scene).color = new BABYLON.Color3(1, 0, 1);
+
+                            //     }
+                            // }
+
+                            // const canvas = document.createElement('canvas')
+                            // canvas.width = Results.Width
+                            // canvas.height = Results.Length
+                            // const ctx = canvas.getContext('2d')
+
+                            // // Convert RGB to RGBA by adding alpha channel
+                            // const rgba = new Uint8ClampedArray(Results.Width * Results.Length * 4);
+                            // // console.log("LENGTH OF RGB???", width, height, rasters.length, rasters)
+                            // for (let i = 0, j = 0, k = 0; i < Results.Width * Results.Length; i++, j += 4, k += 3) {
+                            //     const HSV = BABYLON.Color3.FromHSV(
+                            //         // labels[i] / regions.length * 360,
+                            //         result.labels[i] / result.regions.length * 360,
+                            //         // result.assignedPlaneIndex[i] / result.planes.length * 360,
+                            //         1,
+                            //         1
+                            //     )
+
+                            //     rgba[j] = Math.round(HSV.r * 255);
+                            //     rgba[j + 1] = Math.round(HSV.g * 255);
+                            //     rgba[j + 2] = Math.round(HSV.b * 255);
+                            //     rgba[j + 3] = 255;      // A (opaque)
+
+                            //     // rgba[j] = KissMyAss.RGB[k] * Relativity;
+                            //     // rgba[j + 1] = KissMyAss.RGB[k + 1] * Relativity;
+                            //     // rgba[j + 2] = KissMyAss.RGB[k + 2] * Relativity;
+                            //     // rgba[j + 3] = 0 < Relativity && Relativity < 1 ? 255 : 0 // ModifiedMask[i] * 255;      // A (opaque)
+                            // }
+
+                            // const imageData = new ImageData(rgba, Results.Width, Results.Length)
+                            // ctx.putImageData(imageData, 0, 0)
+
+                            // // Convert canvas to PNG bytes
+                            // const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
+
+                            // const url = URL.createObjectURL(blob);
+                            // const a = document.createElement("a");
+                            // a.href = url;
+                            // a.download = "eeee.png"; //filename ?? `Estimate_${data.projectName.replace(/\s+/g, "_")}.pdf`;
+                            // document.body.appendChild(a);
+                            // a.click();
+                            // document.body.removeChild(a);
+                            // URL.revokeObjectURL(url);
                         });
 
                         fileInput.click();
@@ -1074,21 +1050,6 @@ export class Editor {
                         HoldingShift = true;
                         SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
                         break;
-
-                    // case "Escape":
-                    //     PanelViewCollapsed = !PanelViewCollapsed;
-                    //     let RoofingEditor = window.document.getElementById("RoofingEditor") as HTMLElement;
-                    //     let PanelViewer = window.document.getElementById("PanelViewer") as HTMLElement;
-                    //     // FlatMapElement.style.marginLeft =
-                    //     RoofingEditor.style.marginLeft = PanelViewCollapsed ? "0%" : "30%";
-                    //     RoofingEditor.style.width = PanelViewCollapsed ? "100%" : "70%";
-                    //     PanelViewer.style.marginRight = PanelViewCollapsed ? "0%" : "70%";
-                    //     PanelViewer.style.width = PanelViewCollapsed ? "0%" : "30%";
-                    //     Engine.resize();
-                    //     this.PanelEngine?.resize();
-                    //     updateOrtho();
-                    //     console.log("Escape key pressed");
-                    //     break;
                 }
             }
 
@@ -1108,118 +1069,5 @@ export class Editor {
                 }
             }
         });
-
-        // EditorUI.onControlPickedObservable.add(control => {
-        //     // if (!control.isPointerBlocker) return;
-        //     // CanDraw = false;
-        //     console.log("ON", control);
-        //     // Camera.detachControl();
-        // });
-
-        // EditorUI.executeOnAllControls(control => {
-        //     console.log("Idk", control);
-        //     // if (!control.isPointerBlocker) return;
-        //     // control.onPointerOutObservable.add(() => {
-        //     //     CanDraw = true;
-        //     //     console.log(CanDraw);
-        //     //     // Camera.attachControl(true);
-        //     // });
-        // });
-
-        // EditorUI.isPointerBlocker = true;
-
-        // let Rectangle0 = EditorUI.getControlByName("Rectangle0");
-        // Rectangle0.isPointerBlocker = true;
-
-        // console.log(Rectangle0);
-
-        // Rectangle0.onPointerClickObservable.add(control => {
-        //     // if (!control.isPointerBlocker) return;
-        //     CanDraw = false;
-        //     console.log("ON", control);
-        //     // Camera.detachControl();
-        // });
-
-        // Rectangle0.onPointerClickObservable.add(control => {
-        //     // if (!control.isPointerBlocker) return;
-        //     CanDraw = false;
-        //     console.log("ON", control);
-        //     // Camera.detachControl();
-        // });
-
-        // EditorUI.onControlPickedObservable.add(control => {
-        //     if (control.isPointerBlocker) {
-        //         CanDraw = false;
-        //         // Camera.detachControl();
-        //     }
-        // });
-
-        // EditorUI.executeOnAllControls(control => {
-        //     if (control.isPointerBlocker) {
-        //         control.onPointerOutObservable.add(() => {
-        //             CanDraw = true;
-        //             // Camera.attachControl(true);
-        //         });
-        //     }
-        // });
-
-        // setTimeout(() => {
-        //     UI_Controls.Rectangle1.isPointerBlocker = true;
-        // }, 500);
-
-        // function UpdateDrawing() {
-        //     let Y0 = UI_Controls.Checkbox0.isChecked ? ((UI_Controls.Checkbox2.isChecked && UI_Controls.Checkbox3.isChecked) ? "160px" : "128px") : "192px";
-        //     UI_Controls.Line.y1 = Y0;
-        //     UI_Controls.Line0A.y2 = Y0;
-        //     UI_Controls.Line0B.y2 = Y0;
-
-        //     let Y1 = UI_Controls.Checkbox1.isChecked ? ((UI_Controls.Checkbox2.isChecked && UI_Controls.Checkbox3.isChecked) ? "32px" : "64px") : "0px";
-        //     UI_Controls.Line.y2 = Y1;
-        //     UI_Controls.Line1A.y2 = Y1;
-        //     UI_Controls.Line1B.y2 = Y1;
-
-        //     // console.log(UI_Controls.Line);
-        //     UI_Controls.Line.lineWidth = (UI_Controls.Checkbox2.isChecked && UI_Controls.Checkbox3.isChecked) ? 1 : 3;
-
-        //     let LineX = UI_Controls.Checkbox2.isChecked ? (UI_Controls.Checkbox3.isChecked ? "32px" : "64px") : "0px";
-        //     UI_Controls.Line.x1 = LineX
-        //     UI_Controls.Line.x2 = LineX;
-        //     UI_Controls.Line1A.x2 = LineX;
-        //     UI_Controls.Line1B.x2 = LineX;
-        //     UI_Controls.Line0A.x2 = LineX;
-        //     UI_Controls.Line0B.x2 = LineX;
-
-        //     UI_Controls.Textblock0.isVisible = UI_Controls.Checkbox0.isChecked;
-        //     UI_Controls.Textblock1.isVisible = UI_Controls.Checkbox1.isChecked;
-        //     UI_Controls.Textblock2.isVisible = UI_Controls.Checkbox2.isChecked;
-        //     UI_Controls.Textblock3.isVisible = UI_Controls.Checkbox3.isChecked;
-        // };
-
-        // UpdateDrawing();
-
-        // UI_Controls.Primary0.getChildByName()
-        PrimaryText0.text = "RUN";
-        PrimaryText1.text = "RUN";
-
-        // UI_Controls.Primary0.onPointerClickObservable.add(function (eventData, eventState) {
-        //     let TEXT = PrimaryText0.text;
-        //     PrimaryText0.text = (TEXT == "RUN") ? "RISE" : (TEXT == "RISE") ? "PITCH" : (TEXT == "PITCH") ? "RUN" : "N/A";
-        //     if (!SketchLine.ActiveSketch) return;
-        //     SketchLine.ActiveSketch.Lines["0"].PRIMARY = PrimaryText0.text;
-        // });
-
-        // // console.log(UI_Controls.Rise0);
-        // // UI_Controls.Rise0.onTextChangedObservable.add(function (test) {
-        // //     console.log("TEST", test.text == +test.text);
-        // // });
-
-        // // UI_Controls.Rise0.onEnterPressedObservable.add(function (test) {
-        // //     console.log("TEST2", test.text == +test.text);
-        // // });
-
-        // // UI_Controls.Rise0.onPointerUpObservable.add(function (test) {
-        // //     console.log("EEE", test);
-        // //     // console.log("TEST3", test.text == +test.text);
-        // // });
     }
 }

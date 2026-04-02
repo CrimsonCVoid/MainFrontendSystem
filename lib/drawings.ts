@@ -77,7 +77,7 @@ function MapPolyToSurface(SurfID, FocusCF, Size, Points) {
 
 let SelectedProfile = "R"; // "StandingSeam";
 
-let PanelProfiles = {
+let PanelProfiles: Record<string, PanelProfile> = {
     "pbr-panel": {
         PanelLength: 12,
         Overlap: 0, // .125 * 5 / 2,
@@ -138,6 +138,659 @@ let PanelProfiles = {
 };
 
 // Outer, Extrude Up, Inner, Extrude Down //
+
+
+
+
+
+
+
+
+
+
+type PanelProfileStep = [number, number?, number?, number?];
+
+interface PanelProfile {
+    PanelLength: number;
+    Overlap: number;
+    Shape: PanelProfileStep[];
+}
+
+type P2 = { x: number; y: number };
+type P3 = { x: number; y: number; z: number };
+
+function buildRepeatedPanelTopPolyline(
+    profile: PanelProfile,
+    drawLength: number
+): P2[] {
+    const points: P2[] = [];
+
+    let x = profile.Overlap;
+    let y = 0;
+
+    points.push({ x, y });
+
+    const moduleWidth = profile.PanelLength;
+    const maxPanels = Math.ceil(drawLength / moduleWidth);
+
+    for (let i = 0; i < maxPanels; i++) {
+        for (const step of profile.Shape) {
+            const outer = step[0];
+            const rise = step[1] ?? 0;
+            const inner = step[2] ?? 0;
+            const fall = step[3] ?? rise;
+
+            if (x >= drawLength) break;
+
+            x += outer / 2 - inner / 2;
+            y += rise;
+            pushIfNew(points, { x: Math.min(x, drawLength), y });
+
+            if (x >= drawLength) break;
+
+            if (inner !== 0) {
+                x += inner;
+                pushIfNew(points, { x: Math.min(x, drawLength), y });
+            }
+
+            if (x >= drawLength) break;
+
+            x += outer / 2 - inner / 2;
+            y -= fall;
+            pushIfNew(points, { x: Math.min(x, drawLength), y });
+
+            if (x >= drawLength) break;
+        }
+    }
+
+    points[points.length - 1].x = drawLength;
+    return simplifyOpenPolyline(points);
+}
+
+function pushIfNew(points: P2[], p: P2, eps = 1e-8) {
+    const prev = points[points.length - 1];
+    if (!prev || Math.abs(prev.x - p.x) > eps || Math.abs(prev.y - p.y) > eps) {
+        points.push(p);
+    }
+}
+
+function simplifyOpenPolyline(points: P2[], eps = 1e-8): P2[] {
+    const out: P2[] = [];
+    for (const p of points) {
+        const prev = out[out.length - 1];
+        if (!prev || Math.abs(prev.x - p.x) > eps || Math.abs(prev.y - p.y) > eps) {
+            out.push({ x: p.x, y: p.y });
+        }
+    }
+    return out;
+}
+
+function pushTriFlat(
+    positions: number[],
+    indices: number[],
+    normals: number[],
+    a: P3,
+    b: P3,
+    c: P3
+) {
+    const abx = b.x - a.x;
+    const aby = b.y - a.y;
+    const abz = b.z - a.z;
+
+    const acx = c.x - a.x;
+    const acy = c.y - a.y;
+    const acz = c.z - a.z;
+
+    let nx = aby * acz - abz * acy;
+    let ny = abz * acx - abx * acz;
+    let nz = abx * acy - aby * acx;
+
+    const len = Math.hypot(nx, ny, nz) || 1;
+    nx /= len;
+    ny /= len;
+    nz /= len;
+
+    const base = positions.length / 3;
+
+    positions.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+    indices.push(base, base + 1, base + 2);
+    normals.push(nx, ny, nz, nx, ny, nz, nx, ny, nz);
+}
+
+function pushQuadFlat(
+    positions: number[],
+    indices: number[],
+    normals: number[],
+    a: P3,
+    b: P3,
+    c: P3,
+    d: P3
+) {
+    pushTriFlat(positions, indices, normals, a, b, c);
+    pushTriFlat(positions, indices, normals, a, c, d);
+}
+
+function createShapedRoofPanelSurface(
+    name: string,
+    profile: PanelProfile,
+    drawLength: number,
+    runLength: number,
+    getHeightAtX: (x: number) => number,
+    scene: BABYLON.Scene,
+    updatable = false
+) {
+    const section = buildRepeatedPanelTopPolyline(profile, drawLength);
+
+    const positions: number[] = [];
+    const indices: number[] = [];
+    const normals: number[] = [];
+
+    for (let i = 0; i < section.length - 1; i++) {
+        const a = section[i];
+        const b = section[i + 1];
+
+        const a0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: 0 };
+        const b0: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y, z: 0 };
+        const b1: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y, z: runLength };
+        const a1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: runLength };
+
+        pushQuadFlat(positions, indices, normals, a0, b0, b1, a1);
+    }
+
+    const mesh = new BABYLON.Mesh(name, scene);
+
+    const vd = new BABYLON.VertexData();
+    vd.positions = positions;
+    vd.indices = indices;
+    vd.normals = normals;
+    vd.applyToMesh(mesh, updatable);
+
+    return mesh;
+}
+
+function createShapedRoofPanelSolid(
+    name: string,
+    profile: PanelProfile,
+    drawLength: number,
+    runLength: number,
+    thickness: number,
+    getHeightAtX: (x: number) => number,
+    scene: BABYLON.Scene,
+    updatable = false
+) {
+    const section = buildRepeatedPanelTopPolyline(profile, drawLength);
+
+    const positions: number[] = [];
+    const indices: number[] = [];
+    const normals: number[] = [];
+
+    // Top surface
+    for (let i = 0; i < section.length - 1; i++) {
+        const a = section[i];
+        const b = section[i + 1];
+
+        const a0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: 0 };
+        const b0: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y, z: 0 };
+        const b1: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y, z: runLength };
+        const a1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: runLength };
+
+        pushQuadFlat(positions, indices, normals, a0, b0, b1, a1);
+    }
+
+    // Bottom surface
+    for (let i = 0; i < section.length - 1; i++) {
+        const a = section[i];
+        const b = section[i + 1];
+
+        const a0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: 0 };
+        const b0: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y - thickness, z: 0 };
+        const b1: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y - thickness, z: runLength };
+        const a1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: runLength };
+
+        pushQuadFlat(positions, indices, normals, a1, b1, b0, a0);
+    }
+
+    // Front edge z = 0
+    for (let i = 0; i < section.length - 1; i++) {
+        const a = section[i];
+        const b = section[i + 1];
+
+        const ta: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: 0 };
+        const tb: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y, z: 0 };
+        const bb: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y - thickness, z: 0 };
+        const ba: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: 0 };
+
+        pushQuadFlat(positions, indices, normals, ta, ba, bb, tb);
+    }
+
+    // Back edge z = runLength
+    for (let i = 0; i < section.length - 1; i++) {
+        const a = section[i];
+        const b = section[i + 1];
+
+        const ta: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: runLength };
+        const tb: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y, z: runLength };
+        const bb: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y - thickness, z: runLength };
+        const ba: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: runLength };
+
+        pushQuadFlat(positions, indices, normals, ta, tb, bb, ba);
+    }
+
+    // Left cap x = 0 side
+    {
+        const a = section[0];
+        const top0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: 0 };
+        const top1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: runLength };
+        const bot1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: runLength };
+        const bot0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: 0 };
+
+        pushQuadFlat(positions, indices, normals, top0, top1, bot1, bot0);
+    }
+
+    // Right cap x = drawLength side
+    {
+        const a = section[section.length - 1];
+        const top0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: 0 };
+        const top1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: runLength };
+        const bot1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: runLength };
+        const bot0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: 0 };
+
+        pushQuadFlat(positions, indices, normals, top0, bot0, bot1, top1);
+    }
+
+    const mesh = new BABYLON.Mesh(name, scene);
+
+    const vd = new BABYLON.VertexData();
+    vd.positions = positions;
+    vd.indices = indices;
+    vd.normals = normals;
+    vd.applyToMesh(mesh, updatable);
+
+    return mesh;
+}
+
+function clamp(v: number, min: number, max: number): number {
+    return v < min ? min : v > max ? max : v;
+}
+
+function normalizeRunBands(runBands: RunBand[] | undefined, drawLength: number): RunBand[] | null {
+    if (!runBands || runBands.length === 0) return null;
+
+    const bands = [...runBands]
+        .map(b => ({
+            xMin: Math.min(b.xMin, b.xMax),
+            xMax: Math.max(b.xMin, b.xMax),
+            fixedLength: b.fixedLength,
+            sampleAtX: b.sampleAtX,
+        }))
+        .filter(b => b.xMax > b.xMin);
+
+    bands.sort((a, b) => a.xMin - b.xMin);
+
+    // Optional safety clamp to panel width
+    for (const band of bands) {
+        band.xMin = clamp(band.xMin, 0, drawLength);
+        band.xMax = clamp(band.xMax, 0, drawLength);
+    }
+
+    return bands.length ? bands : null;
+}
+
+interface RunBand {
+    xMin: number;
+    xMax: number;
+
+    // Optional exact run length for this whole band.
+    fixedLength?: number;
+
+    // Optional sample position to evaluate getRunLengthAtX once for this band.
+    // If omitted and fixedLength is also omitted, band center is used.
+    sampleAtX?: number;
+}
+
+function getRunLengthAtXWithBands(
+    x: number,
+    drawLength: number,
+    maxRunLength: number,
+    getRunLengthAtX: (x: number) => number,
+    runBands?: RunBand[]
+): number {
+    const bands = normalizeRunBands(runBands, drawLength);
+
+    if (!bands) {
+        return clamp(getRunLengthAtX(x), 0, maxRunLength);
+    }
+
+    for (const band of bands) {
+        if (x >= band.xMin && x <= band.xMax) {
+            if (Number.isFinite(band.fixedLength)) {
+                return clamp(band.fixedLength!, 0, maxRunLength);
+            }
+
+            const sampleX = Number.isFinite(band.sampleAtX)
+                ? band.sampleAtX!
+                : (band.xMin + band.xMax) * 0.5;
+
+            return clamp(getRunLengthAtX(sampleX), 0, maxRunLength);
+        }
+    }
+
+    // Fallback for areas not covered by any band
+    return clamp(getRunLengthAtX(x), 0, maxRunLength);
+}
+
+function createShapedRoofPanelSolid_LengthByX(
+    name: string,
+    profile: PanelProfile,
+    drawLength: number,
+    maxRunLength: number,
+    thickness: number,
+    getRunLengthAtX: (x: number) => number,
+    scene: BABYLON.Scene,
+    updatable = false,
+    runBands?: RunBand[]
+) {
+    const section = buildRepeatedPanelTopPolyline(profile, drawLength);
+
+    const positions: number[] = [];
+    const indices: number[] = [];
+    const normals: number[] = [];
+
+    const getZ = (x: number) =>
+        getRunLengthAtXWithBands(x, drawLength, maxRunLength, getRunLengthAtX, runBands);
+
+    // Top surface
+    for (let i = 0; i < section.length - 1; i++) {
+        const a = section[i];
+        const b = section[i + 1];
+
+        const za = getZ(a.x);
+        const zb = getZ(b.x);
+
+        const a0: P3 = { x: a.x, y: a.y, z: 0 };
+        const b0: P3 = { x: b.x, y: b.y, z: 0 };
+        const b1: P3 = { x: b.x, y: b.y, z: zb };
+        const a1: P3 = { x: a.x, y: a.y, z: za };
+
+        pushQuadFlat(positions, indices, normals, a0, b0, b1, a1);
+    }
+
+    // Bottom surface
+    for (let i = 0; i < section.length - 1; i++) {
+        const a = section[i];
+        const b = section[i + 1];
+
+        const za = getZ(a.x);
+        const zb = getZ(b.x);
+
+        const a0: P3 = { x: a.x, y: a.y - thickness, z: 0 };
+        const b0: P3 = { x: b.x, y: b.y - thickness, z: 0 };
+        const b1: P3 = { x: b.x, y: b.y - thickness, z: zb };
+        const a1: P3 = { x: a.x, y: a.y - thickness, z: za };
+
+        pushQuadFlat(positions, indices, normals, a1, b1, b0, a0);
+    }
+
+    // Front edge at z = 0
+    for (let i = 0; i < section.length - 1; i++) {
+        const a = section[i];
+        const b = section[i + 1];
+
+        const ta: P3 = { x: a.x, y: a.y, z: 0 };
+        const tb: P3 = { x: b.x, y: b.y, z: 0 };
+        const bb: P3 = { x: b.x, y: b.y - thickness, z: 0 };
+        const ba: P3 = { x: a.x, y: a.y - thickness, z: 0 };
+
+        pushQuadFlat(positions, indices, normals, ta, ba, bb, tb);
+    }
+
+    // Back edge (stepped or continuous)
+    for (let i = 0; i < section.length - 1; i++) {
+        const a = section[i];
+        const b = section[i + 1];
+
+        const za = getZ(a.x);
+        const zb = getZ(b.x);
+
+        const ta: P3 = { x: a.x, y: a.y, z: za };
+        const tb: P3 = { x: b.x, y: b.y, z: zb };
+        const bb: P3 = { x: b.x, y: b.y - thickness, z: zb };
+        const ba: P3 = { x: a.x, y: a.y - thickness, z: za };
+
+        pushQuadFlat(positions, indices, normals, ta, tb, bb, ba);
+    }
+
+    // Left cap
+    {
+        const a = section[0];
+        const zEnd = getZ(a.x);
+
+        const top0: P3 = { x: a.x, y: a.y, z: 0 };
+        const top1: P3 = { x: a.x, y: a.y, z: zEnd };
+        const bot1: P3 = { x: a.x, y: a.y - thickness, z: zEnd };
+        const bot0: P3 = { x: a.x, y: a.y - thickness, z: 0 };
+
+        pushQuadFlat(positions, indices, normals, top0, top1, bot1, bot0);
+    }
+
+    // Right cap
+    {
+        const a = section[section.length - 1];
+        const zEnd = getZ(a.x);
+
+        const top0: P3 = { x: a.x, y: a.y, z: 0 };
+        const top1: P3 = { x: a.x, y: a.y, z: zEnd };
+        const bot1: P3 = { x: a.x, y: a.y - thickness, z: zEnd };
+        const bot0: P3 = { x: a.x, y: a.y - thickness, z: 0 };
+
+        pushQuadFlat(positions, indices, normals, top0, bot0, bot1, top1);
+    }
+
+    const mesh = new BABYLON.Mesh(name, scene);
+
+    const vd = new BABYLON.VertexData();
+    vd.positions = positions;
+    vd.indices = indices;
+    vd.normals = normals;
+    vd.applyToMesh(mesh, updatable);
+
+    return mesh;
+}
+
+// function createShapedRoofPanelSolid(
+//     name: string,
+//     profile: PanelProfile,
+//     drawLength: number,
+//     runLength: number,
+//     thickness: number,
+//     getHeightAtX: (x: number) => number,
+//     scene: BABYLON.Scene,
+//     updatable = false
+// ) {
+//     const section = buildRepeatedPanelTopPolyline(profile, drawLength);
+
+//     const positions: number[] = [];
+//     const indices: number[] = [];
+//     const normals: number[] = [];
+
+//     // Top surface
+//     for (let i = 0; i < section.length - 1; i++) {
+//         const a = section[i];
+//         const b = section[i + 1];
+
+//         const a0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: 0 };
+//         const b0: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y, z: 0 };
+//         const b1: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y, z: runLength };
+//         const a1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: runLength };
+
+//         pushQuadFlat(positions, indices, normals, a0, b0, b1, a1);
+//     }
+
+//     // Bottom surface
+//     for (let i = 0; i < section.length - 1; i++) {
+//         const a = section[i];
+//         const b = section[i + 1];
+
+//         const a0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: 0 };
+//         const b0: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y - thickness, z: 0 };
+//         const b1: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y - thickness, z: runLength };
+//         const a1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: runLength };
+
+//         pushQuadFlat(positions, indices, normals, a1, b1, b0, a0);
+//     }
+
+//     // Front edge z = 0
+//     for (let i = 0; i < section.length - 1; i++) {
+//         const a = section[i];
+//         const b = section[i + 1];
+
+//         const ta: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: 0 };
+//         const tb: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y, z: 0 };
+//         const bb: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y - thickness, z: 0 };
+//         const ba: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: 0 };
+
+//         pushQuadFlat(positions, indices, normals, ta, ba, bb, tb);
+//     }
+
+//     // Back edge z = runLength
+//     for (let i = 0; i < section.length - 1; i++) {
+//         const a = section[i];
+//         const b = section[i + 1];
+
+//         const ta: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: runLength };
+//         const tb: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y, z: runLength };
+//         const bb: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y - thickness, z: runLength };
+//         const ba: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: runLength };
+
+//         pushQuadFlat(positions, indices, normals, ta, tb, bb, ba);
+//     }
+
+//     // Left cap x = 0 side
+//     {
+//         const a = section[0];
+//         const top0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: 0 };
+//         const top1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: runLength };
+//         const bot1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: runLength };
+//         const bot0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: 0 };
+
+//         pushQuadFlat(positions, indices, normals, top0, top1, bot1, bot0);
+//     }
+
+//     // Right cap x = drawLength side
+//     {
+//         const a = section[section.length - 1];
+//         const top0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: 0 };
+//         const top1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: runLength };
+//         const bot1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: runLength };
+//         const bot0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: 0 };
+
+//         pushQuadFlat(positions, indices, normals, top0, bot0, bot1, top1);
+//     }
+
+//     const mesh = new BABYLON.Mesh(name, scene);
+
+//     const vd = new BABYLON.VertexData();
+//     vd.positions = positions;
+//     vd.indices = indices;
+//     vd.normals = normals;
+//     vd.applyToMesh(mesh, updatable);
+
+//     return mesh;
+// }
+
+
+
+
+interface XEnvelopeHit {
+    point: Vector3;
+    side: "left" | "right";
+    segmentIndex: number;
+}
+
+interface XEnvelopeResult {
+    x: number;
+    bottom: XEnvelopeHit | null;
+    top: XEnvelopeHit | null;
+    hits: XEnvelopeHit[];
+}
+
+function lerp(a: number, b: number, t: number): number {
+    return a + (b - a) * t;
+}
+
+function getSegmentHitAtX(
+    a: Vector3,
+    b: Vector3,
+    x: number,
+    side: "left" | "right",
+    segmentIndex: number,
+    epsilon = 1e-8
+): XEnvelopeHit[] {
+    const minX = Math.min(a.x, b.x);
+    const maxX = Math.max(a.x, b.x);
+
+    if (x < minX - epsilon || x > maxX + epsilon) return [];
+
+    const dx = b.x - a.x;
+
+    // Segment is vertical in X.
+    // If query X matches it, the whole segment lies on that X.
+    // For top/bottom purposes, return both ends.
+    if (Math.abs(dx) <= epsilon) {
+        if (Math.abs(x - a.x) > epsilon) return [];
+
+        return [
+            { point: new Vector3(x, a.y, a.z), side, segmentIndex },
+            { point: new Vector3(x, b.y, b.z), side, segmentIndex },
+        ];
+    }
+
+    const t = (x - a.x) / dx;
+    if (t < -epsilon || t > 1 + epsilon) return [];
+
+    return [{
+        point: new Vector3(
+            x,
+            lerp(a.y, b.y, t),
+            lerp(a.z, b.z, t),
+        ),
+        side,
+        segmentIndex,
+    }];
+}
+
+function getTopBottomAtX(
+    leftSide: Vector3[],
+    rightSide: Vector3[],
+    x: number,
+    epsilon = 1e-8
+): XEnvelopeResult {
+    const hits: XEnvelopeHit[] = [];
+
+    for (let i = 0; i < leftSide.length - 1; i++) {
+        hits.push(...getSegmentHitAtX(leftSide[i], leftSide[i + 1], x, "left", i, epsilon));
+    }
+
+    for (let i = 0; i < rightSide.length - 1; i++) {
+        hits.push(...getSegmentHitAtX(rightSide[i], rightSide[i + 1], x, "right", i, epsilon));
+    }
+
+    if (hits.length === 0) {
+        return { x, bottom: null, top: null, hits: [] };
+    }
+
+    let bottom = hits[0];
+    let top = hits[0];
+
+    for (let i = 1; i < hits.length; i++) {
+        if (hits[i].point.z < bottom.point.z) bottom = hits[i];
+        if (hits[i].point.z > top.point.z) top = hits[i];
+    }
+
+    return { x, bottom, top, hits };
+}
+
+
 
 // let SketchDirection = new CFrame();
 
@@ -358,9 +1011,16 @@ export class ExtrudedLine {
             updatable: true,
         };
 
-        this.MAT = new BABYLON.StandardMaterial("material", this.ActiveEditor.Scene);
+        this.MAT = new BABYLON.PBRMetallicRoughnessMaterial("PanelMaterial", Editor.ActiveEditor.Scene); // new BABYLON.StandardMaterial("material", this.ActiveEditor.Scene);
+        // this.MAT.useLogarithmicDepth = true;
+        this.MAT.metallic = .5;
+        this.MAT.roughness = 0.25;
+        this.MAT.backFaceCulling = true;
+        this.MAT.baseColor = Editor.RoofColor;
         this.Update();
     }
+
+    MAT: BABYLON.PBRMetallicRoughnessMaterial;
 
     SelectedProfile: string = "standing-seam";
 
@@ -388,85 +1048,67 @@ export class ExtrudedLine {
         let RoofAngle = CFrame.Angles(Math.atan2(-this.RISE, this.RUN), 0, 0);
         let FocusCF = this.CF_A0.ToWorldSpace(RoofAngle); // .ToWorldSpace(CFrame.Angles(0, Math.PI, 0)); // .ToWorldSpace(RoofAngle);
 
-        if (!this.PolygonSettings) return;
-
-
-        // this.PolygonSettings.shape = [
-        //     new BABYLON.Vector3(),
-        //     new BABYLON.Vector3(this.ExtrudeA, 0, ExtrudeLength),
-        //     new BABYLON.Vector3(-MainLength - this.ExtrudeB, 0, ExtrudeLength),
-        //     new BABYLON.Vector3(-MainLength, 0, 0),
-        // ];
-
-        this.PolygonSettings.shape = [
-            new BABYLON.Vector3(X_L, 0, -ExtrudeLength),
-            new BABYLON.Vector3(X_EA, 0, 0),
-            new BABYLON.Vector3(X_EB, 0, 0),
-            new BABYLON.Vector3(X_R, 0, -ExtrudeLength),
-        ];
-
         // if (true) return;
         // if (!this.ENABLED) {
         let BBL = FocusCF.ToBabylon(); // I had to name this variable BBL. LOL
-        this.Polygon = BABYLON.MeshBuilder.CreatePolygon("POLY", this.PolygonSettings, null, BABYLON_EARCUT.earcut);
-        this.Polygon.material = this.MAT; // Editor.ActiveEditor.RoofPBR_Material;
-        this.Polygon.position.copyFrom(BBL[0]);
-        this.Polygon.rotationQuaternion = BBL[1];
-        this.PanelSettings?.instance?.dispose();
-        return;
+        // this.Polygon = BABYLON.MeshBuilder.CreatePolygon("POLY", this.PolygonSettings, null, BABYLON_EARCUT.earcut);
+        // this.Polygon.material = this.MAT; // Editor.ActiveEditor.RoofPBR_Material;
+        // this.Polygon.position.copyFrom(BBL[0]);
+        // this.Polygon.rotationQuaternion = BBL[1];
+        // this.PanelSettings?.instance?.dispose();
+        // return;
         // };
 
-        let PanelThickness = 0 * .0179;
+        let PanelThickness = 1; // * .0179;
         // shape.push(new BABYLON.Vector3(-X, 0, 0));
 
         let SelectedPanelData = PanelProfiles[this.SelectedProfile] ?? PanelProfiles["standing-seam"]; // SelectedProfile];
         let PanelLength = SelectedPanelData.PanelLength; // 36;
         let MaxPanels = Math.ceil(DrawLength / PanelLength);
 
-        let shape = []; // new BABYLON.Vector3(0, 0, 0)];
-
-        let X = SelectedPanelData.Overlap; // 0; // -PBR_Panel[0][0] / 2;
-        let Y = PanelThickness; // + .1;
-
-        for (let i = 0; i < MaxPanels; i++) {
-            for (let P of SelectedPanelData.Shape) {
-                let Outer = P[0];
-                let Extrude = P.length > 1 ? P[1] : 0;
-                let Inner = P.length > 2 ? P[2] : 0;
-                let ExtrudeUndo = P.length > 3 ? P[3] : Extrude;
-                if (X >= DrawLength) break;
-
-                X += Outer / 2 - Inner / 2;
-                Y += Extrude;
-                shape.push(new BABYLON.Vector3(X, Y, 0));
-                if (X >= DrawLength) break;
-
-                X += Inner;
-                if (Inner != 0) shape.push(new BABYLON.Vector3(X, Y, 0));
-                if (X >= DrawLength) break;
-
-                X += Outer / 2 - Inner / 2;
-                Y -= ExtrudeUndo;
-                if (ExtrudeUndo != 0 || (Outer - Inner) != 0) shape.push(new BABYLON.Vector3(X, Y, 0));
-                if (X >= DrawLength) break;
-            };
-        };
-
-        if (shape.length != 0) shape[shape.length - 1].x = DrawLength; // Could handle the slope and stuff properly...
-
         PanelLength *= MaxPanels;
 
-        this.PanelSettings?.instance?.dispose();
-        delete this.PanelSettings?.instance;
-        this.PanelSettings.shape = shape;
-        this.PanelSettings.capFunction = (shapePath: BABYLON.Vector3[]) => shapePath.map((v) => new BABYLON.Vector3(v.x, v.y + PanelThickness, -this.GetHeightAtX(v.x)));
+        this.Panel?.dispose();
+        delete this.Panel;
 
-        let Panel = this.PanelSettings.instance = BABYLON.MeshBuilder.ExtrudeShape(`PANEL`, this.PanelSettings, this.ActiveEditor.Scene).convertToFlatShadedMesh(); // this.ActiveEditor.Scene);
+        function makeUniformRunBands(
+            drawLength: number,
+            bandWidth: number,
+            mode: "center-sample" | "left-sample" | "right-sample" = "center-sample"
+        ): RunBand[] {
+            const bands: RunBand[] = [];
 
-        let P_BBL = FocusCF.ToWorldSpace(CFrame.fromXYZ(-this.ExtrudeB - MainLength, PanelThickness, ExtrudeLength)).ToBabylon();
+            for (let xMin = 0; xMin < drawLength; xMin += bandWidth) {
+                const xMax = Math.min(drawLength, xMin + bandWidth);
+
+                let sampleAtX: number;
+                if (mode === "left-sample") sampleAtX = xMin;
+                else if (mode === "right-sample") sampleAtX = xMax;
+                else sampleAtX = (xMin + xMax) * 0.5;
+
+                bands.push({ xMin, xMax, sampleAtX });
+            }
+
+            return bands;
+        }
+
+        const Panel = this.Panel = createShapedRoofPanelSolid_LengthByX(
+            "pbr-template",
+            SelectedPanelData,
+            DrawLength,
+            ExtrudeLength,
+            PanelThickness,
+            (x) => this.GetHeightAtX(x) * ExtrudeLength / this.RUN,
+            Editor.ActiveEditor.Scene,
+            true,
+            makeUniformRunBands(DrawLength, 10, "left-sample")
+        );
+
+        let P_BBL = FocusCF.ToWorldSpace(CFrame.fromXYZ(this.ExtrudeA, PanelThickness, -ExtrudeLength)).ToBabylon();
+
         Panel.position.set(P_BBL[0].x, P_BBL[0].y, P_BBL[0].z);
         Panel.rotationQuaternion = P_BBL[1]; //.copyFrom(this.BBL[1]);
-        Panel.material = Editor.RoofPBR_Material;
+        Panel.material = this.MAT; // new BABYLON.PBRMetallicRoughnessMaterial("PanelMaterial", Editor.ActiveEditor.Scene); // Editor.RoofPBR_Material;
     }
 
     Zonings: Vector3[][] = [];
@@ -506,7 +1148,17 @@ export class ExtrudedLine {
     //     return Height;
     // }
 
+    LeftSidePoints?: Vector3[];
+    RightSidePoints?: Vector3[];
+
     GetHeightAtX(X: number, Raw = false) {
+        if (this.LeftSidePoints && this.RightSidePoints) {
+            // let LeftX = Infinity;
+            // let RightX = -Infinity;
+            // for (const V3 of this.LeftSidePoints) LeftX = Math.min(LeftX, V3.X), RightX = Math.max(RightX, V3.X);
+            // for (const V3 of this.RightSidePoints) LeftX = Math.min(LeftX, V3.X), RightX = Math.max(RightX, V3.X);
+            return getTopBottomAtX(this.LeftSidePoints, this.RightSidePoints, X).top?.point.Z;
+        }
         // return this.GetBottomAtX(X);
         // let ExtrudeA = Math.max(0, this.ExtrudeA);
         // let ExtrudeB = Math.max(0, this.ExtrudeB);
@@ -600,8 +1252,8 @@ export class ExtrudedLine {
         this.LineASettings.instance?.dispose();
         this.LineBSettings.instance?.dispose();
         this.Polygon?.dispose();
-        this.PanelSettings?.instance?.dispose();
-        delete this.PanelSettings?.instance;
+        this.Panel?.dispose();
+        delete this.Panel;
         // this.TESTYSETTINGS?.instance?.dispose();
         // this.TESTYSETTINGSSIDE?.instance?.dispose();
         // for (let PanelSettings of this.Panels) PanelSettings.instance?.dispose();
