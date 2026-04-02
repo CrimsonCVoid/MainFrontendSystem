@@ -127,6 +127,7 @@ export interface Database {
           organization_id: string | null; // Organization this project belongs to
           archived_at: string | null; // Timestamp when project was archived
           archived_by: string | null; // User ID who archived the project
+          client_id: string | null; // Link to clients table
         };
         Insert: {
           id?: string;

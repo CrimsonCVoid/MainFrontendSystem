@@ -293,9 +293,12 @@ export default function RoofViewer3D({
       panelMat.backFaceCulling = false;
       panelMaterialRef.current = panelMat;
 
-      // Check for renderable roof data from backend planes[].vertices
-      const hasRoofData = roofData?.planes?.length > 0 && roofData.planes.some((p: any) => p.vertices?.length >= 3);
-      console.log("[RoofViewer3D] hasRoofData:", hasRoofData, "planes:", roofData?.planes?.length ?? 0);
+      // Check for renderable roof data — prefer _google_raw for proper azimuth rotation
+      const googleRaw = roofData?._google_raw;
+      const segments = googleRaw?.roofSegmentStats || googleRaw?.solarPotential?.roofSegmentStats;
+      const googleCenter = googleRaw?.center;
+      const hasRoofData = (segments?.length > 0 && !!googleCenter) || (roofData?.planes?.length > 0 && roofData.planes.some((p: any) => p.vertices?.length >= 3));
+      console.log("[RoofViewer3D] hasRoofData:", hasRoofData, "segments:", segments?.length ?? 0);
 
 
 
@@ -311,48 +314,106 @@ export default function RoofViewer3D({
 
 
       if (hasRoofData) {
-        // --- RENDER ROOF FROM BACKEND planes[].vertices ---
-        // Backend computes 4-corner vertices per plane in meters relative to building center
-        // Vertices: [[x,y,z], [x,y,z], [x,y,z], [x,y,z]]
-        // x = east-west, y = height, z = north-south
-        // Maps directly to Babylon: X = east-west, Y = height, Z = north-south
         const createdMeshes: BABYLON.Mesh[] = [];
 
-        for (let i = 0; i < roofData.planes.length; i++) {
-          const plane = roofData.planes[i];
-          if (!plane.vertices || plane.vertices.length < 3) continue;
+        if (segments?.length > 0 && googleCenter) {
+          // --- RENDER WITH AZIMUTH ROTATION FROM _google_raw ---
+          const LAT_SCALE = 111320;
+          const LNG_SCALE = 111320 * Math.cos(googleCenter.latitude * Math.PI / 180);
+          const toLocal = (lat: number, lon: number) => ({
+            x: (lon - googleCenter.longitude) * LNG_SCALE,
+            z: (lat - googleCenter.latitude) * LAT_SCALE,
+          });
 
-          // Flatten vertices into position array
-          const positions: number[] = [];
-          for (const v of plane.vertices) {
-            positions.push(v[0], v[1], v[2]);
+          let minH = Infinity;
+          for (const seg of segments) if (seg.planeHeightAtCenterMeters != null) minH = Math.min(minH, seg.planeHeightAtCenterMeters);
+          if (!isFinite(minH)) minH = 0;
+
+          for (let i = 0; i < segments.length; i++) {
+            const seg = segments[i];
+            const gArea = seg.stats?.groundAreaMeters2;
+            if (!gArea || gArea < 1) continue;
+
+            const pitchRad = (seg.pitchDegrees || 0) * Math.PI / 180;
+            const azRad = (seg.azimuthDegrees || 0) * Math.PI / 180;
+            const hM = (seg.planeHeightAtCenterMeters || 0) - minH;
+            const c = toLocal(seg.center.latitude, seg.center.longitude);
+
+            // Compute ridge width and ground depth from bounding box aspect ratio + area
+            let rW: number, gD: number;
+            if (seg.boundingBox?.ne && seg.boundingBox?.sw) {
+              const ne = toLocal(seg.boundingBox.ne.latitude, seg.boundingBox.ne.longitude);
+              const sw = toLocal(seg.boundingBox.sw.latitude, seg.boundingBox.sw.longitude);
+              const bbW = Math.max(Math.abs(ne.x - sw.x), 0.5);
+              const bbH = Math.max(Math.abs(ne.z - sw.z), 0.5);
+              // Use bbox aspect ratio but compute actual dimensions from ground area
+              const aspect = bbW / bbH;
+              // For the roof plane rotated by azimuth:
+              // Ridge runs perpendicular to azimuth, depth runs along azimuth
+              // Use the bbox dimension that aligns more with each direction
+              const cosAz = Math.abs(Math.cos(azRad)), sinAz = Math.abs(Math.sin(azRad));
+              // Ridge extent from bbox: mostly EW when az~0/180, mostly NS when az~90/270
+              const ridgeFromBB = bbW * cosAz + bbH * sinAz;
+              const depthFromBB = bbW * sinAz + bbH * cosAz;
+              const bbAspect = Math.max(ridgeFromBB, 0.5) / Math.max(depthFromBB, 0.5);
+              // Scale to match actual ground area
+              gD = Math.sqrt(gArea / bbAspect);
+              rW = gArea / gD;
+            } else {
+              rW = Math.sqrt(gArea * 1.4);
+              gD = gArea / rW;
+            }
+
+            const rise = gD * Math.tan(pitchRad);
+            // Google Solar: 0°=South, 90°=West, 180°=North, 270°=East (clockwise from south)
+            const dx = -Math.sin(azRad), dz = -Math.cos(azRad); // downslope
+            const rx = -Math.cos(azRad), rz = Math.sin(azRad);  // ridge direction
+            const hw = rW / 2;
+
+            console.log(
+              `[Seg ${i}] az=${seg.azimuthDegrees?.toFixed(1)}° pitch=${seg.pitchDegrees?.toFixed(1)}°` +
+              ` rW=${rW.toFixed(1)}m gD=${gD.toFixed(1)}m rise=${rise.toFixed(1)}m`
+            );
+
+            const positions = [
+              c.x - dx * gD / 2 + rx * hw, hM + rise, c.z - dz * gD / 2 + rz * hw,
+              c.x - dx * gD / 2 - rx * hw, hM + rise, c.z - dz * gD / 2 - rz * hw,
+              c.x + dx * gD / 2 - rx * hw, hM,        c.z + dz * gD / 2 - rz * hw,
+              c.x + dx * gD / 2 + rx * hw, hM,        c.z + dz * gD / 2 + rz * hw,
+            ];
+            const indices = [0,1,2, 0,2,3, 0,2,1, 0,3,2];
+            const normals: number[] = [];
+            BABYLON.VertexData.ComputeNormals(positions, indices, normals);
+            const mesh = new BABYLON.Mesh(`seg-${i}`, Scene);
+            const vd = new BABYLON.VertexData();
+            vd.positions = positions; vd.indices = indices; vd.normals = normals;
+            vd.applyToMesh(mesh);
+            mesh.material = panelMat; mesh.parent = root;
+            createdMeshes.push(mesh);
+            meshesRef.current.push([mesh, null, `seg-${i}`]);
           }
-
-          // Triangulate with front + back faces (double-sided)
-          const indices: number[] = [];
-          const numVerts = plane.vertices.length;
-          for (let t = 1; t < numVerts - 1; t++) {
-            indices.push(0, t, t + 1);     // front
-            indices.push(0, t + 1, t);     // back
+        } else if (roofData?.planes?.length > 0) {
+          // Fallback: render from backend planes[].vertices
+          for (let i = 0; i < roofData.planes.length; i++) {
+            const plane = roofData.planes[i];
+            if (!plane.vertices || plane.vertices.length < 3) continue;
+            const positions: number[] = [];
+            for (const v of plane.vertices) positions.push(v[0], v[1], v[2]);
+            const indices: number[] = [];
+            for (let t = 1; t < plane.vertices.length - 1; t++) { indices.push(0, t, t+1, 0, t+1, t); }
+            const normals: number[] = [];
+            BABYLON.VertexData.ComputeNormals(positions, indices, normals);
+            const mesh = new BABYLON.Mesh(`plane-${i}`, Scene);
+            const vd = new BABYLON.VertexData();
+            vd.positions = positions; vd.indices = indices; vd.normals = normals;
+            vd.applyToMesh(mesh);
+            mesh.material = panelMat; mesh.parent = root;
+            createdMeshes.push(mesh);
+            meshesRef.current.push([mesh, null, `plane-${i}`]);
           }
-
-          const normals: number[] = [];
-          BABYLON.VertexData.ComputeNormals(positions, indices, normals);
-
-          const mesh = new BABYLON.Mesh(`plane-${i}`, Scene);
-          const vertexData = new BABYLON.VertexData();
-          vertexData.positions = positions;
-          vertexData.indices = indices;
-          vertexData.normals = normals;
-          vertexData.applyToMesh(mesh);
-
-          mesh.material = panelMat;
-          mesh.parent = root;
-          createdMeshes.push(mesh);
-          meshesRef.current.push([mesh, null, `plane-${i}`]);
         }
 
-        console.log(`[RoofViewer3D] Rendered ${createdMeshes.length} roof planes from backend vertices`);
+        console.log(`[RoofViewer3D] Rendered ${createdMeshes.length} roof planes`);
 
         // Auto-center and fit camera to all geometry
         if (createdMeshes.length > 0) {

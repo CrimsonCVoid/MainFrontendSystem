@@ -44,6 +44,7 @@ import {
   Eye,
   ArrowUpRight,
   ArrowDownRight,
+  X,
 } from "lucide-react";
 import {
   deleteProject,
@@ -67,6 +68,18 @@ import { useOrg, useSFPool } from "@/components/providers/org-provider";
 import { SFPoolDisplay, SFPoolBadge } from "@/components/org/sf-pool-display";
 import { type EstimateShare } from "@/lib/estimate-sharing";
 import AddressInput, { type AddressData } from "@/components/project/AddressInput";
+import dynamic from "next/dynamic";
+import { CalendarDays, Wrench, Contact } from "lucide-react";
+
+const ClientsTab = dynamic(() => import("@/components/dashboard/ClientsTab"), { ssr: false });
+const PipelineTab = dynamic(() => import("@/components/dashboard/PipelineTab"), { ssr: false });
+const CalendarTab = dynamic(() => import("@/components/dashboard/CalendarTab"), { ssr: false });
+const CrewTab = dynamic(() => import("@/components/dashboard/CrewTab"), { ssr: false });
+
+const RoofViewer3D = dynamic(() => import("@/components/dashboard/RoofViewer3D"), {
+  ssr: false,
+  loading: () => <div className="w-full h-full flex items-center justify-center bg-neutral-100"><Loader2 className="w-8 h-8 animate-spin text-neutral-400" /></div>,
+});
 import {
   type ActivityLogEntry,
   type ActivityCategory,
@@ -86,9 +99,9 @@ const emptyForm: FormState = {
   description: "",
 };
 
-type DashboardTab = "overview" | "projects" | "estimates" | "team" | "audit" | "settings";
+type DashboardTab = "overview" | "projects" | "estimates" | "team" | "audit" | "settings" | "clients" | "pipeline" | "calendar" | "crew";
 
-const VALID_TABS: DashboardTab[] = ["overview", "projects", "estimates", "team", "audit", "settings"];
+const VALID_TABS: DashboardTab[] = ["overview", "projects", "estimates", "clients", "pipeline", "calendar", "crew", "team", "audit", "settings"];
 
 type UserProfile = {
   id: string;
@@ -128,7 +141,7 @@ export default function DashboardClient() {
   const [sortBy, setSortBy] = useState<"date" | "name" | "size">("date");
   const [filterStatus, setFilterStatus] = useState<"all" | "paid" | "pending">("all");
   const [filterOwnership, setFilterOwnership] = useState<"all" | "mine" | "team">("all");
-  const VALID_TABS: DashboardTab[] = ["overview", "projects", "estimates", "team", "audit", "settings"];
+  const VALID_TABS: DashboardTab[] = ["overview", "projects", "estimates", "clients", "pipeline", "calendar", "crew", "team", "audit", "settings"];
   const tabParam = searchParams.get("tab");
   const initialTab = tabParam && VALID_TABS.includes(tabParam as DashboardTab) ? (tabParam as DashboardTab) : "overview";
   const [activeTab, setActiveTab] = useState<DashboardTab>(initialTab);
@@ -154,6 +167,15 @@ export default function DashboardClient() {
   const [promoCode, setPromoCode] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoCredits, setPromoCredits] = useState<number>(0);
+
+  // Roof verification state (shown after project creation)
+  const [verifyStep, setVerifyStep] = useState<"idle" | "generating" | "verify">("idle");
+  const [verifyRoofData, setVerifyRoofData] = useState<any>(null);
+  const [verifyProjectId, setVerifyProjectId] = useState<string | null>(null);
+  const [verifyAddress, setVerifyAddress] = useState<AddressData | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [showTicketForm, setShowTicketForm] = useState(false);
+  const [ticketReason, setTicketReason] = useState("");
 
   // Project creation modal state
   const [selectedAddress, setSelectedAddress] = useState<AddressData | null>(null);
@@ -789,7 +811,7 @@ export default function DashboardClient() {
     setError(null);
 
     try {
-      // If using promo credit, consume one first
+      // Consume promo credit if applicable
       if (paymentMethod === "promo_credit") {
         const consumeRes = await fetch("/api/promo-keys/consume", {
           method: "POST",
@@ -797,22 +819,11 @@ export default function DashboardClient() {
           body: JSON.stringify({}),
         });
         const consumeData = await consumeRes.json();
-        if (!consumeData.success) {
-          throw new Error(consumeData.error || "Failed to use promo credit");
-        }
-        // Update local credits count
-        setPromoCredits(consumeData.remainingCredits);
+        if (!consumeData.success) throw new Error(consumeData.error || "Failed to use promo credit");
+        setPromoCredits(consumeData.remaining);
       }
 
-      // Create project with address in a single server-side API call
-      // (browser Supabase client hangs after OAuth — use fetch instead)
-      console.log("[Project Create] Creating project via API:", {
-        name: createForm.name.trim(),
-        address: selectedAddress.address,
-        latitude: selectedAddress.latitude,
-        longitude: selectedAddress.longitude,
-      });
-
+      // Create project
       const createRes = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -832,79 +843,107 @@ export default function DashboardClient() {
       });
 
       const createData = await createRes.json();
-      if (!createRes.ok) {
-        throw new Error(createData.error || "Failed to create project");
-      }
+      if (!createRes.ok) throw new Error(createData.error || "Failed to create project");
 
       const project = createData.project;
-      console.log("[Project Create] Created:", project.id, project.name);
 
-      // Add to local projects list with creator info
+      // Add to local list
       const projectWithCreator: ProjectWithCreator = {
         ...project,
-        creator: profile ? {
-          id: profile.id,
-          email: profile.email || "",
-          full_name: profile.full_name,
-          avatar_url: profile.avatar_url,
-        } : null,
+        creator: profile ? { id: profile.id, email: profile.email || "", full_name: profile.full_name, avatar_url: profile.avatar_url } : null,
         isOwn: true,
       };
       setProjects((current) => [projectWithCreator, ...current]);
 
-      // Generate roof data before navigating so the project page has data on load
-      if (selectedAddress.formatted_address) {
-        try {
-          const roofRes = await fetch("/api/roof-generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              projectId: project.id,
-              address: selectedAddress.formatted_address,
-            }),
-          });
-          const roofResult = await roofRes.json();
-          if (roofResult.success) {
-            console.log("[Dashboard] Roof generation complete:", roofResult.roofData?.total_area_sf, "sf");
-            // Update local project with roof data so dashboard card shows sqft
-            setProjects((current) =>
-              current.map((p) =>
-                p.id === project.id
-                  ? { ...p, square_footage: roofResult.roofData?.total_area_sf, roof_data: roofResult.roofData }
-                  : p
-              )
-            );
-          } else {
-            console.warn("[Dashboard] Roof generation returned error:", roofResult.error);
-          }
-        } catch (err) {
-          console.error("[Dashboard] Roof generation failed:", err);
+      // Transition to verification step — generate roof
+      setVerifyProjectId(project.id);
+      setVerifyAddress(selectedAddress);
+      setVerifyStep("generating");
+      setVerifyError(null);
+      setShowCreateModal(false);
+
+      // Generate roof
+      const fullAddr = selectedAddress.formatted_address || `${selectedAddress.address}, ${selectedAddress.city}, ${selectedAddress.state} ${selectedAddress.postal_code}`;
+      try {
+        const roofRes = await fetch("/api/roof-generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId: project.id, address: fullAddr }),
+        });
+        const roofResult = await roofRes.json();
+        if (roofResult.success && roofResult.roofData) {
+          setVerifyRoofData(roofResult.roofData);
+          setVerifyStep("verify");
+          // Update local project
+          setProjects((current) =>
+            current.map((p) => p.id === project.id
+              ? { ...p, square_footage: roofResult.roofData?.total_area_sf, roof_data: roofResult.roofData }
+              : p
+            )
+          );
+        } else {
+          setVerifyError(roofResult.error || "Google Solar could not find this building. It may be new construction or in an unmapped area.");
+          setVerifyStep("verify");
         }
+      } catch (err: any) {
+        setVerifyError(err.message || "Roof generation failed");
+        setVerifyStep("verify");
       }
 
-      // Reset form state
+      // Reset create form (but keep verification open)
       setCreateForm(emptyForm);
       setSelectedAddress(null);
       setPaymentMethod(null);
-      setShowCreateModal(false);
-
-      toast({
-        title: "Project Created!",
-        description: paymentMethod === "promo_credit"
-          ? "Your free project credit has been applied."
-          : "Add roof measurements to unlock with SF pool.",
-      });
-
-      router.push(`/projects/${project.id}`);
     } catch (err: any) {
       setError(err?.message || "Unable to create project.");
-      toast({
-        title: "Error",
-        description: err?.message || "Failed to create project.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: err?.message || "Failed to create project.", variant: "destructive" });
     } finally {
       setCreateBusy(false);
+    }
+  };
+
+  // Handle roof verification confirmation
+  const handleVerifyConfirm = () => {
+    if (verifyProjectId) {
+      toast({ title: "Roof Verified!", description: "Your project is ready. Opening now..." });
+      router.push(`/projects/${verifyProjectId}`);
+    }
+    setVerifyStep("idle");
+    setVerifyRoofData(null);
+    setVerifyProjectId(null);
+    setVerifyAddress(null);
+    setVerifyError(null);
+  };
+
+  // Handle support ticket submission
+  const handleSubmitTicket = async () => {
+    if (!verifyProjectId || !ticketReason.trim()) return;
+    try {
+      const res = await fetch("/api/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: verifyProjectId,
+          orgId: org?.id,
+          type: "roof_verification_rejected",
+          reason: ticketReason.trim(),
+          address: verifyAddress?.formatted_address || verifyAddress?.address,
+          metadata: {
+            squareFootage: verifyRoofData?.total_area_sf,
+            planeCount: verifyRoofData?.planes?.length,
+            latitude: verifyAddress?.latitude,
+            longitude: verifyAddress?.longitude,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast({ title: "Ticket Submitted", description: "We'll review your roof data and get back to you within 24 hours." });
+      setShowTicketForm(false);
+      setTicketReason("");
+      handleVerifyConfirm();
+    } catch (err: any) {
+      toast({ title: "Error", description: "Failed to submit ticket. Please try again.", variant: "destructive" });
     }
   };
 
@@ -1110,8 +1149,12 @@ export default function DashboardClient() {
             {[
               { id: "overview", label: "Overview", icon: TrendingUp },
               { id: "projects", label: "Projects", icon: Building2 },
-              { id: "team", label: "Team", icon: Users },
+              { id: "clients", label: "Clients", icon: Contact },
+              { id: "pipeline", label: "Pipeline", icon: LayoutGrid },
+              { id: "calendar", label: "Calendar", icon: CalendarDays },
               { id: "estimates", label: "Estimates", icon: FileText },
+              { id: "crew", label: "Crew", icon: Wrench },
+              { id: "team", label: "Team", icon: Users },
               { id: "audit", label: "Audit Log", icon: History },
               { id: "settings", label: "Settings", icon: Settings, adminOnly: true },
             ].filter(tab => !tab.adminOnly || canManageBilling()).map((tab) => (
@@ -1779,6 +1822,12 @@ export default function DashboardClient() {
           </motion.div>
         )}
 
+        {/* CRM Tabs */}
+        {activeTab === "clients" && <ClientsTab />}
+        {activeTab === "pipeline" && <PipelineTab />}
+        {activeTab === "calendar" && <CalendarTab />}
+        {activeTab === "crew" && <CrewTab />}
+
         {/* Settings Tab */}
         {activeTab === "settings" && canManageBilling() && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -2259,6 +2308,176 @@ export default function DashboardClient() {
                   </Button>
                 </div>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+        {/* Roof Verification Modal */}
+        {verifyStep !== "idle" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-4">
+                <h2 className="text-xl font-bold text-white">
+                  {verifyStep === "generating" ? "Generating Roof Model..." : "Verify Your Roof"}
+                </h2>
+                <p className="text-sm text-orange-100 mt-1">
+                  {verifyStep === "generating"
+                    ? "Analyzing satellite imagery — this takes a few seconds"
+                    : "Please confirm this matches the property"}
+                </p>
+              </div>
+
+              {/* Generating spinner */}
+              {verifyStep === "generating" && (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <Loader2 className="w-12 h-12 animate-spin text-orange-500" />
+                  <p className="text-neutral-500 text-sm">Fetching roof data from Google Solar API...</p>
+                </div>
+              )}
+
+              {/* Verification view */}
+              {verifyStep === "verify" && (
+                <div className="p-6 space-y-4">
+                  {verifyError ? (
+                    /* Error state */
+                    <div className="text-center py-8 space-y-4">
+                      <div className="w-16 h-16 mx-auto rounded-full bg-red-50 flex items-center justify-center">
+                        <X className="w-8 h-8 text-red-500" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-neutral-900">Roof Generation Failed</h3>
+                        <p className="text-sm text-neutral-500 mt-2 max-w-md mx-auto">{verifyError}</p>
+                      </div>
+                      <div className="flex gap-3 justify-center pt-4">
+                        <Button variant="outline" onClick={handleVerifyConfirm}>
+                          Continue Anyway
+                        </Button>
+                        <Button
+                          className="bg-orange-500 hover:bg-orange-600"
+                          onClick={() => setShowTicketForm(true)}
+                        >
+                          Submit Support Ticket
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Success — show 3D viewer + map */
+                    <>
+                      {/* 3D Roof Preview */}
+                      <div className="rounded-xl overflow-hidden border border-neutral-200" style={{ height: "220px" }}>
+                        <RoofViewer3D
+                          roofData={verifyRoofData}
+                          spin={true}
+                          hideControls={true}
+                          className="h-full w-full"
+                        />
+                      </div>
+
+                      {/* Roof stats bar */}
+                      {verifyRoofData && (
+                        <div className="flex items-center justify-center gap-6 py-2">
+                          <div className="text-center">
+                            <p className="text-2xl font-bold text-neutral-900">
+                              {verifyRoofData.total_area_sf?.toLocaleString()}
+                            </p>
+                            <p className="text-xs text-neutral-500">Square Feet</p>
+                          </div>
+                          <div className="w-px h-8 bg-neutral-200" />
+                          <div className="text-center">
+                            <p className="text-2xl font-bold text-neutral-900">
+                              {verifyRoofData.planes?.length || 0}
+                            </p>
+                            <p className="text-xs text-neutral-500">Roof Planes</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Google Maps satellite view */}
+                      {verifyAddress?.latitude && verifyAddress?.longitude && (
+                        <div className="rounded-xl overflow-hidden border border-neutral-200">
+                          <iframe
+                            src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}&center=${verifyAddress.latitude},${verifyAddress.longitude}&zoom=21&maptype=satellite`}
+                            className="w-full border-0"
+                            style={{ height: "160px" }}
+                            allowFullScreen
+                            loading="lazy"
+                            title="Satellite view"
+                          />
+                          <div className="bg-neutral-50 px-4 py-2 text-xs text-neutral-500">
+                            {verifyAddress.formatted_address || `${verifyAddress.address}, ${verifyAddress.city}, ${verifyAddress.state}`}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      <div className="flex gap-3 pt-2">
+                        <Button
+                          variant="outline"
+                          className="flex-1 h-12 border-red-200 text-red-600 hover:bg-red-50"
+                          onClick={() => setShowTicketForm(true)}
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          This Doesn&apos;t Look Right
+                        </Button>
+                        <Button
+                          className="flex-1 h-12 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white"
+                          onClick={handleVerifyConfirm}
+                        >
+                          <Check className="w-4 h-4 mr-2" />
+                          Looks Good — Continue
+                        </Button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Support ticket form */}
+                  {showTicketForm && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 p-4 rounded-xl border border-amber-200 bg-amber-50 space-y-3"
+                    >
+                      <h4 className="font-semibold text-neutral-900">What&apos;s wrong with the roof?</h4>
+                      <p className="text-xs text-neutral-500">
+                        Common issues: trees covering the roof, wrong building detected, new construction not in satellite imagery, garage/shed included.
+                      </p>
+                      <textarea
+                        value={ticketReason}
+                        onChange={(e) => setTicketReason(e.target.value)}
+                        placeholder="Describe what looks incorrect..."
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm resize-none h-20 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                      />
+                      <div className="flex gap-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setShowTicketForm(false); setTicketReason(""); }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="bg-orange-500 hover:bg-orange-600"
+                          disabled={!ticketReason.trim()}
+                          onClick={handleSubmitTicket}
+                        >
+                          Submit Ticket
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}

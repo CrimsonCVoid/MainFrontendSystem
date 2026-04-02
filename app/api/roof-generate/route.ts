@@ -61,10 +61,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Project coordinates not found" }, { status: 400 });
   }
 
-  // Call Algorithm Droplet over private VPC
-  let algoRes: Response;
+  // Try advanced endpoint first (satellite data + plane segmentation), fall back to simple
+  let roofData: any;
+  let kyxrBase64: string | null = null;
+
+  // Attempt advanced generation (downloads GeoTIFFs, runs segmentation)
+  let useAdvanced = true;
   try {
-    algoRes = await fetch(`${ALGORITHM_URL}/generate`, {
+    console.log(`[roof-generate] Trying advanced endpoint...`);
+    const advRes = await fetch(`${ALGORITHM_URL}/generate-advanced`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -72,24 +77,49 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({ lat: project.latitude, lng: project.longitude, address }),
     });
-  } catch (fetchError: any) {
-    console.error("[roof-generate] Failed to reach Algorithm Droplet:", fetchError.message);
-    return NextResponse.json(
-      { error: "Algorithm service unreachable" },
-      { status: 502 }
-    );
+
+    if (advRes.ok) {
+      const advData = await advRes.json();
+      kyxrBase64 = advData._kyxr_base64 || null;
+      delete advData._kyxr_base64; // Don't store in roof_data JSON
+      roofData = advData;
+      console.log(`[roof-generate] Advanced success — ${roofData.total_area_sf} sf, ${roofData.planes?.length} planes, kyxr=${kyxrBase64 ? "yes" : "no"}`);
+    } else {
+      console.warn(`[roof-generate] Advanced returned ${advRes.status}, falling back to simple`);
+      useAdvanced = false;
+    }
+  } catch (advErr: any) {
+    console.warn(`[roof-generate] Advanced failed (${advErr.message}), falling back to simple`);
+    useAdvanced = false;
   }
 
-  if (!algoRes.ok) {
-    const errBody = await algoRes.json().catch(() => ({ error: "Algorithm processing failed" }));
-    console.error(`[roof-generate] Algorithm returned ${algoRes.status}:`, errBody);
-    return NextResponse.json(errBody, { status: algoRes.status });
+  // Fallback: simple generation (just Google Solar buildingInsights)
+  if (!useAdvanced || !roofData) {
+    try {
+      const algoRes = await fetch(`${ALGORITHM_URL}/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(ALGORITHM_KEY ? { "x-api-key": ALGORITHM_KEY } : {}),
+        },
+        body: JSON.stringify({ address }),
+      });
+
+      if (!algoRes.ok) {
+        const errBody = await algoRes.json().catch(() => ({ error: "Algorithm processing failed" }));
+        console.error(`[roof-generate] Simple algorithm returned ${algoRes.status}:`, errBody);
+        return NextResponse.json(errBody, { status: algoRes.status });
+      }
+
+      roofData = await algoRes.json();
+      console.log(`[roof-generate] Simple success — ${roofData.total_area_sf} sf, ${roofData.planes?.length} planes`);
+    } catch (fetchError: any) {
+      console.error("[roof-generate] Failed to reach Algorithm Droplet:", fetchError.message);
+      return NextResponse.json({ error: "Algorithm service unreachable" }, { status: 502 });
+    }
   }
 
-  const roofData = await algoRes.json();
-  console.log(`[roof-generate] Algorithm returned data — total_area_sf: ${roofData.total_area_sf}, planes: ${roofData.planes?.length}`);
-  console.log(`[roof-generate] Algorithm response keys: ${Object.keys(roofData).join(", ")}`);
-  console.log(`[roof-generate] Has _google_raw: ${!!roofData._google_raw}, _google_raw keys: ${roofData._google_raw ? Object.keys(roofData._google_raw).join(", ") : "N/A"}`);
+  console.log(`[roof-generate] Response keys: ${Object.keys(roofData).join(", ")}`);
 
   // Normalize _google_raw structure: Google Solar API nests roofSegmentStats under
   // solarPotential, but the 3D viewer expects them at the top level of _google_raw.
@@ -137,8 +167,38 @@ export async function POST(req: NextRequest) {
 
   if (updateError) {
     console.error("[roof-generate] Failed to store roof_data:", updateError.message);
-    // Still return the data even if DB write fails — caller can retry storage
   }
 
-  return NextResponse.json({ success: true, roofData });
+  // If we have satellite data (.kyxr binary), upload to Supabase Storage
+  if (kyxrBase64) {
+    try {
+      const kyxrBuffer = Buffer.from(kyxrBase64, "base64");
+      const storagePath = `satellite-data/${projectId}.kyxr`;
+
+      const { error: storageError } = await supabase.storage
+        .from("project-data")
+        .upload(storagePath, kyxrBuffer, {
+          contentType: "application/octet-stream",
+          upsert: true,
+        });
+
+      if (storageError) {
+        console.warn("[roof-generate] Failed to upload .kyxr to storage:", storageError.message);
+      } else {
+        console.log(`[roof-generate] Uploaded .kyxr (${kyxrBuffer.byteLength} bytes) to ${storagePath}`);
+        // Save storage path reference in project
+        await (supabase.from("projects") as any)
+          .update({ roof_data_status: "complete" })
+          .eq("id", projectId);
+      }
+    } catch (storageErr: any) {
+      console.warn("[roof-generate] Storage upload error:", storageErr.message);
+    }
+  }
+
+  return NextResponse.json({
+    success: true,
+    roofData,
+    hasAdvancedData: !!kyxrBase64,
+  });
 }

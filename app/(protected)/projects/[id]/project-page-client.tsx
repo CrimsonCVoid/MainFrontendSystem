@@ -32,13 +32,16 @@ import { Badge } from "@/components/ui/badge";
 import ProjectViewer from "@/components/project/ProjectViewer";
 import { type AddressData } from "@/components/project/AddressInput";
 import EstimationTab from "@/components/project/EstimationTab";
+import CutSheetTab from "@/components/project/CutSheetTab";
+import ProposalBuilder from "@/components/project/ProposalBuilder";
+import PhotoGalleryTab from "@/components/project/PhotoGalleryTab";
+import FinancialsTab from "@/components/project/FinancialsTab";
 import { DuplicateAddressDialog } from "@/components/project/DuplicateAddressDialog";
 import { OwnershipBadge } from "@/components/project/OwnershipBadge";
 import { CreatorAvatar } from "@/components/project/CreatorAvatar";
 import { ProjectActivityTimeline } from "@/components/project/ProjectActivityTimeline";
 import AddressVerificationModal from "@/components/project/AddressVerificationModal";
 import { GoogleMapsEmbed } from "@/components/project/GoogleMapsEmbed";
-import { ProjectCollaborators } from "@/components/project/ProjectCollaborators";
 import { ProjectHelpButton } from "@/components/project/ProjectHelpButton";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { getPricingTier } from "@/lib/pricing";
@@ -74,7 +77,7 @@ export default function ProjectPageClient({
   const [project, setProject] = useState<ProjectRow>(initialProject);
   const [user, setUser] = useState<UserRow | null>(null);
   const [creator, setCreator] = useState<CreatorInfo | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "3d-model" | "estimation">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "3d-model" | "estimation" | "cut-sheet" | "proposal" | "photos" | "financials">("overview");
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
@@ -515,6 +518,10 @@ export default function ProjectPageClient({
     { id: "overview", label: "Overview", icon: FileText },
     { id: "3d-model", label: "3D Model", icon: Box },
     { id: "estimation", label: "Estimation", icon: DollarSign },
+    { id: "cut-sheet", label: "Cut Sheet", icon: Layers },
+    { id: "photos", label: "Photos", icon: Calendar },
+    { id: "financials", label: "Financials", icon: DollarSign },
+    { id: "proposal", label: "Proposal", icon: FileText },
   ] as const;
 
   return (
@@ -979,20 +986,6 @@ export default function ProjectPageClient({
                     </div>
                   </div>
 
-                  {/* Project Collaborators */}
-                  {project.organization_id && (
-                    <div data-tutorial="project-collaborators">
-                      <ProjectCollaborators
-                        projectId={project.id}
-                        projectOwnerId={project.user_id}
-                        organizationId={project.organization_id}
-                        organizationName={org?.name}
-                        organizationPlan={org?.plan}
-                        currentUserId={userId}
-                      />
-                    </div>
-                  )}
-
                   {/* Project Info */}
                   <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
                     <div className="bg-gradient-to-r from-slate-50 to-neutral-50/50 px-5 py-4 border-b border-neutral-100">
@@ -1109,6 +1102,45 @@ export default function ProjectPageClient({
                 addressData={addressData}
                 canvasRef={canvasRef}
               />
+            </motion.div>
+          )}
+
+          {/* CUT SHEET TAB */}
+          {activeTab === "cut-sheet" && (
+            <motion.div
+              key="cut-sheet"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-6"
+            >
+              <CutSheetTab project={project} roofData={project.roof_data as any} />
+            </motion.div>
+          )}
+
+          {/* PHOTOS TAB */}
+          {activeTab === "photos" && (
+            <motion.div key="photos" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <PhotoGalleryTab projectId={project.id} organizationId={project.organization_id || org?.id || ""} userId={userId} />
+            </motion.div>
+          )}
+
+          {/* FINANCIALS TAB */}
+          {activeTab === "financials" && (
+            <motion.div key="financials" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <FinancialsTab projectId={project.id} organizationId={project.organization_id || org?.id || ""} userId={userId} clientId={project.client_id || undefined} />
+            </motion.div>
+          )}
+
+          {/* PROPOSAL TAB */}
+          {activeTab === "proposal" && (
+            <motion.div
+              key="proposal"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <ProposalBuilder project={project} user={user} roofData={project.roof_data as any} />
             </motion.div>
           )}
         </AnimatePresence>
