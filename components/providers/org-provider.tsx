@@ -46,6 +46,12 @@ interface OrgContextValue {
   loading: boolean;
   error: string | null;
 
+<<<<<<< HEAD
+=======
+  // Org switch tracking - increments each time org is switched successfully
+  orgSwitchCount: number;
+
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
   // Actions
   switchOrg: (orgId: string) => Promise<void>;
   refreshOrgs: () => Promise<void>;
@@ -70,20 +76,38 @@ export function OrgProvider({ children }: OrgProviderProps) {
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+<<<<<<< HEAD
+=======
+  const [orgSwitchCount, setOrgSwitchCount] = useState(0);
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
 
   const supabase = getSupabaseBrowserClient();
 
   // Fetch user's organizations
   const fetchOrganizations = useCallback(async () => {
+<<<<<<< HEAD
+=======
+    const fetchStart = performance.now();
+    console.log("[OrgProvider] fetchOrganizations START", { timestamp: new Date().toISOString() });
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
     try {
       setLoading(true);
       setError(null);
 
       const response = await fetch("/api/orgs");
+<<<<<<< HEAD
 
       if (!response.ok) {
         if (response.status === 401) {
           // Not authenticated, clear state
+=======
+      const fetchMs = Math.round(performance.now() - fetchStart);
+      console.log(`[OrgProvider] fetchOrganizations response: ${response.status} in ${fetchMs}ms`);
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.log("[OrgProvider] 401 from /api/orgs — clearing state");
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
           setOrganizations([]);
           setActiveOrgId(null);
           return;
@@ -92,10 +116,23 @@ export function OrgProvider({ children }: OrgProviderProps) {
       }
 
       const data = await response.json();
+<<<<<<< HEAD
       setOrganizations(data.organizations || []);
       setActiveOrgId(data.active_org_id || null);
     } catch (err) {
       console.error("Error fetching organizations:", err);
+=======
+      const totalMs = Math.round(performance.now() - fetchStart);
+      console.log(`[OrgProvider] fetchOrganizations DONE in ${totalMs}ms —`, {
+        orgCount: data.organizations?.length,
+        activeOrgId: data.active_org_id,
+      });
+      setOrganizations(data.organizations || []);
+      setActiveOrgId(data.active_org_id || null);
+    } catch (err) {
+      const totalMs = Math.round(performance.now() - fetchStart);
+      console.error(`[OrgProvider] fetchOrganizations ERROR after ${totalMs}ms:`, err);
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
       setError(err instanceof Error ? err.message : "Failed to load organizations");
     } finally {
       setLoading(false);
@@ -127,6 +164,12 @@ export function OrgProvider({ children }: OrgProviderProps) {
           is_active: org.id === orgId,
         }))
       );
+<<<<<<< HEAD
+=======
+
+      // Increment switch count to notify consumers that data should be refreshed
+      setOrgSwitchCount((prev) => prev + 1);
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
     } catch (err) {
       console.error("Error switching organization:", err);
       setError(err instanceof Error ? err.message : "Failed to switch organization");
@@ -183,6 +226,7 @@ export function OrgProvider({ children }: OrgProviderProps) {
 
   // Fetch orgs on mount and auth changes
   useEffect(() => {
+<<<<<<< HEAD
     fetchOrganizations();
 
     // Subscribe to auth changes
@@ -194,10 +238,36 @@ export function OrgProvider({ children }: OrgProviderProps) {
       } else if (event === "SIGNED_OUT") {
         setOrganizations([]);
         setActiveOrgId(null);
+=======
+    console.log("[OrgProvider] MOUNTED — starting initial fetch", { timestamp: new Date().toISOString() });
+    fetchOrganizations();
+
+    // Subscribe to auth changes — include INITIAL_SESSION so that if
+    // the mount fetch returns 401 (cookies not yet applied), the auth
+    // event provides a retry once the session is resolved.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("[OrgProvider] Auth event:", event, "session:", !!session, "userEmail:", session?.user?.email || "none");
+      if (event === "SIGNED_OUT") {
+        setOrganizations([]);
+        setActiveOrgId(null);
+      } else if (
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED" ||
+        (event === "INITIAL_SESSION" && session)
+      ) {
+        console.log(`[OrgProvider] Auth event ${event} → re-fetching orgs`);
+        fetchOrganizations();
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
       }
     });
 
     return () => {
+<<<<<<< HEAD
+=======
+      console.log("[OrgProvider] UNMOUNTED — unsubscribing auth listener");
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
       subscription.unsubscribe();
     };
   }, [fetchOrganizations, supabase.auth]);
@@ -214,6 +284,10 @@ export function OrgProvider({ children }: OrgProviderProps) {
     // State
     loading,
     error,
+<<<<<<< HEAD
+=======
+    orgSwitchCount,
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
     // Actions
     switchOrg,
     refreshOrgs: fetchOrganizations,

@@ -30,6 +30,12 @@ export type ActivityAction =
   | "project.reassigned"
   | "project.archived"
   | "project.restored"
+<<<<<<< HEAD
+=======
+  | "project.collaborator_added"
+  | "project.collaborator_removed"
+  | "project.collaborator_role_changed"
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
   // Billing actions
   | "sf.purchased"
   | "sf.consumed"
@@ -339,6 +345,102 @@ export async function logProjectRestored(
 }
 
 /**
+<<<<<<< HEAD
+=======
+ * Log collaborator added to project
+ */
+export async function logCollaboratorAdded(
+  supabase: SupabaseClient,
+  params: {
+    orgId: string;
+    userId: string;
+    projectId: string;
+    collaboratorUserId: string;
+    collaboratorEmail: string;
+    collaboratorName: string | null;
+    role: string;
+  }
+): Promise<void> {
+  await logActivity(supabase, {
+    orgId: params.orgId,
+    userId: params.userId,
+    action: "project.collaborator_added",
+    category: "project",
+    projectId: params.projectId,
+    details: {
+      collaborator_user_id: params.collaboratorUserId,
+      collaborator_email: params.collaboratorEmail,
+      collaborator_name: params.collaboratorName,
+      role: params.role,
+      timestamp: new Date().toISOString(),
+    },
+  });
+}
+
+/**
+ * Log collaborator removed from project
+ */
+export async function logCollaboratorRemoved(
+  supabase: SupabaseClient,
+  params: {
+    orgId: string;
+    userId: string;
+    projectId: string;
+    collaboratorUserId: string;
+    collaboratorEmail: string;
+    collaboratorName: string | null;
+    removedBy: "owner" | "self";
+  }
+): Promise<void> {
+  await logActivity(supabase, {
+    orgId: params.orgId,
+    userId: params.userId,
+    action: "project.collaborator_removed",
+    category: "project",
+    projectId: params.projectId,
+    details: {
+      collaborator_user_id: params.collaboratorUserId,
+      collaborator_email: params.collaboratorEmail,
+      collaborator_name: params.collaboratorName,
+      removed_by: params.removedBy,
+      timestamp: new Date().toISOString(),
+    },
+  });
+}
+
+/**
+ * Log collaborator role changed
+ */
+export async function logCollaboratorRoleChanged(
+  supabase: SupabaseClient,
+  params: {
+    orgId: string;
+    userId: string;
+    projectId: string;
+    collaboratorUserId: string;
+    collaboratorEmail: string;
+    previousRole: string;
+    newRole: string;
+  }
+): Promise<void> {
+  await logActivity(supabase, {
+    orgId: params.orgId,
+    userId: params.userId,
+    action: "project.collaborator_role_changed",
+    category: "project",
+    projectId: params.projectId,
+    details: {
+      collaborator_user_id: params.collaboratorUserId,
+      collaborator_email: params.collaboratorEmail,
+      previous_role: params.previousRole,
+      new_role: params.newRole,
+      timestamp: new Date().toISOString(),
+    },
+  });
+}
+
+/**
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
  * Log estimate generated
  */
 export async function logEstimateGenerated(
@@ -615,6 +717,12 @@ export function formatActionLabel(action: ActivityAction): string {
     "project.reassigned": "Project Reassigned",
     "project.archived": "Project Archived",
     "project.restored": "Project Restored",
+<<<<<<< HEAD
+=======
+    "project.collaborator_added": "Collaborator Added",
+    "project.collaborator_removed": "Collaborator Removed",
+    "project.collaborator_role_changed": "Collaborator Role Changed",
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
     "sf.purchased": "SF Purchased",
     "sf.consumed": "SF Consumed",
     "sf.refunded": "SF Refunded",

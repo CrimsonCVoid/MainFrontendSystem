@@ -9,12 +9,19 @@
     "lint": "next lint"
   },
   "dependencies": {
+<<<<<<< HEAD
     "@babylonjs/addons": "^8.50.2",
     "@babylonjs/core": "^8.45.5",
     "@babylonjs/gui": "^8.45.5",
     "@babylonjs/loaders": "^8.45.5",
     "@babylonjs/materials": "^8.45.5",
     "@googlemaps/js-api-loader": "^2.0.2",
+=======
+    "@babylonjs/core": "^8.56.2",
+    "@babylonjs/gui": "^8.56.2",
+    "@babylonjs/loaders": "^8.56.2",
+    "@babylonjs/materials": "^8.56.2",
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
     "@radix-ui/react-dialog": "^1.0.5",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-popover": "^1.1.15",
@@ -24,15 +31,19 @@
     "@radix-ui/react-toast": "^1.1.5",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
-    "@supabase/ssr": "^0.7.0",
-    "@supabase/supabase-js": "^2.76.1",
+    "@supabase/ssr": "^0.10.0",
+    "@supabase/supabase-js": "^2.101.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "framer-motion": "^12.23.24",
+<<<<<<< HEAD
     "geotiff": "^3.0.4",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.0.0",
+=======
+    "jspdf": "^4.2.1",
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
     "lucide-react": "^0.395.0",
     "next": "^14.2.5",
     "next-themes": "^0.4.6",
@@ -44,6 +55,7 @@
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
+    "@types/google.maps": "^3.58.1",
     "@types/node": "^20.19.23",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

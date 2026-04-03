@@ -127,6 +127,10 @@ export interface Database {
           organization_id: string | null; // Organization this project belongs to
           archived_at: string | null; // Timestamp when project was archived
           archived_by: string | null; // User ID who archived the project
+<<<<<<< HEAD
+=======
+          client_id: string | null; // Link to clients table
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
         };
         Insert: {
           id?: string;
@@ -378,6 +382,11 @@ export interface Database {
           sf_pool_total: number;
           sf_pool_used: number;
           sf_pool_updated_at: string | null;
+<<<<<<< HEAD
+=======
+          // Promo credits (free projects from promo codes)
+          promo_project_credits: number;
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
         };
         Insert: {
           id?: string;
@@ -398,6 +407,10 @@ export interface Database {
           sf_pool_total?: number;
           sf_pool_used?: number;
           sf_pool_updated_at?: string | null;
+<<<<<<< HEAD
+=======
+          promo_project_credits?: number;
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
         };
         Update: {
           id?: string;
@@ -418,6 +431,10 @@ export interface Database {
           sf_pool_total?: number;
           sf_pool_used?: number;
           sf_pool_updated_at?: string | null;
+<<<<<<< HEAD
+=======
+          promo_project_credits?: number;
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
         };
       };
       /**

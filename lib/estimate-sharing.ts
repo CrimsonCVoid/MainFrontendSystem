@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+// @ts-nocheck
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
 /**
  * ESTIMATE SHARING LIBRARY
  *
@@ -45,6 +49,25 @@ export interface EstimateShare {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+<<<<<<< HEAD
+=======
+  // SMS verification fields (legacy - deprecated)
+  sms_verification_required: boolean;
+  sms_otp_hash: string | null;
+  sms_otp_expires_at: string | null;
+  sms_verified_at: string | null;
+  sms_verified_phone_last4: string | null;
+  sms_attempts: number;
+  // Email verification fields
+  email_verification_required: boolean;
+  email_otp_hash: string | null;
+  email_otp_expires_at: string | null;
+  email_otp_attempts: number;
+  email_verified_at: string | null;
+  // Signed IP tracking
+  signed_ip_address: string | null;
+  signed_user_agent: string | null;
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
 }
 
 export interface ShareWithProject extends EstimateShare {
@@ -150,6 +173,12 @@ export async function createEstimateShare(
   }
 
   // Create share record
+<<<<<<< HEAD
+=======
+  // Email verification is required when email is provided
+  const emailVerificationRequired = !!clientInfo.email?.trim();
+
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
   const { data, error } = await supabase
     .from("estimate_shares")
     .insert({
@@ -163,6 +192,10 @@ export async function createEstimateShare(
       password_hash: passwordHash,
       notes: settings.notes || null,
       created_by: user.id,
+<<<<<<< HEAD
+=======
+      email_verification_required: emailVerificationRequired,
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
     })
     .select()
     .single();
@@ -176,7 +209,11 @@ export async function createEstimateShare(
   const baseUrl =
     typeof window !== "undefined"
       ? window.location.origin
+<<<<<<< HEAD
       : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+=======
+      : process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://www.mymetalroofer.net";
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
   const shareUrl = `${baseUrl}/estimate/${shareToken}`;
 
   return { share: data as EstimateShare, shareUrl };

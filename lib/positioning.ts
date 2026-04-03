@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /* eslint-disable prefer-const */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -5,6 +6,11 @@ type xyz_Class = { x: number, y: number, z: number };
 
 export class Vector3 {
     ToCFrame() { return CFrame.fromVector3(this); };
+=======
+// @ts-nocheck
+/* eslint-disable prefer-const */
+export class Vector3 {
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
     ToBabylon!: () => any;
     ToBabylonXZY!: () => any;
     constructor(X = 0, Y = 0, Z = 0) {
@@ -18,8 +24,11 @@ export class Vector3 {
     _Z = 0;
 
     get XY() { return new Vector3(this._X, this._Y); };
+<<<<<<< HEAD
     get XZ() { return new Vector3(this._X, 0, this._Z); };
     get XZY() { return new Vector3(this._X, this._Z, this._Y); };
+=======
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
 
     set x(value: number) { this._X = value; };
     set y(value: number) { this._Y = value; };
@@ -80,10 +89,13 @@ export class Vector3 {
         }
         return [new Vector3(MinX, MinY, MinZ), new Vector3(MaxX, MaxY, MaxZ)];
     }
+<<<<<<< HEAD
     static CenterBounds(V3s: Vector3[]) {
         let Bounds = Vector3.Bounds(V3s);
         return Bounds[0].Average(Bounds[1]);
     }
+=======
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
     Edit(V3: Vector3) { this.X = V3.X; this.Y = V3.Y; this.Z = V3.Z; return this; };
     EditXY(V3: Vector3) { this.X = V3.X; this.Y = V3.Y; return this; };
 
@@ -91,12 +103,20 @@ export class Vector3 {
 
 
 
+<<<<<<< HEAD
     DistanceFromPoint(A: xyz_Class) { return ((this.x - A.x) ** 2 + (this.y - A.y) ** 2 + (this.z - A.z) ** 2) ** .5; };
+=======
+    DistanceFromPoint(A: Vector3) { return ((this.x - A.x) ** 2 + (this.y - A.y) ** 2 + (this.z - A.z) ** 2) ** .5; };
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
     DistanceFromPointV2(A: Vector3) { return ((this.x - A.x) ** 2 + (this.y - A.y) ** 2) ** .5; };
     DistanceFromPointXZ(A: Vector3) { return ((this.x - A.x) ** 2 + (this.z - A.z) ** 2) ** .5; };
 
 
+<<<<<<< HEAD
     PointOnSegment(a: xyz_Class, b: xyz_Class, eps = 1e-10) {
+=======
+    PointOnSegment(a: Vector3, b: Vector3, eps = 1e-10) {
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
         const cross = (b.z - a.z) * (this.x - a.x) -
             (b.x - a.x) * (this.z - a.z);
 
@@ -111,7 +131,11 @@ export class Vector3 {
 
         return true;
     };
+<<<<<<< HEAD
     PointInPolygon(poly: xyz_Class[], epsilon = 1e-10) {
+=======
+    PointInPolygon(poly: Vector3[], epsilon = 1e-10) {
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
         let inside = false;
 
         for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -190,7 +214,11 @@ export function SegmentIntersectionInfo(P1: Vector3, P2: Vector3, P3: Vector3, P
     return Info;
 }
 
+<<<<<<< HEAD
 export function segmentIntersection2D(p1: xyz_Class, p2: xyz_Class, p3: xyz_Class, p4: xyz_Class) {
+=======
+export function segmentIntersection2D(p1: Vector3, p2: Vector3, p3: Vector3, p4: Vector3) {
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
     const x1 = p1.x, y1 = p1.z;
     const x2 = p2.x, y2 = p2.z;
     const x3 = p3.x, y3 = p3.z;
@@ -209,6 +237,7 @@ export function segmentIntersection2D(p1: xyz_Class, p2: xyz_Class, p3: xyz_Clas
         ((x1 * y2 - y1 * x2) * (y3 - y4) -
             (y1 - y2) * (x3 * y4 - y3 * x4)) / denom;
 
+<<<<<<< HEAD
     // let t1 = (new Vector3(px, 0, py).TranslateSub(p1)).ScaleByVector(p2.TranslateSub(p1));
     // let t1 = 
 
@@ -220,6 +249,9 @@ export function segmentIntersection2D(p1: xyz_Class, p2: xyz_Class, p3: xyz_Clas
     };
     // return { point: new Vector3(px, py), t1: (point-p1)/(p2-p1), t2: (px - x3) / (x4 - x3), p1: p1, p2: p2, p3: p3, p4: p4 };
     // return { point: new Vector3(px, py), t1: (px - x1) / (x2 - x1), t2: (px - x3) / (x4 - x3), p1: p1, p2: p2, p3: p3, p4: p4 };
+=======
+    return { point: new Vector3(px, py), t1: (px - x1) / (x2 - x1), t2: (px - x3) / (x4 - x3), p1: p1, p2: p2, p3: p3, p4: p4 };
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
 }
 
 function segmentIntersection3D(p1: Vector3, p2: Vector3, p3: Vector3, p4: Vector3, epsilon = 1e-6) {
@@ -385,7 +417,11 @@ export class CFrame {
         else if (length == 0) { /*this.X = 0; this.Y = 0; this.Z = 0;*/ } // this.CreationType = "0-Default";
         else if (length == 1) {
             let pos = params[0];
+<<<<<<< HEAD
             this._X = pos.x; this._Y = pos.y; this._Z = pos.z;
+=======
+            this._X = pos.X; this._Y = pos.Y; this._Z = pos.Z;
+>>>>>>> 612adb7145dfaf30eb9bfdcf5073c0142a3976fa
             // this.CreationType = "1-Vector3";
         }
         else if (length == 2) {
