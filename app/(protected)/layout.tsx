@@ -4,6 +4,7 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { ensureUserRecord } from "@/lib/auth";
 import { OrgProvider } from "@/components/providers/org-provider";
+import { TutorialProvider } from "@/components/tutorial/TutorialProvider";
 import { ensureUserHasOrg } from "@/lib/org-auth";
 
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
@@ -18,33 +19,35 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
     redirect("/signin");
   }
 
-  try {
-    await ensureUserRecord(user, supabase);
-  } catch (err) {
-    console.warn("ensureUserRecord failed inside protected layout:", err);
-  }
-
-  // Ensure user has at least one organization (if org tables exist)
-  if (user.email) {
+  if (user) {
     try {
-      // Check if organizations table exists before trying to create org
-      const { error: tableCheck } = await supabase
-        .from("organizations")
-        .select("id")
-        .limit(1);
-
-      // Only create org if table exists (migrations have been run)
-      if (!tableCheck || !tableCheck.message?.includes("does not exist")) {
-        await ensureUserHasOrg(supabase, user.id, user.email);
-      }
+      await ensureUserRecord(user, supabase);
     } catch (err) {
-      // Silently ignore - org tables may not exist yet
+      console.warn("ensureUserRecord failed inside protected layout:", err);
+    }
+
+    // Ensure user has at least one organization (if org tables exist)
+    if (user.email) {
+      try {
+        const { error: tableCheck } = await supabase
+          .from("organizations")
+          .select("id")
+          .limit(1);
+
+        if (!tableCheck || !tableCheck.message?.includes("does not exist")) {
+          await ensureUserHasOrg(supabase, user.id, user.email);
+        }
+      } catch (err) {
+        // Silently ignore - org tables may not exist yet
+      }
     }
   }
 
   return (
     <OrgProvider>
-      <MainLayout>{children}</MainLayout>
+      <TutorialProvider>
+        <MainLayout>{children}</MainLayout>
+      </TutorialProvider>
     </OrgProvider>
   );
 }

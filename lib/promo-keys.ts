@@ -64,19 +64,19 @@ export function generatePromoKeys(count: number): PromoKey[] {
 }
 
 /**
- * Format key for display: XXXX-XXXX-XXXX-XXXX-XXXX
- * Adds dashes for readability
+ * Format key for display with dashes every 4 characters
+ * Supports both 16-char (XXXX-XXXX-XXXX-XXXX) and 20-char (XXXX-XXXX-XXXX-XXXX-XXXX) keys
  *
- * @param keyCode - Raw 20-character key
+ * @param keyCode - Raw key (16 or 20 characters)
  * @returns Formatted key with dashes
  */
 export function formatKey(keyCode: string): string {
-  if (keyCode.length !== KEY_LENGTH) {
-    return keyCode; // Return as-is if invalid length
-  }
-
   // Split into 4-character chunks separated by dashes
-  return `${keyCode.slice(0, 4)}-${keyCode.slice(4, 8)}-${keyCode.slice(8, 12)}-${keyCode.slice(12, 16)}-${keyCode.slice(16)}`;
+  const chunks: string[] = [];
+  for (let i = 0; i < keyCode.length; i += 4) {
+    chunks.push(keyCode.slice(i, i + 4));
+  }
+  return chunks.join('-');
 }
 
 /**

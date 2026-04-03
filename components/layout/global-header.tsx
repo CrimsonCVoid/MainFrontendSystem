@@ -29,7 +29,10 @@ import {
   AlertTriangle,
   Zap,
   ShieldCheck,
+  Home,
+  HelpCircle,
 } from "lucide-react";
+import { useTutorialSafe } from "@/hooks/use-tutorial";
 
 interface GlobalHeaderProps {
   user?: {
@@ -45,6 +48,9 @@ export function GlobalHeader({ user, showTabs = false, activeTab }: GlobalHeader
   const { org, role, isAdmin, canManageBilling, loading: orgLoading } = useOrg();
   const { pool, percent, statusColor, statusMessage, format } = useSFPool();
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Tutorial help menu (safe version returns null if not in provider)
+  const tutorialContext = useTutorialSafe();
 
   async function handleSignOut() {
     try {
@@ -116,13 +122,24 @@ export function GlobalHeader({ user, showTabs = false, activeTab }: GlobalHeader
               </div>
             </Link>
 
-            {/* Org Switcher (if multiple orgs) */}
-            <div className="hidden md:block">
-              <OrgSwitcher />
+            {/* SF Pool Status - Compact Cell */}
+            {!orgLoading && pool.total > 0 && (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-neutral-200 bg-neutral-50">
+                <Package className="h-4 w-4 text-neutral-500" />
+                <div className="flex flex-col -space-y-0.5">
+                  <span className="text-[10px] uppercase tracking-wide text-neutral-400 font-medium">Total SF</span>
+                  <span className="text-sm font-semibold text-neutral-900">{format(pool.total)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Org Switcher with Settings Button */}
+            <div className="hidden md:flex items-center">
+              <OrgSwitcher showSettingsButton={true} />
             </div>
           </div>
 
-          {/* Center: SF Pool Status (Prominent) */}
+          {/* Center: SF Pool Remaining (Prominent) */}
           {!orgLoading && pool.total > 0 && (
             <div
               className={cn(
@@ -134,7 +151,7 @@ export function GlobalHeader({ user, showTabs = false, activeTab }: GlobalHeader
               <div className="flex items-center gap-2">
                 <Package className={cn("h-5 w-5", poolColors.icon)} />
                 <div className="flex flex-col">
-                  <span className="text-xs text-neutral-600">SF Pool</span>
+                  <span className="text-xs text-neutral-600">SF Remaining</span>
                   <span className={cn("text-sm font-bold", poolColors.text)}>
                     {format(pool.remaining)}
                   </span>
@@ -211,7 +228,35 @@ export function GlobalHeader({ user, showTabs = false, activeTab }: GlobalHeader
                   <Settings className="h-4 w-4" />
                 </Button>
               </Link>
+              {tutorialContext && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-8 px-2",
+                    tutorialContext.menuOpen && "bg-blue-100 text-blue-700"
+                  )}
+                  onClick={tutorialContext.toggleMenu}
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </Button>
+              )}
             </div>
+
+            {/* Mobile Help Button */}
+            {tutorialContext && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "md:hidden h-8 px-2",
+                  tutorialContext.menuOpen && "bg-blue-100 text-blue-700"
+                )}
+                onClick={tutorialContext.toggleMenu}
+              >
+                <HelpCircle className="h-4 w-4" />
+              </Button>
+            )}
 
             {/* User Menu */}
             <div className="relative">
@@ -246,6 +291,14 @@ export function GlobalHeader({ user, showTabs = false, activeTab }: GlobalHeader
 
                     <div className="py-1">
                       <Link
+                        href="/"
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        <Home className="h-4 w-4" />
+                        Home
+                      </Link>
+                      <Link
                         href="/dashboard"
                         className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50"
                         onClick={() => setShowUserMenu(false)}
@@ -269,6 +322,18 @@ export function GlobalHeader({ user, showTabs = false, activeTab }: GlobalHeader
                         <Settings className="h-4 w-4" />
                         Settings
                       </Link>
+                      {tutorialContext && (
+                        <button
+                          className="flex items-center gap-2 px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 w-full"
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            tutorialContext?.toggleMenu();
+                          }}
+                        >
+                          <HelpCircle className="h-4 w-4" />
+                          Help & Tutorials
+                        </button>
+                      )}
                       {isAdmin() && (
                         <Link
                           href="/admin"

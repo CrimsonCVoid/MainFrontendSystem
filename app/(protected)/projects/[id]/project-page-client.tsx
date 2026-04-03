@@ -13,35 +13,42 @@ import {
   DollarSign,
   Check,
   Download,
-  Send,
   Package,
   BarChart3,
   CheckCircle2,
-  AlertCircle,
   Building2,
   Calendar,
   Clock,
   Pencil,
   Save,
   X,
+  Layers,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import ProjectViewer from "@/components/project/ProjectViewer";
-import AddressInput, { type AddressData } from "@/components/project/AddressInput";
+import { type AddressData } from "@/components/project/AddressInput";
 import EstimationTab from "@/components/project/EstimationTab";
+import CutSheetTab from "@/components/project/CutSheetTab";
+import ProposalBuilder from "@/components/project/ProposalBuilder";
+import PhotoGalleryTab from "@/components/project/PhotoGalleryTab";
+import FinancialsTab from "@/components/project/FinancialsTab";
 import { DuplicateAddressDialog } from "@/components/project/DuplicateAddressDialog";
 import { OwnershipBadge } from "@/components/project/OwnershipBadge";
 import { CreatorAvatar } from "@/components/project/CreatorAvatar";
 import { ProjectActivityTimeline } from "@/components/project/ProjectActivityTimeline";
 import AddressVerificationModal from "@/components/project/AddressVerificationModal";
+import { GoogleMapsEmbed } from "@/components/project/GoogleMapsEmbed";
+import { ProjectHelpButton } from "@/components/project/ProjectHelpButton";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { getPricingTier } from "@/lib/pricing";
 import { findDuplicateProject, type DuplicateProjectResult } from "@/lib/projects";
 import type { Tables } from "@/lib/database.types";
 import { useOrg, useSFPool } from "@/components/providers/org-provider";
+import { generateAndDownloadProposal, type ProposalData } from "@/lib/pdf-generator";
 
 type ProjectRow = Tables<"projects">;
 type UserRow = Tables<"users">;
@@ -70,7 +77,7 @@ export default function ProjectPageClient({
   const [project, setProject] = useState<ProjectRow>(initialProject);
   const [user, setUser] = useState<UserRow | null>(null);
   const [creator, setCreator] = useState<CreatorInfo | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "3d-model" | "estimation">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "3d-model" | "estimation" | "cut-sheet" | "proposal" | "photos" | "financials">("overview");
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
@@ -118,11 +125,15 @@ export default function ProjectPageClient({
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [verificationAddressData, setVerificationAddressData] = useState<AddressData | null>(null);
 
+  // Roof generation state
+  const [roofGenerating, setRoofGenerating] = useState(false);
+  const [roofError, setRoofError] = useState<string | null>(null);
+
   // Fetch fresh project data on mount to ensure persistence
   useEffect(() => {
     async function fetchLatestProject() {
-      const { data } = await supabase
-        .from("projects")
+      const { data } = await (supabase
+        .from("projects") as any)
         .select("*")
         .eq("id", initialProject.id)
         .single();
@@ -147,6 +158,48 @@ export default function ProjectPageClient({
     }
     fetchLatestProject();
   }, [initialProject.id, supabase]);
+
+  // Auto-generate roof data ONCE if project has address but no roof_data
+  const roofGenAttempted = useRef(false);
+  useEffect(() => {
+    if (roofGenAttempted.current) return;
+    // if (project.roof_data) return; // TODO: re-enable after testing — always regenerate for now
+    if (!project.address) return;
+
+    const fullAddress = [project.address, project.city, project.state, project.postal_code]
+      .filter(Boolean)
+      .join(", ");
+    if (!fullAddress) return;
+
+    roofGenAttempted.current = true;
+    setRoofGenerating(true);
+    setRoofError(null);
+
+    console.log("[ProjectPage] No roof_data found, auto-generating for:", fullAddress);
+
+    fetch("/api/roof-generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId: project.id, address: fullAddress }),
+    })
+      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) throw new Error(data.error || "Generation failed");
+        if (data.success && data.roofData) {
+          console.log("[ProjectPage] Roof generated:", data.roofData.total_area_sf, "sf");
+          setProject((prev) => ({
+            ...prev,
+            roof_data: data.roofData,
+            square_footage: data.roofData.total_area_sf || prev.square_footage,
+          }));
+        }
+      })
+      .catch((err) => {
+        console.error("[ProjectPage] Roof generation failed:", err.message);
+        setRoofError(err.message);
+      })
+      .finally(() => setRoofGenerating(false));
+  }, [project.id, project.address, project.city, project.state, project.postal_code, project.roof_data]);
 
   // Fetch user data and project creator
   useEffect(() => {
@@ -210,6 +263,60 @@ export default function ProjectPageClient({
     },
     [project.id, userId, supabase]
   );
+
+  // Generate and download estimate PDF
+  const handleDownloadPDF = useCallback(async () => {
+    const fullAddress = [project.address, project.city, project.state, project.postal_code]
+      .filter(Boolean)
+      .join(", ");
+
+    const data: ProposalData = {
+      companyName: user?.company_name || "My Metal Roofer",
+      companyLogoUrl: user?.company_logo_url || null,
+      companyPhone: user?.company_phone || null,
+      companyAddress: user?.company_address || null,
+      companyEmail: user?.company_email || undefined,
+      companyWebsite: user?.company_website || undefined,
+      projectName: project.name,
+      projectAddress: fullAddress || "Address not set",
+      squareFootage: Number(project.square_footage) || 0,
+      estimateName: `${project.name} Estimate`,
+      materialsCost: 0,
+      laborCost: 0,
+      permitsFees: 0,
+      contingency: 0,
+      totalCost: 0,
+      notes: project.description || "",
+      roofImageDataUrl: null,
+      estimateDate: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+      validUntil: new Date(Date.now() + 30 * 86400000).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+    };
+
+    // Try to pull estimate data from the project's active estimate
+    try {
+      const { data: estimates } = await (supabase.from("project_estimates") as any)
+        .select("*")
+        .eq("project_id", project.id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (estimates?.[0]) {
+        const est = estimates[0];
+        data.materialsCost = Number(est.materials_cost) || 0;
+        data.laborCost = Number(est.labor_cost) || 0;
+        data.permitsFees = Number(est.permits_fees) || 0;
+        data.contingency = Number(est.contingency) || 0;
+        data.totalCost = Number(est.total_cost) || data.materialsCost + data.laborCost + data.permitsFees + data.contingency;
+        data.estimateName = est.name || data.estimateName;
+        if (est.notes) data.notes = est.notes;
+      }
+    } catch (err) {
+      console.warn("Could not load estimate for PDF:", err);
+    }
+
+    await generateAndDownloadProposal(data);
+  }, [project, user, supabase]);
 
   // Handle details save
   const handleSaveDetails = useCallback(async () => {
@@ -411,6 +518,10 @@ export default function ProjectPageClient({
     { id: "overview", label: "Overview", icon: FileText },
     { id: "3d-model", label: "3D Model", icon: Box },
     { id: "estimation", label: "Estimation", icon: DollarSign },
+    { id: "cut-sheet", label: "Cut Sheet", icon: Layers },
+    { id: "photos", label: "Photos", icon: Calendar },
+    { id: "financials", label: "Financials", icon: DollarSign },
+    { id: "proposal", label: "Proposal", icon: FileText },
   ] as const;
 
   return (
@@ -455,8 +566,11 @@ export default function ProjectPageClient({
               )}
             </div>
 
-            {/* Right: Status + Save Indicator */}
+            {/* Right: Help + Save Indicator */}
             <div className="flex items-center gap-3">
+              {/* Help Button */}
+              <ProjectHelpButton />
+
               {/* Save Status */}
               <AnimatePresence>
                 {saving && (
@@ -491,16 +605,15 @@ export default function ProjectPageClient({
       {/* Tab Navigation */}
       <div className="bg-white border-b border-neutral-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <nav className="flex gap-1 -mb-px">
+          <nav className="flex gap-1 -mb-px" data-tutorial="project-tabs">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab.id
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
                     ? "border-slate-900 text-slate-900"
                     : "border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300"
-                }`}
+                  }`}
               >
                 <tab.icon className="w-4 h-4" />
                 {tab.label}
@@ -511,7 +624,7 @@ export default function ProjectPageClient({
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <main className={activeTab === "3d-model" ? "" : "max-w-7xl mx-auto px-4 sm:px-6 py-6"}>
         <AnimatePresence mode="wait">
           {/* OVERVIEW TAB */}
           {activeTab === "overview" && (
@@ -522,19 +635,29 @@ export default function ProjectPageClient({
               exit={{ opacity: 0 }}
               className="space-y-6"
             >
-              {/* Stats Row */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Hero Stats Row - 4 columns */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                   label="Square Feet"
                   value={project.square_footage?.toLocaleString() || "—"}
+                  subValue={project.square_footage ? "Total roof area" : undefined}
                   icon={BarChart3}
                   color="blue"
+                  size="large"
                 />
                 <StatCard
-                  label="Status"
-                  value={project.payment_completed ? "Verified" : "Draft"}
-                  icon={project.payment_completed ? CheckCircle2 : Clock}
-                  color={project.payment_completed ? "green" : "neutral"}
+                  label="Created"
+                  value={new Date(project.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  subValue={new Date(project.created_at).getFullYear().toString()}
+                  icon={Calendar}
+                  color="slate"
+                />
+                <StatCard
+                  label="Updated"
+                  value={new Date(project.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  subValue={new Date(project.updated_at).getFullYear().toString()}
+                  icon={Clock}
+                  color="neutral"
                 />
               </div>
 
@@ -542,172 +665,271 @@ export default function ProjectPageClient({
                 {/* Left Column */}
                 <div className="lg:col-span-2 space-y-6">
                   {/* Project Details Card */}
-                  <div className="rounded-xl border border-neutral-200 bg-white p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-lg font-semibold text-neutral-900">Project Details</h2>
-                      {!isEditingDetails ? (
-                        <Button variant="ghost" size="sm" onClick={() => setIsEditingDetails(true)}>
-                          <Pencil className="w-4 h-4 mr-1" />
-                          Edit
-                        </Button>
-                      ) : (
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => {
-                            setIsEditingDetails(false);
-                            setEditName(project.name);
-                            setEditDescription(project.description || "");
-                          }}>
-                            <X className="w-4 h-4 mr-1" />
-                            Cancel
+                  <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow" data-tutorial="project-details">
+                    {/* Gradient Header */}
+                    <div className="bg-gradient-to-r from-slate-50 to-neutral-50 px-6 py-4 border-b border-neutral-100">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-slate-200/70 flex items-center justify-center">
+                            <Layers className="w-4 h-4 text-slate-600" />
+                          </div>
+                          <h2 className="text-lg font-semibold text-neutral-900">Project Details</h2>
+                        </div>
+                        {!isEditingDetails ? (
+                          <Button variant="ghost" size="sm" onClick={() => setIsEditingDetails(true)} className="text-slate-600 hover:text-slate-800 hover:bg-slate-100">
+                            <Pencil className="w-4 h-4 mr-1" />
+                            Edit
                           </Button>
-                          <Button size="sm" onClick={handleSaveDetails} disabled={saving}>
-                            <Save className="w-4 h-4 mr-1" />
-                            Save
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-
-                    {isEditingDetails ? (
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-neutral-700 mb-1">Project Name</label>
-                          <Input
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            placeholder="Enter project name"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-neutral-700 mb-1">Description</label>
-                          <Textarea
-                            value={editDescription}
-                            onChange={(e) => setEditDescription(e.target.value)}
-                            placeholder="Optional notes about the project"
-                            rows={3}
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-sm text-neutral-500">Name</p>
-                          <p className="font-medium text-neutral-900">{project.name}</p>
-                        </div>
-                        {project.description && (
-                          <div>
-                            <p className="text-sm text-neutral-500">Description</p>
-                            <p className="text-neutral-700">{project.description}</p>
+                        ) : (
+                          <div className="flex gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => {
+                              setIsEditingDetails(false);
+                              setEditName(project.name);
+                              setEditDescription(project.description || "");
+                            }} className="text-neutral-600">
+                              <X className="w-4 h-4 mr-1" />
+                              Cancel
+                            </Button>
+                            <Button size="sm" onClick={handleSaveDetails} disabled={saving} className="bg-slate-600 hover:bg-slate-700">
+                              <Save className="w-4 h-4 mr-1" />
+                              Save
+                            </Button>
                           </div>
                         )}
                       </div>
-                    )}
+                    </div>
 
-                    {/* Creator Attribution */}
-                    {creator && (
-                      <div className="mt-6 pt-4 border-t border-neutral-100">
-                        <p className="text-sm text-neutral-500 mb-2">Created by</p>
-                        <div className="flex items-center gap-3">
-                          <CreatorAvatar creator={creator} size="md" />
+                    <div className="p-6">
+                      {isEditingDetails ? (
+                        <div className="space-y-4">
                           <div>
-                            <p className="font-medium text-neutral-900">
-                              {creator.full_name || creator.email.split("@")[0]}
-                              {isOwn && <span className="ml-2 text-blue-600 text-sm">(You)</span>}
-                            </p>
-                            <p className="text-sm text-neutral-500">{creator.email}</p>
+                            <label className="block text-sm font-medium text-neutral-700 mb-1">Project Name</label>
+                            <Input
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              placeholder="Enter project name"
+                              className="border-neutral-300 focus:border-slate-500 focus:ring-slate-500/20"
+                            />
                           </div>
-                          <div className="ml-auto">
+                          <div>
+                            <label className="block text-sm font-medium text-neutral-700 mb-1">Description</label>
+                            <Textarea
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
+                              placeholder="Optional notes about the project"
+                              rows={3}
+                              className="border-neutral-300 focus:border-slate-500 focus:ring-slate-500/20"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="p-4 rounded-lg bg-neutral-50/70 border border-neutral-100">
+                            <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1">Project Name</p>
+                            <p className="text-lg font-semibold text-neutral-900">{project.name}</p>
+                          </div>
+                          {project.description && (
+                            <div className="p-4 rounded-lg bg-neutral-50/70 border border-neutral-100">
+                              <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1">Description</p>
+                              <p className="text-neutral-700">{project.description}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Creator Attribution */}
+                      {creator && (
+                        <div className="mt-6 pt-5 border-t border-neutral-100">
+                          <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-3">Created by</p>
+                          <div className="flex items-center gap-4 p-4 rounded-lg bg-gradient-to-r from-blue-50/50 to-neutral-50/50 border border-blue-100/50">
+                            <CreatorAvatar creator={creator} size="lg" />
+                            <div className="flex-1">
+                              <p className="font-semibold text-neutral-900">
+                                {creator.full_name || creator.email.split("@")[0]}
+                                {isOwn && <span className="ml-2 text-blue-600 text-sm font-normal">(You)</span>}
+                              </p>
+                              <p className="text-sm text-neutral-500">{creator.email}</p>
+                            </div>
                             <OwnershipBadge isOwn={isOwn} size="md" />
                           </div>
                         </div>
-                        <div className="mt-3 flex items-center gap-4 text-xs text-neutral-500">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            Created {new Date(project.created_at).toLocaleDateString()}
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Address Card */}
+                  <div className={`rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${project.payment_completed
+                      ? "border-emerald-200/50"
+                      : "border-neutral-200"
+                    }`} data-tutorial="project-address">
+                    {/* Gradient Header */}
+                    <div className={`px-6 py-4 border-b ${project.payment_completed
+                        ? "bg-gradient-to-r from-emerald-50 to-green-50/50 border-emerald-100"
+                        : "bg-gradient-to-r from-neutral-50 to-slate-50/50 border-neutral-100"
+                      }`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${project.payment_completed ? "bg-emerald-100" : "bg-neutral-200/70"
+                            }`}>
+                            <MapPin className={`w-4 h-4 ${project.payment_completed ? "text-emerald-600" : "text-neutral-600"}`} />
                           </div>
-                          {project.updated_at && (
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              Updated {new Date(project.updated_at).toLocaleDateString()}
+                          <h2 className="text-lg font-semibold text-neutral-900">Property Address</h2>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={`p-6 ${project.payment_completed ? "bg-white" : "bg-white"}`}>
+                      <div className="space-y-4">
+                        {addressData && (
+                          <div className={`p-5 rounded-lg ${project.payment_completed
+                              ? "bg-gradient-to-r from-emerald-50/50 to-green-50/30 border border-emerald-100"
+                              : "bg-neutral-50 border border-neutral-200"
+                            }`}>
+                            <p className="text-lg font-semibold text-neutral-900 mb-1">{addressData.address}</p>
+                            <p className="text-neutral-600">
+                              {addressData.city}, {addressData.state} {addressData.postal_code}
+                            </p>
+                          </div>
+                        )}
+                        <GoogleMapsEmbed
+                          latitude={project.latitude}
+                          longitude={project.longitude}
+                          address={addressData ? `${addressData.address}, ${addressData.city}, ${addressData.state} ${addressData.postal_code}` : undefined}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Roof Analysis Data */}
+                  {project.roof_data && (() => {
+                    const rd = project.roof_data as any;
+                    return (
+                      <div className="rounded-xl border border-cyan-200/50 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div className="bg-gradient-to-r from-cyan-50 to-blue-50/50 px-6 py-4 border-b border-cyan-100/50">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-cyan-100 flex items-center justify-center">
+                              <Layers className="w-4 h-4 text-cyan-600" />
+                            </div>
+                            <div>
+                              <h2 className="text-lg font-semibold text-neutral-900">Roof Analysis</h2>
+                              <p className="text-xs text-neutral-500">Generated from satellite imagery</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-6 bg-white">
+                          {/* Key Stats Grid */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                            <div className="p-4 rounded-lg bg-gradient-to-br from-cyan-50 to-blue-50/50 border border-cyan-100">
+                              <p className="text-xs font-medium text-cyan-600 uppercase tracking-wide">Total Area</p>
+                              <p className="text-2xl font-bold text-neutral-900 mt-1">
+                                {rd.total_area_sf?.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                              </p>
+                              <p className="text-xs text-neutral-500">sq ft</p>
+                            </div>
+                            <div className="p-4 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50/50 border border-blue-100">
+                              <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Roof Planes</p>
+                              <p className="text-2xl font-bold text-neutral-900 mt-1">{rd.planes?.length || 0}</p>
+                              <p className="text-xs text-neutral-500">surfaces</p>
+                            </div>
+                            <div className="p-4 rounded-lg bg-gradient-to-br from-indigo-50 to-purple-50/50 border border-indigo-100">
+                              <p className="text-xs font-medium text-indigo-600 uppercase tracking-wide">Avg Pitch</p>
+                              <p className="text-2xl font-bold text-neutral-900 mt-1">
+                                {rd.planes?.length
+                                  ? (rd.planes.reduce((s: number, p: any) => s + (p.slope || 0), 0) / rd.planes.length).toFixed(1)
+                                  : "—"}
+                              </p>
+                              <p className="text-xs text-neutral-500">degrees</p>
+                            </div>
+                            <div className="p-4 rounded-lg bg-gradient-to-br from-purple-50 to-pink-50/50 border border-purple-100">
+                              <p className="text-xs font-medium text-purple-600 uppercase tracking-wide">Ridge Length</p>
+                              <p className="text-2xl font-bold text-neutral-900 mt-1">
+                                {rd.measurements?.ridge_length_ft
+                                  ? rd.measurements.ridge_length_ft.toFixed(0)
+                                  : "—"}
+                              </p>
+                              <p className="text-xs text-neutral-500">ft</p>
+                            </div>
+                          </div>
+
+                          {/* Measurements Row */}
+                          {rd.measurements && (
+                            <div className="grid grid-cols-3 gap-3 mb-5">
+                              <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50/50">
+                                <span className="text-xs text-neutral-500">Eave Length</span>
+                                <span className="text-sm font-semibold text-neutral-900">{rd.measurements.eave_length_ft?.toFixed(0) || "—"} ft</span>
+                              </div>
+                              <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50/50">
+                                <span className="text-xs text-neutral-500">Perimeter</span>
+                                <span className="text-sm font-semibold text-neutral-900">{rd.measurements.total_perimeter_ft?.toFixed(0) || "—"} ft</span>
+                              </div>
+                              <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50/50">
+                                <span className="text-xs text-neutral-500">Panel Type</span>
+                                <span className="text-sm font-semibold text-neutral-900 capitalize">{rd.panel_type?.replace(/-/g, " ") || "—"}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Imagery Source */}
+                          {rd._google_raw?.imageryDate && (
+                            <div className="flex items-center gap-2 text-xs text-neutral-400 pt-3 border-t border-neutral-100">
+                              <BarChart3 className="w-3 h-3" />
+                              <span>
+                                Satellite imagery: {rd._google_raw.imageryDate.month}/{rd._google_raw.imageryDate.day}/{rd._google_raw.imageryDate.year}
+                                {rd._google_raw.postalCode && ` • ${rd._google_raw.postalCode}`}
+                              </span>
                             </div>
                           )}
                         </div>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Address Card */}
-                  <div className={`rounded-xl border ${project.payment_completed ? "border-emerald-200 bg-emerald-50/30" : "border-neutral-200 bg-white"} p-6`}>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${project.payment_completed ? "bg-emerald-100" : "bg-teal-50"}`}>
-                          <MapPin className={`w-4 h-4 ${project.payment_completed ? "text-emerald-600" : "text-teal-600"}`} />
-                        </div>
-                        <h2 className="text-lg font-semibold text-neutral-900">Property Address</h2>
-                      </div>
-                      {project.payment_completed && (
-                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 border-emerald-200">
-                          <CheckCircle2 className="w-3 h-3 mr-1" />
-                          Verified
-                        </Badge>
-                      )}
-                    </div>
-
-                    {project.payment_completed ? (
-                      // Verified: Show address with option to change
-                      <>
-                        <AddressInput
-                          value={addressData}
-                          onChange={handleAddressChange}
-                          disabled={saving}
-                          placeholder="Search for an address..."
-                        />
-                        {addressData && (
-                          <div className="mt-4 p-3 rounded-lg bg-emerald-50 text-sm text-emerald-700">
-                            <p><strong>Coordinates:</strong> {addressData.latitude.toFixed(6)}, {addressData.longitude.toFixed(6)}</p>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      // Not verified: Show address input with verification hint
-                      <>
-                        <AddressInput
-                          value={addressData}
-                          onChange={handleAddressChange}
-                          disabled={saving}
-                          placeholder="Search for an address..."
-                        />
-                        <div className="mt-3 p-3 rounded-lg bg-blue-50 border border-blue-100">
-                          <p className="text-sm text-blue-700 flex items-start gap-2">
-                            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                            <span>
-                              Entering an address will prompt verification. You can use your organization's SF pool or a promo code to unlock this project.
-                            </span>
-                          </p>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                    );
+                  })()}
 
                   {/* CAD Export Section (if paid) */}
                   {project.payment_completed && (
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                          <Package className="w-4 h-4 text-emerald-600" />
-                        </div>
-                        <div>
-                          <h2 className="text-lg font-semibold text-neutral-900">CAD Files Ready</h2>
-                          <p className="text-sm text-neutral-600">Download your project files</p>
+                    <div className="rounded-xl border border-emerald-200/50 overflow-hidden shadow-sm hover:shadow-md transition-shadow" data-tutorial="project-cad">
+                      <div className="bg-gradient-to-r from-emerald-500 to-green-500 px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                            <Package className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <h2 className="text-lg font-semibold text-white">CAD Files Ready</h2>
+                            <p className="text-sm text-emerald-100">Download your professional project files</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {["DWG", "DXF", "PDF", "CSV"].map((format) => (
-                          <Button key={format} variant="outline" className="bg-white">
-                            <Download className="w-4 h-4 mr-2" />
-                            {format}
+                      <div className="bg-gradient-to-r from-emerald-50 to-green-50/50 p-6">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <Button
+                            variant="outline"
+                            className="bg-white hover:bg-emerald-50 border-emerald-200 hover:border-emerald-300 h-auto py-3 flex-col gap-1"
+                            onClick={handleDownloadPDF}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Download className="w-4 h-4 text-emerald-600" />
+                              <span className="font-semibold">PDF</span>
+                            </div>
+                            <span className="text-xs text-neutral-500">Print Ready</span>
                           </Button>
-                        ))}
+                          {[
+                            { format: "DWG", desc: "AutoCAD" },
+                            { format: "DXF", desc: "Universal" },
+                            { format: "CSV", desc: "Data Export" },
+                          ].map((item) => (
+                            <Button
+                              key={item.format}
+                              variant="outline"
+                              className="bg-white hover:bg-emerald-50 border-emerald-200 hover:border-emerald-300 h-auto py-3 flex-col gap-1"
+                              disabled
+                            >
+                              <div className="flex items-center gap-2">
+                                <Download className="w-4 h-4 text-emerald-600" />
+                                <span className="font-semibold">{item.format}</span>
+                              </div>
+                              <span className="text-xs text-neutral-500">{item.desc}</span>
+                            </Button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -715,66 +937,98 @@ export default function ProjectPageClient({
 
                 {/* Right Column */}
                 <div className="space-y-6">
+                  {/* Quick Actions */}
+                  <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow" data-tutorial="project-quick-actions">
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50/50 px-5 py-4 border-b border-blue-100/50">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                          <Zap className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-neutral-900">Quick Actions</h3>
+                      </div>
+                    </div>
+                    <div className="p-5 space-y-3">
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start h-12 border-blue-200 hover:border-blue-300 hover:bg-blue-50/50 group"
+                        onClick={() => setActiveTab("3d-model")}
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center mr-3 transition-colors">
+                          <Box className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <span className="font-medium">View 3D Model</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start h-12 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50/50 group"
+                        onClick={() => setActiveTab("estimation")}
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100 group-hover:bg-emerald-200 flex items-center justify-center mr-3 transition-colors">
+                          <DollarSign className="w-4 h-4 text-emerald-600" />
+                        </div>
+                        <span className="font-medium">Create Estimate</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start h-12 border-orange-200 hover:border-orange-300 hover:bg-orange-50/50 group"
+                        onClick={handleDownloadPDF}
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-orange-100 group-hover:bg-orange-200 flex items-center justify-center mr-3 transition-colors">
+                          <FileText className="w-4 h-4 text-orange-600" />
+                        </div>
+                        <span className="font-medium">Download PDF Estimate</span>
+                      </Button>
+                    </div>
+                  </div>
+
                   {/* Project Info */}
-                  <div className="rounded-xl border border-neutral-200 bg-white p-6">
-                    <h3 className="text-lg font-semibold text-neutral-900 mb-4">Project Info</h3>
-                    <div className="space-y-3 text-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-neutral-500 flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
+                  <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
+                    <div className="bg-gradient-to-r from-slate-50 to-neutral-50/50 px-5 py-4 border-b border-neutral-100">
+                      <h3 className="text-lg font-semibold text-neutral-900">Project Info</h3>
+                    </div>
+                    <div className="p-5 space-y-4">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50/50">
+                        <span className="text-neutral-600 flex items-center gap-2 text-sm">
+                          <Calendar className="w-4 h-4 text-neutral-400" />
                           Created
                         </span>
-                        <span className="font-medium text-neutral-900">
+                        <span className="font-semibold text-neutral-900">
                           {new Date(project.created_at).toLocaleDateString()}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-neutral-500 flex items-center gap-2">
-                          <Clock className="w-4 h-4" />
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50/50">
+                        <span className="text-neutral-600 flex items-center gap-2 text-sm">
+                          <Clock className="w-4 h-4 text-neutral-400" />
                           Updated
                         </span>
-                        <span className="font-medium text-neutral-900">
+                        <span className="font-semibold text-neutral-900">
                           {new Date(project.updated_at).toLocaleDateString()}
                         </span>
                       </div>
                       {pricingTier && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-neutral-500">Pricing Tier</span>
-                          <span className="font-medium text-neutral-900">{pricingTier.label}</span>
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50/50 border border-blue-100">
+                          <span className="text-neutral-600 text-sm">Pricing Tier</span>
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
+                            {pricingTier.label}
+                          </Badge>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Quick Actions */}
-                  <div className="rounded-xl border border-neutral-200 bg-white p-6">
-                    <h3 className="text-lg font-semibold text-neutral-900 mb-4">Quick Actions</h3>
-                    <div className="space-y-2">
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => setActiveTab("3d-model")}
-                      >
-                        <Box className="w-4 h-4 mr-2" />
-                        View 3D Model
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => setActiveTab("estimation")}
-                      >
-                        <DollarSign className="w-4 h-4 mr-2" />
-                        Create Estimate
-                      </Button>
-                      <Button variant="outline" className="w-full justify-start">
-                        <Send className="w-4 h-4 mr-2" />
-                        Send to Client
-                      </Button>
+                  {/* Activity Timeline */}
+                  <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm" data-tutorial="project-activity">
+                    <div className="bg-gradient-to-r from-purple-50 to-pink-50/30 px-5 py-4 border-b border-purple-100/50 flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-neutral-900">Activity</h3>
+                      <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200 text-xs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500 mr-1.5 animate-pulse" />
+                        Live
+                      </Badge>
+                    </div>
+                    <div className="p-5">
+                      <ProjectActivityTimeline projectId={project.id} />
                     </div>
                   </div>
-
-                  {/* Activity Timeline */}
-                  <ProjectActivityTimeline projectId={project.id} />
                 </div>
               </div>
             </motion.div>
@@ -787,16 +1041,43 @@ export default function ProjectPageClient({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="rounded-xl border border-neutral-200 bg-white overflow-hidden"
-              style={{ height: "calc(100vh - 200px)", minHeight: "500px" }}
+              className="fixed inset-0 top-[120px] z-10"
             >
-              <ProjectViewer
-                projectId={project.id}
-                projectName={project.name}
-                onCanvasReady={(canvas) => {
-                  canvasRef.current = canvas;
-                }}
-              />
+              {roofGenerating ? (
+                <div className="flex flex-col items-center justify-center h-full gap-4 bg-neutral-50">
+                  <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+                  <div className="text-center">
+                    <p className="text-lg font-semibold text-neutral-900">Generating 3D Roof Model</p>
+                    <p className="text-sm text-neutral-500 mt-1">Analyzing satellite imagery for {project.address}...</p>
+                  </div>
+                </div>
+              ) : roofError ? (
+                <div className="flex flex-col items-center justify-center h-full gap-4 bg-neutral-50">
+                  <div className="text-center">
+                    <p className="text-lg font-semibold text-red-600">Roof Generation Failed</p>
+                    <p className="text-sm text-neutral-500 mt-1">{roofError}</p>
+                    <Button
+                      className="mt-4"
+                      variant="outline"
+                      onClick={() => {
+                        setRoofError(null);
+                        setProject((prev) => ({ ...prev, roof_data: null }));
+                      }}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <ProjectViewer
+                  projectId={project.id}
+                  projectName={project.name}
+                  roofData={project.roof_data}
+                  onCanvasReady={(canvas) => {
+                    canvasRef.current = canvas;
+                  }}
+                />
+              )}
             </motion.div>
           )}
 
@@ -816,6 +1097,45 @@ export default function ProjectPageClient({
                 addressData={addressData}
                 canvasRef={canvasRef}
               />
+            </motion.div>
+          )}
+
+          {/* CUT SHEET TAB */}
+          {activeTab === "cut-sheet" && (
+            <motion.div
+              key="cut-sheet"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-6"
+            >
+              <CutSheetTab project={project} roofData={project.roof_data as any} />
+            </motion.div>
+          )}
+
+          {/* PHOTOS TAB */}
+          {activeTab === "photos" && (
+            <motion.div key="photos" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <PhotoGalleryTab projectId={project.id} organizationId={project.organization_id || org?.id || ""} userId={userId} />
+            </motion.div>
+          )}
+
+          {/* FINANCIALS TAB */}
+          {activeTab === "financials" && (
+            <motion.div key="financials" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <FinancialsTab projectId={project.id} organizationId={project.organization_id || org?.id || ""} userId={userId} clientId={project.client_id || undefined} />
+            </motion.div>
+          )}
+
+          {/* PROPOSAL TAB */}
+          {activeTab === "proposal" && (
+            <motion.div
+              key="proposal"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <ProposalBuilder project={project} user={user} roofData={project.roof_data as any} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -857,30 +1177,66 @@ export default function ProjectPageClient({
 function StatCard({
   label,
   value,
+  subValue,
   icon: Icon,
   color,
+  size = "default",
 }: {
   label: string;
   value: string;
+  subValue?: string;
   icon: any;
-  color: "blue" | "green" | "amber" | "neutral";
+  color: "blue" | "green" | "amber" | "neutral" | "slate";
+  size?: "default" | "large";
 }) {
   const colors = {
-    blue: "bg-blue-50 text-blue-600",
-    green: "bg-emerald-50 text-emerald-600",
-    amber: "bg-amber-50 text-amber-600",
-    neutral: "bg-neutral-100 text-neutral-600",
+    blue: {
+      bg: "bg-gradient-to-br from-blue-50 to-blue-100/50",
+      icon: "bg-blue-100 text-blue-600",
+      value: "text-blue-900",
+      border: "border-blue-200/50",
+    },
+    green: {
+      bg: "bg-gradient-to-br from-emerald-50 to-emerald-100/50",
+      icon: "bg-emerald-100 text-emerald-600",
+      value: "text-emerald-900",
+      border: "border-emerald-200/50",
+    },
+    amber: {
+      bg: "bg-gradient-to-br from-amber-50 to-amber-100/50",
+      icon: "bg-amber-100 text-amber-600",
+      value: "text-amber-900",
+      border: "border-amber-200/50",
+    },
+    neutral: {
+      bg: "bg-gradient-to-br from-neutral-50 to-neutral-100/50",
+      icon: "bg-neutral-200 text-neutral-600",
+      value: "text-neutral-900",
+      border: "border-neutral-200/50",
+    },
+    slate: {
+      bg: "bg-gradient-to-br from-slate-50 to-slate-100/50",
+      icon: "bg-slate-200 text-slate-600",
+      value: "text-slate-900",
+      border: "border-slate-200/50",
+    },
   };
 
+  const styles = colors[color];
+  const isLarge = size === "large";
+
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-4">
-      <div className="flex items-center gap-3 mb-2">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${colors[color]}`}>
-          <Icon className="w-4 h-4" />
+    <div className={`rounded-xl border ${styles.border} ${styles.bg} p-5 hover:shadow-md transition-shadow`}>
+      <div className="flex items-center gap-3 mb-3">
+        <div className={`${isLarge ? "w-10 h-10" : "w-8 h-8"} rounded-lg flex items-center justify-center ${styles.icon} shadow-sm`}>
+          <Icon className={`${isLarge ? "w-5 h-5" : "w-4 h-4"}`} />
         </div>
-        <span className="text-sm text-neutral-500">{label}</span>
+        <span className="text-sm font-medium text-neutral-600">{label}</span>
       </div>
-      <p className="text-xl font-semibold text-neutral-900">{value}</p>
+      <p className={`${isLarge ? "text-3xl" : "text-2xl"} font-bold ${styles.value}`}>{value}</p>
+      {subValue && (
+        <p className="text-xs text-neutral-500 mt-1">{subValue}</p>
+      )}
     </div>
   );
 }

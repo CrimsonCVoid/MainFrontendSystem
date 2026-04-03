@@ -14,7 +14,6 @@ import {
   X,
   Share2,
   Mail,
-  Phone,
   User,
   Calendar,
   Lock,
@@ -260,7 +259,8 @@ export function ShareEstimateModal({
                   {/* Name */}
                   <div className="space-y-1.5">
                     <label className="block text-sm font-medium text-neutral-700">
-                      Client Name
+                      Client Name{" "}
+                      {passwordProtected && <span className="text-red-500">*</span>}
                     </label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
@@ -269,15 +269,24 @@ export function ShareEstimateModal({
                         value={clientName}
                         onChange={(e) => setClientName(e.target.value)}
                         placeholder="John Smith"
-                        className="w-full pl-10 pr-3 py-2 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className={`w-full pl-10 pr-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${passwordProtected && !clientName.trim()
+                            ? "border-red-300 bg-red-50"
+                            : "border-neutral-200"
+                          }`}
+                        required={passwordProtected}
                       />
                     </div>
+                    {passwordProtected && !clientName.trim() && (
+                      <p className="text-xs text-red-500">
+                        Client name is required for password-protected links
+                      </p>
+                    )}
                   </div>
 
-                  {/* Email */}
+                  {/* Email - REQUIRED for email verification */}
                   <div className="space-y-1.5">
                     <label className="block text-sm font-medium text-neutral-700">
-                      Client Email
+                      Client Email <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
@@ -286,27 +295,43 @@ export function ShareEstimateModal({
                         value={clientEmail}
                         onChange={(e) => setClientEmail(e.target.value)}
                         placeholder="john@example.com"
-                        className="w-full pl-10 pr-3 py-2 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className={`w-full pl-10 pr-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${!clientEmail.trim() ? "border-amber-300 bg-amber-50" : "border-neutral-200"
+                          }`}
+                        required
                       />
                     </div>
+                    <p className="text-xs text-amber-600">
+                      Required for email verification before signing
+                    </p>
                   </div>
 
-                  {/* Phone */}
+                  {/* Phone (optional) */}
                   <div className="space-y-1.5">
                     <label className="block text-sm font-medium text-neutral-700">
                       Client Phone{" "}
                       <span className="text-neutral-400 font-normal">(optional)</span>
                     </label>
                     <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
                       <input
                         type="tel"
                         value={clientPhone}
                         onChange={(e) => setClientPhone(e.target.value)}
                         placeholder="(555) 123-4567"
-                        className="w-full pl-10 pr-3 py-2 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Email Verification Notice */}
+                <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <Mail className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">Email Verification Enabled</p>
+                    <p className="text-xs text-blue-700 mt-0.5">
+                      Client will receive a verification code via email before they can sign.
+                      This provides additional security and evidence for the signature.
+                    </p>
                   </div>
                 </div>
 
@@ -400,27 +425,35 @@ export function ShareEstimateModal({
 
           {/* Footer */}
           {!createdShare && (
-            <div className="px-6 py-4 border-t border-neutral-200 flex justify-end gap-3 sticky bottom-0 bg-white">
-              <Button variant="outline" onClick={onClose} disabled={isCreating}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCreateShare}
-                disabled={isCreating}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {isCreating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Link2 className="h-4 w-4 mr-2" />
-                    Create Share Link
-                  </>
-                )}
-              </Button>
+            <div className="px-6 py-4 border-t border-neutral-200 flex flex-col gap-3 sticky bottom-0 bg-white">
+              {/* Validation warning */}
+              {!clientEmail.trim() && (
+                <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm text-center">
+                  Email is required for verification
+                </div>
+              )}
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={onClose} disabled={isCreating}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateShare}
+                  disabled={isCreating || !clientEmail.trim() || (passwordProtected && !clientName.trim())}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Link2 className="h-4 w-4 mr-2" />
+                      Create Share Link
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
 

@@ -4,38 +4,45 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
-import { FolderOpen, Settings, Menu, LogOut, History } from "lucide-react";
+import { FolderOpen, Settings, Menu, LogOut, History, Key } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { signOut } from "@/lib/auth";
+import { canAccessPromoKeys } from "@/lib/promo-access";
 
 interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
 }
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: FolderOpen },
-  { href: "/audit", label: "Audit Log", icon: History },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
-
 export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [hasUser, setHasUser] = useState<boolean | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setHasUser(!!data.user);
+      setUserId(data.user?.id || null);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setHasUser(!!session?.user);
+      setUserId(session?.user?.id || null);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Build nav items dynamically based on user access
+  const navItems = [
+    { href: "/dashboard", label: "Dashboard", icon: FolderOpen },
+    // Promo Keys - only visible to allowed users (left of Audit Log)
+    ...(canAccessPromoKeys(userId) ? [{ href: "/admin?tab=promo-keys", label: "Promo Keys", icon: Key }] : []),
+    { href: "/audit", label: "Audit Log", icon: History },
+    { href: "/settings", label: "Settings", icon: Settings },
+  ];
 
   if (!hasUser) {
     // null while checking OR if unauthenticated -> no sidebar at all
@@ -56,6 +63,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   return (
     <>
       <aside
+        data-tutorial="sidebar"
         className={cn(
           "fixed left-0 top-0 z-40 h-screen w-64 border-r bg-card transition-transform duration-300 lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full"

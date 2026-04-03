@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, LogIn, UserPlus } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
+import { signInWithEmail, signUpWithEmail, signInWithGoogle } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
-import { ensureUserRecord, signInWithGoogle } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,12 +67,7 @@ export default function AuthPortal({ initialMode = "signin" }: AuthPortalProps) 
   }, []);
 
   const completeAuth = useCallback(
-    async (user: User) => {
-      try {
-        await ensureUserRecord(user);
-      } catch (err) {
-        console.warn("ensureUserRecord failed:", err);
-      }
+    async (_user: User) => {
       router.replace("/dashboard");
     },
     [router]
@@ -119,32 +114,19 @@ export default function AuthPortal({ initialMode = "signin" }: AuthPortalProps) 
 
     try {
       if (mode === "signin") {
-        const { error: signInError, data } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
-        if (signInError) throw signInError;
-        const user = data.session?.user;
+        const { user } = await signInWithEmail(email.trim(), password);
         if (user) {
           await completeAuth(user);
         }
         return;
       }
 
-      const {
-        data: { user },
-        error: signUpError,
-      } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: { emailRedirectTo: `${window.location.origin}/callback?redirect=/dashboard` },
-      });
-      if (signUpError) throw signUpError;
+      // Sign up — no email verification, user is signed in immediately
+      const { user } = await signUpWithEmail(email.trim(), password);
       if (user) {
         await completeAuth(user);
         return;
       }
-      setMessage("Check your email to confirm your address before signing in.");
     } catch (err: any) {
       setError(err?.message || "Authentication failed. Please try again.");
     } finally {

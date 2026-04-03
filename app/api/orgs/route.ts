@@ -22,8 +22,10 @@ export async function GET() {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
+    console.log("[API /orgs] 401 — no user. authError:", authError?.message || "none");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  console.log("[API /orgs] Authenticated user:", user.id, user.email);
 
   // Get user's organizations with their membership info
   const { data: memberships, error } = await supabase
@@ -69,7 +71,10 @@ export async function GET() {
     }))
     .filter((org: any) => org.id); // Filter out any nulls
 
-  return NextResponse.json({ organizations, active_org_id: userDataTyped?.active_org_id });
+  console.log("[API /orgs] Returning", organizations.length, "orgs, active_org_id:", userDataTyped?.active_org_id);
+  const response = NextResponse.json({ organizations, active_org_id: userDataTyped?.active_org_id });
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }
 
 /**

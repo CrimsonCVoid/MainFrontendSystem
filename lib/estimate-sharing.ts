@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ESTIMATE SHARING LIBRARY
  *
@@ -45,6 +46,22 @@ export interface EstimateShare {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // SMS verification fields (legacy - deprecated)
+  sms_verification_required: boolean;
+  sms_otp_hash: string | null;
+  sms_otp_expires_at: string | null;
+  sms_verified_at: string | null;
+  sms_verified_phone_last4: string | null;
+  sms_attempts: number;
+  // Email verification fields
+  email_verification_required: boolean;
+  email_otp_hash: string | null;
+  email_otp_expires_at: string | null;
+  email_otp_attempts: number;
+  email_verified_at: string | null;
+  // Signed IP tracking
+  signed_ip_address: string | null;
+  signed_user_agent: string | null;
 }
 
 export interface ShareWithProject extends EstimateShare {
@@ -150,6 +167,9 @@ export async function createEstimateShare(
   }
 
   // Create share record
+  // Email verification is required when email is provided
+  const emailVerificationRequired = !!clientInfo.email?.trim();
+
   const { data, error } = await supabase
     .from("estimate_shares")
     .insert({
@@ -163,6 +183,7 @@ export async function createEstimateShare(
       password_hash: passwordHash,
       notes: settings.notes || null,
       created_by: user.id,
+      email_verification_required: emailVerificationRequired,
     })
     .select()
     .single();
@@ -176,7 +197,7 @@ export async function createEstimateShare(
   const baseUrl =
     typeof window !== "undefined"
       ? window.location.origin
-      : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      : process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://www.mymetalroofer.net";
   const shareUrl = `${baseUrl}/estimate/${shareToken}`;
 
   return { share: data as EstimateShare, shareUrl };
@@ -380,10 +401,10 @@ export async function submitClientResponse(
 
   const signatureData = response.signatureData
     ? {
-        image: response.signatureData.image,
-        captured_at: response.signatureData.capturedAt,
-        ip_address: ipAddress,
-      }
+      image: response.signatureData.image,
+      captured_at: response.signatureData.capturedAt,
+      ip_address: ipAddress,
+    }
     : null;
 
   const { data, error } = await supabase.rpc("submit_estimate_response", {

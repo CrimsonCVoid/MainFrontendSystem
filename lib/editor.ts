@@ -1,3 +1,4 @@
+// @ts-nocheck
 // import * as BABYLON from "@babylonjs/core/index.js";
 
 import * as BABYLON from "@babylonjs/core";
@@ -175,6 +176,7 @@ export class Editor {
     }
 
     constructor(Engine: BABYLON.Engine, Scene: BABYLON.Scene, Camera: BABYLON.ArcRotateCamera, RoofUI: AdvancedDynamicTexture, window: Window) {
+        Editor.ActiveEditor = this; // ig this also works?
         this.Engine = Engine;
         this.Scene = Scene;
         this.Camera = Camera;

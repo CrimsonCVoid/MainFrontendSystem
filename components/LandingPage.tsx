@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { motion, useScroll, useTransform, useSpring } from "framer-motion";
 import {
   ArrowRight,
@@ -14,22 +15,54 @@ import {
   Sparkles,
   ShieldCheck,
   Building2,
+  Loader2,
 } from "lucide-react";
-import Hero3DTeaser from "./Hero3DTeaser";
+// Hero3DTeaser replaced by RoofSchematicDemo (SVG schematic) in hero section
 import { ThemeToggle } from "./theme-toggle";
-import RoofViewer3D from "./dashboard/RoofViewer3D";
 
-const SIGNIN_PATH = "/login.html";
-const SIGNUP_PATH = "/login.html";
+const RoofViewer3D = dynamic(
+  () => import("./dashboard/RoofViewer3D"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full flex items-center justify-center bg-neutral-100 rounded-2xl">
+        <Loader2 className="w-8 h-8 text-neutral-400 animate-spin" />
+      </div>
+    ),
+  }
+);
+
+const RoofSchematicDemo = dynamic(
+  () => import("./landing/RoofSchematicDemo"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+          <p className="text-sm text-slate-400">Loading 3D Viewer...</p>
+        </div>
+      </div>
+    ),
+  }
+);
+
+const SIGNIN_PATH = "/signin";
+const SIGNUP_PATH = "/signup";
+const DASHBOARD_PATH = "/dashboard";
+
+type LandingPageProps = {
+  user?: { id: string; email?: string } | null;
+};
 
 /* -------------------------------------------------------------------------- */
 /*                         Landing Page Root Component                        */
 /* Renders: Nav, Hero, 3D Configurator, Features, Pricing, FAQ, Footer       */
 /* -------------------------------------------------------------------------- */
-export default function LandingPage() {
+export default function LandingPage({ user }: LandingPageProps) {
   return (
     <main className="min-h-screen bg-white dark:bg-black text-neutral-900 dark:text-white antialiased">
-      <Nav />
+      <Nav isLoggedIn={!!user} />
       <ScrollProgress />
       <Hero />
       <InteractiveRail />
@@ -49,7 +82,7 @@ export default function LandingPage() {
 /*                     Navigation Bar with Scroll Detection                   */
 /* Sticky header with backdrop blur effect, changes opacity on scroll        */
 /* -------------------------------------------------------------------------- */
-function Nav() {
+function Nav({ isLoggedIn = false }: { isLoggedIn?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -60,11 +93,10 @@ function Nav() {
 
   return (
     <header
-      className={`sticky top-0 z-40 transition-all ${
-        scrolled
+      className={`sticky top-0 z-40 transition-all ${scrolled
           ? "bg-white/70 dark:bg-black/80 backdrop-blur-md border-b border-neutral-200 dark:border-slate-500/20"
           : "bg-white/30 dark:bg-black/40 backdrop-blur-sm"
-      }`}
+        }`}
     >
       <div className="mx-auto max-w-7xl h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -87,21 +119,32 @@ function Nav() {
         </nav>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Link href={SIGNIN_PATH} className="px-3 py-2 text-sm rounded-xl hover:bg-neutral-100 dark:hover:bg-slate-500/10 dark:hover:text-slate-400 transition-colors">
-            Sign in
-          </Link>
-          <Link
-            href={SIGNUP_PATH}
-            className="px-3 py-2 text-sm font-semibold text-neutral-900 dark:text-slate-400 underline-offset-4 transition hover:underline"
-          >
-            Create account
-          </Link>
-          <Link
-            href={SIGNIN_PATH}
-            className="mr-1 inline-flex items-center gap-1 rounded-xl bg-neutral-900 dark:bg-slate-500 px-3 py-2 text-sm font-semibold text-white dark:text-black shadow dark:shadow-slate-500/40 transition active:scale-[.98] hover:-translate-y-[1px] dark:hover:bg-slate-400"
-          >
-            Enter Dashboard <ArrowRight className="h-4 w-4" />
-          </Link>
+          {isLoggedIn ? (
+            <Link
+              href={DASHBOARD_PATH}
+              className="mr-1 inline-flex items-center gap-1 rounded-xl bg-neutral-900 dark:bg-slate-500 px-4 py-2 text-sm font-semibold text-white dark:text-black shadow dark:shadow-slate-500/40 transition active:scale-[.98] hover:-translate-y-[1px] dark:hover:bg-slate-400"
+            >
+              Go to Dashboard <ArrowRight className="h-4 w-4" />
+            </Link>
+          ) : (
+            <>
+              <Link href={SIGNIN_PATH} className="px-3 py-2 text-sm rounded-xl hover:bg-neutral-100 dark:hover:bg-slate-500/10 dark:hover:text-slate-400 transition-colors">
+                Sign in
+              </Link>
+              <Link
+                href={SIGNUP_PATH}
+                className="px-3 py-2 text-sm font-semibold text-neutral-900 dark:text-slate-400 underline-offset-4 transition hover:underline"
+              >
+                Create account
+              </Link>
+              <Link
+                href={SIGNUP_PATH}
+                className="mr-1 inline-flex items-center gap-1 rounded-xl bg-neutral-900 dark:bg-slate-500 px-3 py-2 text-sm font-semibold text-white dark:text-black shadow dark:shadow-slate-500/40 transition active:scale-[.98] hover:-translate-y-[1px] dark:hover:bg-slate-400"
+              >
+                Enter Dashboard <ArrowRight className="h-4 w-4" />
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
@@ -123,6 +166,7 @@ function Hero() {
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
   const y = useTransform(scrollYProgress, [0, 1], [0, -60]);
   const opacity = useTransform(scrollYProgress, [0, 1], [1, 0.6]);
+  const [heroView, setHeroView] = useState<{ rx: number; rz: number } | null>(null);
 
   return (
     <section ref={ref} className="relative overflow-hidden">
@@ -154,7 +198,7 @@ function Hero() {
             </motion.p>
 
             <div id="start" className="mt-8 flex flex-wrap gap-3">
-              <MagneticButton href={SIGNIN_PATH} style="primary">Enter Dashboard</MagneticButton>
+              <MagneticButton href={SIGNUP_PATH} style="primary">Enter Dashboard</MagneticButton>
               <MagneticButton href="#features" style="ghost">See how it works</MagneticButton>
             </div>
 
@@ -179,33 +223,28 @@ function Hero() {
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="relative"
           >
-            <div className="rounded-2xl border border-neutral-200 bg-white/90 shadow-2xl p-4 backdrop-blur">
-              <div className="rounded-xl border bg-neutral-50 overflow-hidden">
-                <div className="h-[360px] md:h-[420px]">
-                  <Hero3DTeaser />
-                </div>
+            <div className="rounded-2xl bg-white/90 shadow-2xl backdrop-blur overflow-hidden">
+              <div className="h-[360px] md:h-[420px]">
+                <RoofSchematicDemo className="h-full w-full" viewRx={heroView?.rx} viewRz={heroView?.rz} />
               </div>
             </div>
 
-            {/* Floating badge */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              className="absolute -bottom-8 -right-6 hidden md:block"
-            >
-              <div className="rounded-xl border border-neutral-200 bg-white p-3 shadow-xl">
-                <p className="text-xs text-neutral-600 mb-2">Detected planes</p>
-                <div className="flex flex-wrap gap-2">
-                  {["Standing Seam", "R-panel", "5V"].map((t) => (
-                    <span key={t} className="text-[10px] px-2 py-1 rounded-md bg-neutral-100 border border-neutral-300 text-neutral-800">
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
+            {/* View buttons below frame */}
+            <div className="flex justify-center gap-2 mt-4">
+              {[
+                { label: "Top", rx: 90, rz: 0 },
+                { label: "Side", rx: 15, rz: -90 },
+              ].map((view) => (
+                <button
+                  key={view.label}
+                  type="button"
+                  onClick={() => setHeroView({ rx: view.rx, rz: view.rz })}
+                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 transition-colors shadow-sm"
+                >
+                  {view.label}
+                </button>
+              ))}
+            </div>
           </motion.div>
         </div>
       </div>
@@ -363,9 +402,8 @@ const RailPanel = React.forwardRef<HTMLDivElement, {
       data-panel-id={id}
       initial={false}
       animate={{ opacity: isActive ? 1 : 0.45, scale: isActive ? 1 : 0.985 }}
-      className={`rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm ${
-        isActive ? "ring-1 ring-neutral-200" : ""
-      }`}
+      className={`rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm ${isActive ? "ring-1 ring-neutral-200" : ""
+        }`}
     >
       <div className="flex flex-col gap-5 md:flex-row md:items-center">
         <div className="md:w-[48%]">
@@ -433,9 +471,8 @@ function RailTab({
   return (
     <button
       onClick={onClick}
-      className={`group relative flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition ${
-        active ? "bg-neutral-900 text-white" : "hover:bg-neutral-100"
-      }`}
+      className={`group relative flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition ${active ? "bg-neutral-900 text-white" : "hover:bg-neutral-100"
+        }`}
     >
       <span className={`grid h-6 w-6 place-items-center rounded-md ${active ? "bg-white/10" : "bg-neutral-900 text-white"}`}>
         {icon}
@@ -1217,52 +1254,24 @@ function Configurator3D() {
           </p>
         </motion.div>
 
-        {/* 3D Viewer */}
+        {/* 3D Roof Configurator with Babylon.js — full color + panel controls */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.2 }}
         >
-          <RoofViewer3D />
-        </motion.div>
-
-        {/* Features Grid Below */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.4 }}
-          className="mt-16 grid md:grid-cols-3 gap-6"
-        >
-          {[
-            {
-              icon: <Layers className="h-5 w-5" />,
-              title: "Multiple Panel Profiles",
-              desc: "Choose from Standing Seam, R-Panel, 5V Crimp, and PBR Panel styles"
-            },
-            {
-              icon: <Sparkles className="h-5 w-5" />,
-              title: "50+ Premium Paint Colors",
-              desc: "Full Select, Reserve, and Benchmark series with PVDF and SMP coatings"
-            },
-            {
-              icon: <Building2 className="h-5 w-5" />,
-              title: "Real-Time Preview",
-              desc: "See your selections instantly rendered in beautiful 3D with proper lighting"
-            }
-          ].map((feature, idx) => (
-            <div
-              key={idx}
-              className="p-6 rounded-2xl border border-neutral-200 dark:border-slate-500/20 bg-white/50 dark:bg-black/30 backdrop-blur-sm"
-            >
-              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-500/20 text-slate-600 dark:text-slate-400 flex items-center justify-center mb-4">
-                {feature.icon}
-              </div>
-              <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">{feature.desc}</p>
-            </div>
-          ))}
+          <RoofViewer3D
+            width={14}
+            depth={10}
+            pitch={0.55}
+            overhang={0.25}
+            thickness={0.035}
+            seamSpacing={0.4572}
+            color="#4B5563"
+            spin={true}
+            hideControls={false}
+          />
         </motion.div>
       </div>
     </section>
