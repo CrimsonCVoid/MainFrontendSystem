@@ -81,7 +81,7 @@ export function setSelectedProfile(key: string) { SelectedProfile = key; }
 export function getSelectedProfile() { return SelectedProfile; }
 
 export let PanelProfiles = {
-    "PBR": {
+    "pbr-panel": {
         PanelLength: 12,
         Overlap: 0, // .125 * 5 / 2,
         Shape: [
@@ -94,16 +94,22 @@ export let PanelProfiles = {
             // [3.3125, 1.25, 1],
         ]
     },
-    "StandingSeam": {
+    "standing-seam": {
+        VariableLength: true,
         PanelLength: 16,
         Overlap: 0, // .125 * 5 / 2,
-        Shape: [
+        Shape: (X: number) => [
             [.5, .875, .25],
-            [16 - .5],
+            [X - .5],
             // [.5, .875, .25],
         ]
+        // Shape: [
+        //     [.5, .875, .25],
+        //     [16 - .5],
+        //     // [.5, .875, .25],
+        // ]
     },
-    "5V": {
+    "5v-crimp": {
         PanelLength: 24,
         Overlap: 0, // .125 * 5 / 2,
         Shape: [
@@ -116,7 +122,7 @@ export let PanelProfiles = {
             // [1, .5, 0],
         ]
     },
-    "R": {
+    "r-panel": {
         PanelLength: 9,
         Overlap: 0, // .125 * 5 / 2,
         Shape: [
@@ -154,30 +160,31 @@ export let PanelProfiles = {
 type PanelProfileStep = [number, number?, number?, number?];
 
 interface PanelProfile {
+    VariableLength: boolean;
     PanelLength: number;
     Overlap: number;
-    Shape: PanelProfileStep[];
+    Shape: PanelProfileStep[] | ((number) => PanelProfileStep[]);
 }
 
 type P2 = { x: number; y: number };
 type P3 = { x: number; y: number; z: number };
 
 function buildRepeatedPanelTopPolyline(
-    profile: PanelProfile,
+    PanelLength: number, Overlap: number, Shape: PanelProfileStep[],
     drawLength: number
 ): P2[] {
     const points: P2[] = [];
 
-    let x = profile.Overlap;
+    let x = Overlap;
     let y = 0;
 
     points.push({ x, y });
 
-    const moduleWidth = profile.PanelLength;
+    const moduleWidth = PanelLength;
     const maxPanels = Math.ceil(drawLength / moduleWidth);
 
     for (let i = 0; i < maxPanels; i++) {
-        for (const step of profile.Shape) {
+        for (const step of Shape) {
             const outer = step[0];
             const rise = step[1] ?? 0;
             const inner = step[2] ?? 0;
@@ -275,14 +282,14 @@ function pushQuadFlat(
 
 function createShapedRoofPanelSurface(
     name: string,
-    profile: PanelProfile,
+    PanelLength: number, Overlap: number, Shape: PanelProfileStep[],
     drawLength: number,
     runLength: number,
     getHeightAtX: (x: number) => number,
     scene: BABYLON.Scene,
     updatable = false
 ) {
-    const section = buildRepeatedPanelTopPolyline(profile, drawLength);
+    const section = buildRepeatedPanelTopPolyline(PanelLength, Overlap, Shape, drawLength);
 
     const positions: number[] = [];
     const indices: number[] = [];
@@ -313,7 +320,7 @@ function createShapedRoofPanelSurface(
 
 function createShapedRoofPanelSolid(
     name: string,
-    profile: PanelProfile,
+    PanelLength: number, Overlap: number, Shape: PanelProfileStep[],
     drawLength: number,
     runLength: number,
     thickness: number,
@@ -321,7 +328,7 @@ function createShapedRoofPanelSolid(
     scene: BABYLON.Scene,
     updatable = false
 ) {
-    const section = buildRepeatedPanelTopPolyline(profile, drawLength);
+    const section = buildRepeatedPanelTopPolyline(PanelLength, Overlap, Shape, drawLength);
 
     const positions: number[] = [];
     const indices: number[] = [];
@@ -484,7 +491,7 @@ function getRunLengthAtXWithBands(
 
 function createShapedRoofPanelSolid_LengthByX(
     name: string,
-    profile: PanelProfile,
+    PanelLength: number, Overlap: number, Shape: PanelProfileStep[],
     drawLength: number,
     maxRunLength: number,
     thickness: number,
@@ -493,7 +500,7 @@ function createShapedRoofPanelSolid_LengthByX(
     updatable = false,
     runBands?: RunBand[]
 ) {
-    const section = buildRepeatedPanelTopPolyline(profile, drawLength);
+    const section = buildRepeatedPanelTopPolyline(PanelLength, Overlap, Shape, drawLength);
 
     const positions: number[] = [];
     const indices: number[] = [];
@@ -1053,6 +1060,7 @@ export class ExtrudedLine {
     MAT: BABYLON.PBRMetallicRoughnessMaterial;
 
     SelectedProfile: string = "StandingSeam";
+    SelectedPanelWidth: number = 16;
 
     UpdatePanelMesh() {
         if (this.LineASettings) this.LineASettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings);
@@ -1092,26 +1100,29 @@ export class ExtrudedLine {
         let PanelThickness = 1; // * .0179;
         // shape.push(new BABYLON.Vector3(-X, 0, 0));
 
-        let SelectedPanelData = PanelProfiles[this.SelectedProfile] ?? PanelProfiles["StandingSeam"]; // SelectedProfile];
-        let PanelLength = SelectedPanelData.PanelLength; // 36;
-        let MaxPanels = Math.ceil(DrawLength / PanelLength);
+        let SelectedPanelData: PanelProfile = PanelProfiles[Editor.SelectedProfile] ?? PanelProfiles["standing-seam"]; // SelectedProfile];
+        const PanelWidth = SelectedPanelData.VariableLength ? Editor.SelectedPanelWidth : SelectedPanelData.PanelLength; // 36;
+        const Shape = SelectedPanelData.VariableLength ? SelectedPanelData.Shape(PanelWidth) : SelectedPanelData.Shape;
+        let MaxPanels = Math.ceil(DrawLength / PanelWidth);
 
-        PanelLength *= MaxPanels;
+        // PanelLength *= MaxPanels;
 
         this.Panel?.dispose();
         delete this.Panel;
 
         const Panel = this.Panel = createShapedRoofPanelSolid_LengthByX(
             "pbr-template",
-            SelectedPanelData,
+            PanelWidth, SelectedPanelData.Overlap, Shape,
             DrawLength,
             ExtrudeLength,
             PanelThickness,
-            (x) => this.GetHeightAtX(x) * ExtrudeLength / this.RUN,
+            (x) => this.GetHeightAtX(x), // * ExtrudeLength / this.RUN,
             Editor.ActiveEditor.Scene,
             true,
             makeUniformRunBands(DrawLength, 10, "left-sample")
         );
+
+        this.MAT.baseColor = Editor.RoofColor;
 
         let P_BBL = FocusCF.ToWorldSpace(CFrame.fromXYZ(this.ExtrudeA, PanelThickness, -ExtrudeLength)).ToBabylon();
 

@@ -593,41 +593,14 @@ export default function RoofViewer3D({
     return () => { disposed = true; };
   }, [dims, overhang, thickness, seamSpacing, spin]); // , selectedColor]);
 
-  useEffect(() => {
-    // Editor.RoofPBR_Material = new BABYLON.PBRMetallicRoughnessMaterial("PanelMaterial", Editor.ActiveEditor.Scene);
-
-    // Editor.RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString(selectedColor);
-    // Editor.RoofPBR_Material.metallic = .5; Editor.RoofPBR_Material.roughness = 0.25;
-    // Editor.RoofPBR_Material.backFaceCulling = false;
-    Editor.RoofColor = BABYLON.Color3.FromHexString(selectedColor);
-    for (let Sketch of SketchLine.AllDrawings) {
-      if (Sketch.DrawLine.MAT) Sketch.DrawLine.MAT.baseColor = Editor.RoofColor;
-      Sketch.DrawLine.SelectedProfile = panelProfile;
-      Sketch.DrawLine.UpdatePanelMesh();
-    }
-  }, [panelProfile]);
-
-  // Update material color when selectedColor changes
-  useEffect(() => {
-    Editor.RoofColor = BABYLON.Color3.FromHexString(selectedColor);
-    for (let Sketch of SketchLine.AllDrawings) {
-      if (Sketch.DrawLine.MAT) Sketch.DrawLine.MAT.baseColor = Editor.RoofColor;
-    }
-    // if (panelMaterialRef.current) {
-    //   // Editor.meshesRef = meshesRef;
-    //   // panelMaterialRef.current.baseColor = BABYLON.Color3.FromHexString(selectedColor);
-    //   // for (let Data of meshesRef.current) {
-    //   //   if (Data[0].instance) Data[0].instance.material = panelMaterialRef.current; // .baseColor = BABYLON.Color3.FromHexString(selectedColor);
-    //   //   // Data[0] = BABYLON.MeshBuilder.CreateBox(Data[2], Data[0].instance);
-    //   //   // Data[0].material
-    //   // }
-    // }
-  }, [selectedColor]);
-
   // Standing seam width change — currently visual only (future: update mesh geometry)
   useEffect(() => {
     // Panel profile changes will trigger scene rebuild via roofData dependency
-  }, [standingSeamWidth, panelProfile]);
+    Editor.SelectedProfile = panelProfile;
+    Editor.SelectedPanelWidth = standingSeamWidth;
+    Editor.RoofColor = BABYLON.Color3.FromHexString(selectedColor);
+    for (let Sketch of SketchLine.AllDrawings) Sketch.DrawLine.UpdatePanelMesh();
+  }, [standingSeamWidth, panelProfile, selectedColor]);
 
   // Update rotation when isRotating changes
   useEffect(() => {
@@ -724,8 +697,8 @@ export default function RoofViewer3D({
                   setPanelProfile(profile.id);
                 }}
                 className={`group relative p-3 rounded-xl transition-all ${panelProfile === profile.id
-                    ? "bg-gradient-to-br from-cyan-500/30 to-blue-600/30 border-2 border-cyan-400"
-                    : "bg-white/5 border border-white/10 hover:border-white/30 hover:bg-white/10"
+                  ? "bg-gradient-to-br from-cyan-500/30 to-blue-600/30 border-2 border-cyan-400"
+                  : "bg-white/5 border border-white/10 hover:border-white/30 hover:bg-white/10"
                   }`}
               >
                 <div className="flex justify-center mb-2">
@@ -791,8 +764,8 @@ export default function RoofViewer3D({
                     type="button"
                     onClick={() => setStandingSeamWidth(w)}
                     className={`px-2 py-0.5 text-[10px] font-medium rounded transition-all ${standingSeamWidth === w
-                        ? "bg-cyan-500 text-white"
-                        : "bg-white/10 text-white/50 hover:bg-white/20 hover:text-white/70"
+                      ? "bg-cyan-500 text-white"
+                      : "bg-white/10 text-white/50 hover:bg-white/20 hover:text-white/70"
                       }`}
                   >
                     {w}"
@@ -817,8 +790,8 @@ export default function RoofViewer3D({
                 type="button"
                 onClick={() => setCurrentView(view.id as any)}
                 className={`px-3 py-2 text-xs font-semibold rounded-lg transition-all ${currentView === view.id
-                    ? "bg-white text-gray-900"
-                    : "text-white/70 hover:text-white hover:bg-white/10"
+                  ? "bg-white text-gray-900"
+                  : "text-white/70 hover:text-white hover:bg-white/10"
                   }`}
               >
                 {view.label}
@@ -831,8 +804,8 @@ export default function RoofViewer3D({
             type="button"
             onClick={() => setIsRotating(!isRotating)}
             className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl transition-all border ${isRotating
-                ? "bg-cyan-500 text-white border-cyan-400"
-                : "bg-black/50 backdrop-blur-xl text-white/70 hover:text-white border-white/10"
+              ? "bg-cyan-500 text-white border-cyan-400"
+              : "bg-black/50 backdrop-blur-xl text-white/70 hover:text-white border-white/10"
               }`}
             title={isRotating ? "Stop rotation" : "Auto-rotate"}
           >
@@ -927,8 +900,8 @@ export default function RoofViewer3D({
                     type="button"
                     onClick={() => setSelectedSeries(series)}
                     className={`flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${selectedSeries === series
-                        ? "bg-white text-gray-900 shadow-lg"
-                        : "text-white/60 hover:text-white hover:bg-white/10"
+                      ? "bg-white text-gray-900 shadow-lg"
+                      : "text-white/60 hover:text-white hover:bg-white/10"
                       }`}
                   >
                     {series}
@@ -946,8 +919,8 @@ export default function RoofViewer3D({
                     type="button"
                     onClick={() => setSelectedColor(colorOption.hex)}
                     className={`group relative aspect-square rounded-xl transition-all hover:scale-105 ${selectedColor === colorOption.hex
-                        ? "ring-3 ring-cyan-400 ring-offset-2 ring-offset-black/70 scale-105"
-                        : "hover:ring-2 hover:ring-white/30"
+                      ? "ring-3 ring-cyan-400 ring-offset-2 ring-offset-black/70 scale-105"
+                      : "hover:ring-2 hover:ring-white/30"
                       }`}
                     style={{ backgroundColor: colorOption.hex }}
                   >

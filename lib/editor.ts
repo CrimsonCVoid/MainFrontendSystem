@@ -9,7 +9,7 @@ import { SketchLine } from "./drawings";
 
 import TestingConfig from "./EditorUI.json";
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
-import { FromSupabase } from "./og-backend"; // DebuggingClass
+// import { FromSupabase } from "./og-backend"; // DebuggingClass
 import { CFrame, Vector3 } from "./positioning";
 
 type xyz_Class = { x: number, y: number, z: number };
@@ -841,7 +841,7 @@ export class Editor {
                             fileInput.value = "";
                             fileInput.remove();
 
-                            const Results = await FromSupabase(file, jsonfile);
+                            // const Results = await FromSupabase(file, jsonfile);
 
                             // console.log("DrawHeights", Results.DrawHeights);
 
