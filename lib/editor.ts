@@ -316,58 +316,58 @@ export class Editor {
         // console.log(BABYLON.PointerEventTypes.POINTERMOVE);
         // console.log(BABYLON.PointerEventTypes.POINTERUP);
 
-        let HoldingShift = false;
-        let ChangingPitch = false;
-        let CanDraw = true;
-        let FirstRotation = false;
+        // let HoldingShift = false;
+        // let ChangingPitch = false;
+        // let CanDraw = true;
+        // let FirstRotation = false;
 
-        Scene.onPointerObservable.add((pi) => {
-            // if (this.RoofUI.isForegroundPicked) return; // Prevent drawing when interacting with GUI
-            // pi.pickInfo?
+        // Scene.onPointerObservable.add((pi) => {
+        //     // if (this.RoofUI.isForegroundPicked) return; // Prevent drawing when interacting with GUI
+        //     // pi.pickInfo?
 
-            const p = this.pickOnGround(Scene.pointerX, Scene.pointerY);
-            if (!p) return;
-            DrawingCursor.position.x = Math.round(p.x);
-            DrawingCursor.position.y = Math.round(p.y);
-            DrawingCursor.position.z = Math.round(p.z);
-            // DesignGrid.rotationQuaternion.copyFrom(BABYLON.Quaternion.FromEulerAngles(0, Camera.rotation.y, 0));
-            // DesignGrid.rotate(BABYLON.Vector3.Up, Camera.rotation.y, BABYLON.Space.WORLD);
-            if (pi.type === BABYLON.PointerEventTypes.POINTERDOWN && CanDraw) {
-                if (pi.event.button !== 0) return;
-                if (SketchLine.ActiveSketch) {
-                    if (SketchLine.ActiveSketch.Commit()) {
-                        console.log("COMMIT");
-                        SketchLine.ActiveSketch = null;
-                        // DesignGrid.position.y -= 20;
-                        return;
-                    }
-                    console.log("EXTRUDE");
-                    // DesignGrid.rotation.y = -Camera.alpha;
-                    FirstRotation = true;
-                } else {
-                    // SketchLine.ActiveSketch = new SketchLine(Math.round(p.x), Math.round(p.z), Math.round(p.y));
-                    if (!FirstRotation) {
-                        DesignGrid.position.x = p.x;
-                        DesignGrid.position.z = p.z;
-                    };
-                    SketchLine.ActiveSketch = new SketchLine(this, p.x, Math.round(p.y), p.z);
-                    SketchLine.ActiveSketch.Start();
-                }
-            }
+        //     const p = this.pickOnGround(Scene.pointerX, Scene.pointerY);
+        //     if (!p) return;
+        //     DrawingCursor.position.x = Math.round(p.x);
+        //     DrawingCursor.position.y = Math.round(p.y);
+        //     DrawingCursor.position.z = Math.round(p.z);
+        //     // DesignGrid.rotationQuaternion.copyFrom(BABYLON.Quaternion.FromEulerAngles(0, Camera.rotation.y, 0));
+        //     // DesignGrid.rotate(BABYLON.Vector3.Up, Camera.rotation.y, BABYLON.Space.WORLD);
+        //     if (pi.type === BABYLON.PointerEventTypes.POINTERDOWN && CanDraw) {
+        //         if (pi.event.button !== 0) return;
+        //         if (SketchLine.ActiveSketch) {
+        //             if (SketchLine.ActiveSketch.Commit()) {
+        //                 console.log("COMMIT");
+        //                 SketchLine.ActiveSketch = null;
+        //                 // DesignGrid.position.y -= 20;
+        //                 return;
+        //             }
+        //             console.log("EXTRUDE");
+        //             // DesignGrid.rotation.y = -Camera.alpha;
+        //             FirstRotation = true;
+        //         } else {
+        //             // SketchLine.ActiveSketch = new SketchLine(Math.round(p.x), Math.round(p.z), Math.round(p.y));
+        //             if (!FirstRotation) {
+        //                 DesignGrid.position.x = p.x;
+        //                 DesignGrid.position.z = p.z;
+        //             };
+        //             SketchLine.ActiveSketch = new SketchLine(this, p.x, Math.round(p.y), p.z);
+        //             SketchLine.ActiveSketch.Start();
+        //         }
+        //     }
 
-            if (pi.type === BABYLON.PointerEventTypes.POINTERMOVE && SketchLine.ActiveSketch) {
-                SketchLine.ActiveSketch.SnapAngle = -DesignGrid.rotation.y; // Camera.alpha;
-                SketchLine.ActiveSketch.Update(p.x, p.z, HoldingShift);
-            }
+        //     if (pi.type === BABYLON.PointerEventTypes.POINTERMOVE && SketchLine.ActiveSketch) {
+        //         SketchLine.ActiveSketch.SnapAngle = -DesignGrid.rotation.y; // Camera.alpha;
+        //         SketchLine.ActiveSketch.Update(p.x, p.z, HoldingShift);
+        //     }
 
-            if (ChangingPitch && pi.type === BABYLON.PointerEventTypes.POINTERWHEEL && SketchLine.ActiveSketch) {
-                // console.log(pi);
-                // console.log(pi.event.wheelDelta);
-                let IncrementValue = (HoldingShift ? .5 : 1) * (pi.event.wheelDelta / 120);
-                SketchLine.ActiveSketch.DrawLine.PITCH = Math.max(0, SketchLine.ActiveSketch.DrawLine.PITCH + IncrementValue);
-                SketchLine.ActiveSketch.UpdateWithPointer(HoldingShift);
-            }
-        });
+        //     if (ChangingPitch && pi.type === BABYLON.PointerEventTypes.POINTERWHEEL && SketchLine.ActiveSketch) {
+        //         // console.log(pi);
+        //         // console.log(pi.event.wheelDelta);
+        //         let IncrementValue = (HoldingShift ? .5 : 1) * (pi.event.wheelDelta / 120);
+        //         SketchLine.ActiveSketch.DrawLine.PITCH = Math.max(0, SketchLine.ActiveSketch.DrawLine.PITCH + IncrementValue);
+        //         SketchLine.ActiveSketch.UpdateWithPointer(HoldingShift);
+        //     }
+        // });
 
         Camera.lowerBetaLimit = 0; // -Math.PI / 2;
         Camera.upperBetaLimit = Math.PI / 2;
@@ -796,15 +796,15 @@ export class Editor {
                         // Camera.upperBetaLimit = 0;
                         break;
 
-                    case "q":
-                        SketchLine.ActiveSketch?.Delete();
-                        SketchLine.ActiveSketch = null;
-                        break;
+                    // case "q":
+                    //     SketchLine.ActiveSketch?.Delete();
+                    //     SketchLine.ActiveSketch = null;
+                    //     break;
 
-                    case "f":
-                        if (SketchLine.ActiveSketch && SketchLine.ActiveSketch.HasExtruded) SketchLine.ActiveSketch.DrawingMode = SketchLine.ActiveSketch.DrawingMode == "LINE" ? "EXTRUSION" : "LINE";
-                        SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                        break;
+                    // case "f":
+                    //     if (SketchLine.ActiveSketch && SketchLine.ActiveSketch.HasExtruded) SketchLine.ActiveSketch.DrawingMode = SketchLine.ActiveSketch.DrawingMode == "LINE" ? "EXTRUSION" : "LINE";
+                    //     SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
+                    //     break;
 
 
 
@@ -1039,35 +1039,35 @@ export class Editor {
                     //     break;
 
 
-                    case "e":
-                        ChangingPitch = true;
-                        Camera.lowerRadiusLimit = Camera.radius;
-                        Camera.upperRadiusLimit = Camera.radius;
-                        break;
+                    // case "e":
+                    //     ChangingPitch = true;
+                    //     Camera.lowerRadiusLimit = Camera.radius;
+                    //     Camera.upperRadiusLimit = Camera.radius;
+                    //     break;
 
-                    case "shift":
-                        console.log("Shift is down");
-                        HoldingShift = true;
-                        SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                        break;
+                    // case "shift":
+                    //     console.log("Shift is down");
+                    //     HoldingShift = true;
+                    //     SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
+                    //     break;
                 }
             }
 
-            if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYUP) {
-                // console.log("Released:", kbInfo.event.key);
-                switch (kbInfo.event.key.toLowerCase()) {
-                    case "shift":
-                        HoldingShift = false;
-                        SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
-                        break;
+            // if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYUP) {
+            //     // console.log("Released:", kbInfo.event.key);
+            //     switch (kbInfo.event.key.toLowerCase()) {
+            //         case "shift":
+            //             HoldingShift = false;
+            //             SketchLine.ActiveSketch?.UpdateWithPointer(HoldingShift);
+            //             break;
 
-                    case "e":
-                        ChangingPitch = false;
-                        Camera.lowerRadiusLimit = 10;
-                        Camera.upperRadiusLimit = null;
-                        break;
-                }
-            }
+            //         case "e":
+            //             ChangingPitch = false;
+            //             Camera.lowerRadiusLimit = 10;
+            //             Camera.upperRadiusLimit = null;
+            //             break;
+            //     }
+            // }
         });
     }
 }

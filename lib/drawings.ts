@@ -790,7 +790,26 @@ export function getTopBottomAtX(
     return { x, bottom, top, hits };
 }
 
+function makeUniformRunBands(
+    drawLength: number,
+    bandWidth: number,
+    mode: "center-sample" | "left-sample" | "right-sample" = "center-sample"
+): RunBand[] {
+    const bands: RunBand[] = [];
 
+    for (let xMin = 0; xMin < drawLength; xMin += bandWidth) {
+        const xMax = Math.min(drawLength, xMin + bandWidth);
+
+        let sampleAtX: number;
+        if (mode === "left-sample") sampleAtX = xMin;
+        else if (mode === "right-sample") sampleAtX = xMax;
+        else sampleAtX = (xMin + xMax) * 0.5;
+
+        bands.push({ xMin, xMax, sampleAtX });
+    }
+
+    return bands;
+}
 
 // let SketchDirection = new CFrame();
 
@@ -966,36 +985,44 @@ export class ExtrudedLine {
         this.CenterHeight = Averaged.Y;
         this.InnerFocusCenter = Averaged;
 
+        const ShowDebugLines = false;
+
         this.UpdateOffsets();
 
         this.Modify = Editor.ActiveEditor.LabelMarkerXYZ(Averaged.X, Averaged.Y, Averaged.Z, FocusSketchLine.ID)
 
         this.InnerFocusLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.InnerFocusLineSettings, this.ActiveEditor.Scene);
         this.InnerFocusLineSettings.instance.color = new BABYLON.Color3(.5, .5, 1);
+        this.InnerFocusLineSettings.instance.isVisible = ShowDebugLines;
 
         this.MiddleFocusLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.MiddleFocusLineSettings, this.ActiveEditor.Scene);
         this.MiddleFocusLineSettings.instance.color = new BABYLON.Color3(.5, 1, 1);
+        this.MiddleFocusLineSettings.instance.isVisible = ShowDebugLines;
 
         this.OuterFocusLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.OuterFocusLineSettings, this.ActiveEditor.Scene);
         this.OuterFocusLineSettings.instance.color = new BABYLON.Color3(.5, 1, .5);
+        this.OuterFocusLineSettings.instance.isVisible = ShowDebugLines;
 
         // this.TopLineSettings.points[0] = this.V3A; // this.FocusPointA; // 
         // this.TopLineSettings.points[1] = this.V3B; // this.FocusPointB; // 
         this.TopLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.TopLineSettings, this.ActiveEditor.Scene);
         this.TopLineSettings.instance.color = new BABYLON.Color3(0, 0, 1);
+        this.TopLineSettings.instance.isVisible = ShowDebugLines;
 
 
         this.BottomLineSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.BottomLineSettings, this.ActiveEditor.Scene);
         this.BottomLineSettings.instance.color = new BABYLON.Color3(0, 1, 0);
-        // this.LineSettings.instance.isVisible = false;
+        this.BottomLineSettings.instance.isVisible = ShowDebugLines;
 
         this.LineASettings = { points: [this.TopLineSettings.points[0], this.BottomLineSettings.points[0]], updatable: true };
         this.LineASettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings, this.ActiveEditor.Scene);
         this.LineASettings.instance.color = new BABYLON.Color3(0, 1, 1);
+        this.LineASettings.instance.isVisible = ShowDebugLines;
 
         this.LineBSettings = { points: [this.TopLineSettings.points[1], this.BottomLineSettings.points[1]], updatable: true };
         this.LineBSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings, this.ActiveEditor.Scene);
         this.LineBSettings.instance.color = new BABYLON.Color3(0, 1, 1);
+        this.LineBSettings.instance.isVisible = ShowDebugLines;
 
         this.PolygonSettings = { sideOrientation: BABYLON.Mesh.DOUBLESIDE, shape: [this.LineASettings.points[0], this.LineASettings.points[1], this.LineBSettings.points[1], this.LineBSettings.points[0]], updatable: true };
         this.PanelSettings = {
@@ -1070,27 +1097,6 @@ export class ExtrudedLine {
 
         this.Panel?.dispose();
         delete this.Panel;
-
-        function makeUniformRunBands(
-            drawLength: number,
-            bandWidth: number,
-            mode: "center-sample" | "left-sample" | "right-sample" = "center-sample"
-        ): RunBand[] {
-            const bands: RunBand[] = [];
-
-            for (let xMin = 0; xMin < drawLength; xMin += bandWidth) {
-                const xMax = Math.min(drawLength, xMin + bandWidth);
-
-                let sampleAtX: number;
-                if (mode === "left-sample") sampleAtX = xMin;
-                else if (mode === "right-sample") sampleAtX = xMax;
-                else sampleAtX = (xMin + xMax) * 0.5;
-
-                bands.push({ xMin, xMax, sampleAtX });
-            }
-
-            return bands;
-        }
 
         const Panel = this.Panel = createShapedRoofPanelSolid_LengthByX(
             "pbr-template",
