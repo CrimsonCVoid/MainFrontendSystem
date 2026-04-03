@@ -9,14 +9,10 @@ import { SketchLine } from "./drawings";
 
 import TestingConfig from "./EditorUI.json";
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
-import { FromSupabase } from "./og-backend"; // DebuggingClass
+// import { FromSupabase } from "./og-backend"; // DebuggingClass
 import { CFrame, Vector3 } from "./positioning";
 
 type xyz_Class = { x: number, y: number, z: number };
-
-// async function Test() {
-
-// }
 
 type BABYLON_LineOptions = {
     points: BABYLON.Vector3[];
@@ -124,7 +120,9 @@ export class Editor {
 
     // Root: BABYLON.TransformNode;
     // static RoofPBR_Material: BABYLON.PBRMetallicRoughnessMaterial;
-    RoofColor = BABYLON.Color3.FromHexString("#FFFFFF");
+    static SelectedProfile = "standing-seam";
+    static SelectedPanelWidth = 16;
+    static RoofColor = BABYLON.Color3.FromHexString("#FFFFFF");
 
     PanelEngine?: BABYLON.Engine;
 
@@ -841,7 +839,7 @@ export class Editor {
                             fileInput.value = "";
                             fileInput.remove();
 
-                            const Results = await FromSupabase(file, jsonfile);
+                            // const Results = await FromSupabase(file, jsonfile);
 
                             // console.log("DrawHeights", Results.DrawHeights);
 

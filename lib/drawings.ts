@@ -510,7 +510,7 @@ function createShapedRoofPanelSolid_LengthByX(
     const getZ = (x: number) =>
         getRunLengthAtXWithBands(x, drawLength, maxRunLength, getRunLengthAtX, runBands);
     const getBottomZ = (x: number) =>
-        0; // getRunLengthAtXWithBands(x, drawLength, maxRunLength, getBottomLengthAtX, runBands);
+        getRunLengthAtXWithBands(x, drawLength, maxRunLength, getBottomLengthAtX, runBands);
 
     // Top surface
     for (let i = 0; i < section.length - 1; i++) {
