@@ -496,6 +496,7 @@ function createShapedRoofPanelSolid_LengthByX(
     maxRunLength: number,
     thickness: number,
     getRunLengthAtX: (x: number) => number,
+    getBottomLengthAtX: (x: number) => number,
     scene: BABYLON.Scene,
     updatable = false,
     runBands?: RunBand[]
@@ -508,6 +509,8 @@ function createShapedRoofPanelSolid_LengthByX(
 
     const getZ = (x: number) =>
         getRunLengthAtXWithBands(x, drawLength, maxRunLength, getRunLengthAtX, runBands);
+    const getBottomZ = (x: number) =>
+        0; // getRunLengthAtXWithBands(x, drawLength, maxRunLength, getBottomLengthAtX, runBands);
 
     // Top surface
     for (let i = 0; i < section.length - 1; i++) {
@@ -516,9 +519,11 @@ function createShapedRoofPanelSolid_LengthByX(
 
         const za = getZ(a.x);
         const zb = getZ(b.x);
+        const z1a = getBottomZ(a.x);
+        const z1b = getBottomZ(b.x);
 
-        const a0: P3 = { x: a.x, y: a.y, z: 0 };
-        const b0: P3 = { x: b.x, y: b.y, z: 0 };
+        const a0: P3 = { x: a.x, y: a.y, z: z1a };
+        const b0: P3 = { x: b.x, y: b.y, z: z1b };
         const b1: P3 = { x: b.x, y: b.y, z: zb };
         const a1: P3 = { x: a.x, y: a.y, z: za };
 
@@ -532,9 +537,11 @@ function createShapedRoofPanelSolid_LengthByX(
 
         const za = getZ(a.x);
         const zb = getZ(b.x);
+        const z1a = getBottomZ(a.x);
+        const z1b = getBottomZ(b.x);
 
-        const a0: P3 = { x: a.x, y: a.y - thickness, z: 0 };
-        const b0: P3 = { x: b.x, y: b.y - thickness, z: 0 };
+        const a0: P3 = { x: a.x, y: a.y - thickness, z: z1a };
+        const b0: P3 = { x: b.x, y: b.y - thickness, z: z1b };
         const b1: P3 = { x: b.x, y: b.y - thickness, z: zb };
         const a1: P3 = { x: a.x, y: a.y - thickness, z: za };
 
@@ -546,10 +553,13 @@ function createShapedRoofPanelSolid_LengthByX(
         const a = section[i];
         const b = section[i + 1];
 
-        const ta: P3 = { x: a.x, y: a.y, z: 0 };
-        const tb: P3 = { x: b.x, y: b.y, z: 0 };
-        const bb: P3 = { x: b.x, y: b.y - thickness, z: 0 };
-        const ba: P3 = { x: a.x, y: a.y - thickness, z: 0 };
+        const z1a = getBottomZ(a.x);
+        const z1b = getBottomZ(b.x);
+
+        const ta: P3 = { x: a.x, y: a.y, z: z1a };
+        const tb: P3 = { x: b.x, y: b.y, z: z1b };
+        const bb: P3 = { x: b.x, y: b.y - thickness, z: z1b };
+        const ba: P3 = { x: a.x, y: a.y - thickness, z: z1a };
 
         pushQuadFlat(positions, indices, normals, ta, ba, bb, tb);
     }
@@ -574,11 +584,12 @@ function createShapedRoofPanelSolid_LengthByX(
     {
         const a = section[0];
         const zEnd = getZ(a.x);
+        const zBottomEnd = getBottomZ(a.x);
 
-        const top0: P3 = { x: a.x, y: a.y, z: 0 };
+        const top0: P3 = { x: a.x, y: a.y, z: zBottomEnd };
         const top1: P3 = { x: a.x, y: a.y, z: zEnd };
         const bot1: P3 = { x: a.x, y: a.y - thickness, z: zEnd };
-        const bot0: P3 = { x: a.x, y: a.y - thickness, z: 0 };
+        const bot0: P3 = { x: a.x, y: a.y - thickness, z: zBottomEnd };
 
         pushQuadFlat(positions, indices, normals, top0, top1, bot1, bot0);
     }
@@ -587,11 +598,12 @@ function createShapedRoofPanelSolid_LengthByX(
     {
         const a = section[section.length - 1];
         const zEnd = getZ(a.x);
+        const zBottomEnd = getBottomZ(a.x);
 
-        const top0: P3 = { x: a.x, y: a.y, z: 0 };
+        const top0: P3 = { x: a.x, y: a.y, z: zBottomEnd };
         const top1: P3 = { x: a.x, y: a.y, z: zEnd };
         const bot1: P3 = { x: a.x, y: a.y - thickness, z: zEnd };
-        const bot0: P3 = { x: a.x, y: a.y - thickness, z: 0 };
+        const bot0: P3 = { x: a.x, y: a.y - thickness, z: zBottomEnd };
 
         pushQuadFlat(positions, indices, normals, top0, bot0, bot1, top1);
     }
@@ -606,110 +618,6 @@ function createShapedRoofPanelSolid_LengthByX(
 
     return mesh;
 }
-
-// function createShapedRoofPanelSolid(
-//     name: string,
-//     profile: PanelProfile,
-//     drawLength: number,
-//     runLength: number,
-//     thickness: number,
-//     getHeightAtX: (x: number) => number,
-//     scene: BABYLON.Scene,
-//     updatable = false
-// ) {
-//     const section = buildRepeatedPanelTopPolyline(profile, drawLength);
-
-//     const positions: number[] = [];
-//     const indices: number[] = [];
-//     const normals: number[] = [];
-
-//     // Top surface
-//     for (let i = 0; i < section.length - 1; i++) {
-//         const a = section[i];
-//         const b = section[i + 1];
-
-//         const a0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: 0 };
-//         const b0: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y, z: 0 };
-//         const b1: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y, z: runLength };
-//         const a1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: runLength };
-
-//         pushQuadFlat(positions, indices, normals, a0, b0, b1, a1);
-//     }
-
-//     // Bottom surface
-//     for (let i = 0; i < section.length - 1; i++) {
-//         const a = section[i];
-//         const b = section[i + 1];
-
-//         const a0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: 0 };
-//         const b0: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y - thickness, z: 0 };
-//         const b1: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y - thickness, z: runLength };
-//         const a1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: runLength };
-
-//         pushQuadFlat(positions, indices, normals, a1, b1, b0, a0);
-//     }
-
-//     // Front edge z = 0
-//     for (let i = 0; i < section.length - 1; i++) {
-//         const a = section[i];
-//         const b = section[i + 1];
-
-//         const ta: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: 0 };
-//         const tb: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y, z: 0 };
-//         const bb: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y - thickness, z: 0 };
-//         const ba: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: 0 };
-
-//         pushQuadFlat(positions, indices, normals, ta, ba, bb, tb);
-//     }
-
-//     // Back edge z = runLength
-//     for (let i = 0; i < section.length - 1; i++) {
-//         const a = section[i];
-//         const b = section[i + 1];
-
-//         const ta: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: runLength };
-//         const tb: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y, z: runLength };
-//         const bb: P3 = { x: b.x, y: getHeightAtX(b.x) + b.y - thickness, z: runLength };
-//         const ba: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: runLength };
-
-//         pushQuadFlat(positions, indices, normals, ta, tb, bb, ba);
-//     }
-
-//     // Left cap x = 0 side
-//     {
-//         const a = section[0];
-//         const top0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: 0 };
-//         const top1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: runLength };
-//         const bot1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: runLength };
-//         const bot0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: 0 };
-
-//         pushQuadFlat(positions, indices, normals, top0, top1, bot1, bot0);
-//     }
-
-//     // Right cap x = drawLength side
-//     {
-//         const a = section[section.length - 1];
-//         const top0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: 0 };
-//         const top1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y, z: runLength };
-//         const bot1: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: runLength };
-//         const bot0: P3 = { x: a.x, y: getHeightAtX(a.x) + a.y - thickness, z: 0 };
-
-//         pushQuadFlat(positions, indices, normals, top0, bot0, bot1, top1);
-//     }
-
-//     const mesh = new BABYLON.Mesh(name, scene);
-
-//     const vd = new BABYLON.VertexData();
-//     vd.positions = positions;
-//     vd.indices = indices;
-//     vd.normals = normals;
-//     vd.applyToMesh(mesh, updatable);
-
-//     return mesh;
-// }
-
-
-
 
 interface XEnvelopeHit {
     point: Vector3;
@@ -1065,7 +973,7 @@ export class ExtrudedLine {
     UpdatePanelMesh() {
         if (this.LineASettings) this.LineASettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.LineASettings);
         if (this.LineBSettings) this.LineBSettings.instance = BABYLON.MeshBuilder.CreateLines("LINE", this.LineBSettings);
-        this.Polygon?.dispose();
+        // this.Polygon?.dispose();
 
         let ExtrudeA = this.ExtrudeA;
         let ExtrudeB = this.ExtrudeB;
@@ -1117,12 +1025,13 @@ export class ExtrudedLine {
             ExtrudeLength,
             PanelThickness,
             (x) => this.GetHeightAtX(x), // * ExtrudeLength / this.RUN,
+            (x) => this.GetBottomAtX(x), // * ExtrudeLength / this.RUN,
             Editor.ActiveEditor.Scene,
             true,
             makeUniformRunBands(DrawLength, 10, "left-sample")
         );
 
-        this.MAT.baseColor = Editor.RoofColor;
+        if (this.MAT) this.MAT.baseColor = Editor.RoofColor;
 
         let P_BBL = FocusCF.ToWorldSpace(CFrame.fromXYZ(this.ExtrudeA, PanelThickness, -ExtrudeLength)).ToBabylon();
 
@@ -1224,6 +1133,56 @@ export class ExtrudedLine {
         }
 
         // if (Height != Height) console.log("WTF IS WRONG", X, X_L, X_EA, X_EB, X_R, this)
+
+        return Height;
+    }
+
+    GetBottomAtX(X: number, Inclusive = false, ApplyOffset = true) {
+        if (this.LeftSidePoints && this.RightSidePoints) {
+            // let LeftX = Infinity;
+            // let RightX = -Infinity;
+            // for (const V3 of this.LeftSidePoints) LeftX = Math.min(LeftX, V3.X), RightX = Math.max(RightX, V3.X);
+            // for (const V3 of this.RightSidePoints) LeftX = Math.min(LeftX, V3.X), RightX = Math.max(RightX, V3.X);
+            const Bottom = getTopBottomAtX(this.LeftSidePoints, this.RightSidePoints, X).bottom?.point.Z;
+            if (Bottom != Bottom || Bottom == null) return 0;
+            return Bottom;
+        }
+        // let MainLength = this.TopLength;
+        // let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
+        // let Height = 0;
+        // for (let ZoningPoint of this.Zonings) {
+        //     let Actual0X = -ZoningPoint[0].X + this.ExtrudeB + MainLength;
+        //     let Actual1X = -ZoningPoint[1].X + this.ExtrudeB + MainLength;
+        //     // if (Actual0X > X) continue;
+        //     let EL2 = ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5)
+        //     let EL1 = ((ZoningPoint[1].Y ** 2 + ZoningPoint[1].Z ** 2) ** .5)
+        //     if (Actual0X > Actual1X && (Inclusive ? X <= Actual0X : X < Actual0X)) { // && Actual1X < X && X < Actual0X) {
+        //         Height = Math.max(Height, (Actual0X - X) / (Actual0X - Actual1X) * (EL2 - EL1) - (ApplyOffset ? 1 : 0) * (EL2 - ExtrudeLength)); // Math.max(Height, ExtrudeLength - ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5));
+        //     }
+        //     if (Actual0X < Actual1X && (Inclusive ? Actual0X <= X : Actual0X < X)) { // && Actual0X < X && X < Actual1X) {
+        //         Height = Math.max(Height, (X - Actual0X) / (Actual1X - Actual0X) * (EL2 - EL1) - (ApplyOffset ? 1 : 0) * (EL2 - ExtrudeLength)); // Math.max(Height, ExtrudeLength - ((ZoningPoint[0].Y ** 2 + ZoningPoint[0].Z ** 2) ** .5));
+        //     }
+        // }
+        let ExtrudeA = this.ExtrudeA;
+        let ExtrudeB = this.ExtrudeB;
+        let MainLength = this.TopLength;
+        let ExtrudeLength = (this.RISE ** 2 + this.RUN ** 2) ** .5;
+        // let DrawLength = MainLength + Math.max(0, ExtrudeA) + Math.max(0, ExtrudeB);
+
+        let X_L = -Math.min(0, ExtrudeA);
+        let X_EA = Math.max(0, ExtrudeA);
+        let X_EB = X_EA + MainLength;
+        let X_R = X_EB + ExtrudeB;
+
+        let Height = 0;
+
+        if (X_EA <= X && X <= X_L && X_EA != X_L) {
+            Height = ExtrudeLength * (X - X_L) / (X_EA - X_L);
+        } else if (X_L <= X && X <= X_R) {
+            Height = 0;
+        } else if (X_R <= X && X <= X_EB && X_R != X_EB) {
+            Height = ExtrudeLength - ExtrudeLength * (X - X_EB) / (X_R - X_EB);
+        }
 
         return Height;
     }
