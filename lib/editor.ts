@@ -9,7 +9,7 @@ import { SketchLine } from "./drawings";
 
 import TestingConfig from "./EditorUI.json";
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
-import { FromSupabase } from "./backend"; // DebuggingClass
+import { FromSupabase } from "./og-backend"; // DebuggingClass
 import { CFrame, Vector3 } from "./positioning";
 
 type xyz_Class = { x: number, y: number, z: number };

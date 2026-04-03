@@ -26,15 +26,12 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as BABYLON from "@babylonjs/core";
-<<<<<<< HEAD
 /* eslint-disable no-constant-binary-expression */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
 import { Editor } from "@/lib/editor";
 import { SketchLine } from "@/lib/drawings";
 // import { CreateGoogleDebugMesh, GetMapCenterLAT, GetMapCenterLON, SetMapCenter } from "@/lib/utils";
-=======
->>>>>>> Website/main
 
 declare global { interface Window { BABYLON?: any } }
 
@@ -246,23 +243,16 @@ export default function RoofViewer3D({
   useEffect(() => {
     let disposed = false;
     (async () => {
-<<<<<<< HEAD
       // await ensureBabylon();
       // const BABYLON = BABYLON; // window.BABYLON!;
       if (!canvasRef.current || disposed) return;
 
       try { engineRef.current?.dispose?.(); meshesRef.current?.dispose?.(); } catch { }
       console.log("AND THEN THERE WAS LIGHT");
-=======
-      if (!canvasRef.current || disposed) return;
-
-      try { engineRef.current?.dispose?.(); } catch { }
->>>>>>> Website/main
       meshesRef.current = [];
       const Engine = new BABYLON.Engine(canvasRef.current, true, {
         antialias: true,
         powerPreference: "high-performance",
-<<<<<<< HEAD
         stencil: true, preserveDrawingBuffer: true, // alpha: true
       });
       Engine.useReverseDepthBuffer = true;
@@ -569,269 +559,12 @@ export default function RoofViewer3D({
       // ridge.material = ridgeMat;
       // ridge.position.set(0, rise + ridge.getBoundingInfo().boundingBox.extendSize.y, 0);
       // ridge.parent = root;
-=======
-        stencil: true, preserveDrawingBuffer: true, alpha: true
-      });
-      Engine.setHardwareScalingLevel(1 / Math.min(window.devicePixelRatio || 1, 2));
-      engineRef.current = Engine;
-
-      const Scene = new BABYLON.Scene(Engine);
-      Scene.clearColor = new BABYLON.Color4(0.92, 0.93, 0.95, 1); // Light gray sky
-      // Environment texture optional for StandardMaterial
-
-      const { run, rise, slopeAngle, slopedLen, wTop } = dims;
-
-      // Camera — start at a generous radius; will be auto-fitted after mesh creation
-      const Camera = new BABYLON.ArcRotateCamera(
-        "Camera",
-        BABYLON.Tools.ToRadians(45),
-        BABYLON.Tools.ToRadians(55),
-        1500,
-        BABYLON.Vector3.Zero(),
-        Scene
-      );
-      Camera.attachControl(canvasRef.current, true);
-      Camera.minZ = 1;
-      Camera.maxZ = 100000;
-      Camera.lowerRadiusLimit = 50;
-      Camera.upperRadiusLimit = 10000;
-      Camera.wheelDeltaPercentage = 0.01;
-      Camera.panningSensibility = 5;
-      cameraRef.current = Camera;
-
-      // Lighting — bright enough for metallic PBR materials
-      const hemiLight = new BABYLON.HemisphericLight("h", new BABYLON.Vector3(0, 1, 0), Scene);
-      hemiLight.intensity = 1.2;
-      hemiLight.groundColor = BABYLON.Color3.FromHexString("#6080a0");
-
-      const sun = new BABYLON.DirectionalLight("sun", new BABYLON.Vector3(-0.5, -1, -0.3), Scene);
-      sun.position = new BABYLON.Vector3(500, 1000, 500);
-      sun.intensity = 1.5;
-      sun.diffuse = BABYLON.Color3.FromHexString("#fffaf0");
-
-      // Root transform for rotation
-      const root = new BABYLON.TransformNode("root", Scene);
-
-      // Roof panel material — StandardMaterial for reliable visibility
-      const panelMat = new BABYLON.StandardMaterial("panelMat", Scene);
-      panelMat.diffuseColor = BABYLON.Color3.FromHexString(selectedColor);
-      panelMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-      panelMat.backFaceCulling = false;
-      panelMaterialRef.current = panelMat;
-
-      // Check for renderable roof data — prefer _google_raw for proper azimuth rotation
-      const googleRaw = roofData?._google_raw;
-      const segments = googleRaw?.roofSegmentStats || googleRaw?.solarPotential?.roofSegmentStats;
-      const googleCenter = googleRaw?.center;
-      const hasRoofData = (segments?.length > 0 && !!googleCenter) || (roofData?.planes?.length > 0 && roofData.planes.some((p: any) => p.vertices?.length >= 3));
-      console.log("[RoofViewer3D] hasRoofData:", hasRoofData, "segments:", segments?.length ?? 0);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      if (hasRoofData) {
-        const createdMeshes: BABYLON.Mesh[] = [];
-
-        if (segments?.length > 0 && googleCenter) {
-          // --- RENDER WITH AZIMUTH ROTATION FROM _google_raw ---
-          const LAT_SCALE = 111320;
-          const LNG_SCALE = 111320 * Math.cos(googleCenter.latitude * Math.PI / 180);
-          const toLocal = (lat: number, lon: number) => ({
-            x: (lon - googleCenter.longitude) * LNG_SCALE,
-            z: (lat - googleCenter.latitude) * LAT_SCALE,
-          });
-
-          let minH = Infinity;
-          for (const seg of segments) if (seg.planeHeightAtCenterMeters != null) minH = Math.min(minH, seg.planeHeightAtCenterMeters);
-          if (!isFinite(minH)) minH = 0;
-
-          for (let i = 0; i < segments.length; i++) {
-            const seg = segments[i];
-            const gArea = seg.stats?.groundAreaMeters2;
-            if (!gArea || gArea < 1) continue;
-
-            const pitchRad = (seg.pitchDegrees || 0) * Math.PI / 180;
-            const azRad = (seg.azimuthDegrees || 0) * Math.PI / 180;
-            const hM = (seg.planeHeightAtCenterMeters || 0) - minH;
-            const c = toLocal(seg.center.latitude, seg.center.longitude);
-
-            // Compute ridge width and ground depth from bounding box aspect ratio + area
-            let rW: number, gD: number;
-            if (seg.boundingBox?.ne && seg.boundingBox?.sw) {
-              const ne = toLocal(seg.boundingBox.ne.latitude, seg.boundingBox.ne.longitude);
-              const sw = toLocal(seg.boundingBox.sw.latitude, seg.boundingBox.sw.longitude);
-              const bbW = Math.max(Math.abs(ne.x - sw.x), 0.5);
-              const bbH = Math.max(Math.abs(ne.z - sw.z), 0.5);
-              // Use bbox aspect ratio but compute actual dimensions from ground area
-              const aspect = bbW / bbH;
-              // For the roof plane rotated by azimuth:
-              // Ridge runs perpendicular to azimuth, depth runs along azimuth
-              // Use the bbox dimension that aligns more with each direction
-              const cosAz = Math.abs(Math.cos(azRad)), sinAz = Math.abs(Math.sin(azRad));
-              // Ridge extent from bbox: mostly EW when az~0/180, mostly NS when az~90/270
-              const ridgeFromBB = bbW * cosAz + bbH * sinAz;
-              const depthFromBB = bbW * sinAz + bbH * cosAz;
-              const bbAspect = Math.max(ridgeFromBB, 0.5) / Math.max(depthFromBB, 0.5);
-              // Scale to match actual ground area
-              gD = Math.sqrt(gArea / bbAspect);
-              rW = gArea / gD;
-            } else {
-              rW = Math.sqrt(gArea * 1.4);
-              gD = gArea / rW;
-            }
-
-            const rise = gD * Math.tan(pitchRad);
-            // Google Solar: 0°=South, 90°=West, 180°=North, 270°=East (clockwise from south)
-            const dx = -Math.sin(azRad), dz = -Math.cos(azRad); // downslope
-            const rx = -Math.cos(azRad), rz = Math.sin(azRad);  // ridge direction
-            const hw = rW / 2;
-
-            console.log(
-              `[Seg ${i}] az=${seg.azimuthDegrees?.toFixed(1)}° pitch=${seg.pitchDegrees?.toFixed(1)}°` +
-              ` rW=${rW.toFixed(1)}m gD=${gD.toFixed(1)}m rise=${rise.toFixed(1)}m`
-            );
-
-            const positions = [
-              c.x - dx * gD / 2 + rx * hw, hM + rise, c.z - dz * gD / 2 + rz * hw,
-              c.x - dx * gD / 2 - rx * hw, hM + rise, c.z - dz * gD / 2 - rz * hw,
-              c.x + dx * gD / 2 - rx * hw, hM,        c.z + dz * gD / 2 - rz * hw,
-              c.x + dx * gD / 2 + rx * hw, hM,        c.z + dz * gD / 2 + rz * hw,
-            ];
-            const indices = [0,1,2, 0,2,3, 0,2,1, 0,3,2];
-            const normals: number[] = [];
-            BABYLON.VertexData.ComputeNormals(positions, indices, normals);
-            const mesh = new BABYLON.Mesh(`seg-${i}`, Scene);
-            const vd = new BABYLON.VertexData();
-            vd.positions = positions; vd.indices = indices; vd.normals = normals;
-            vd.applyToMesh(mesh);
-            mesh.material = panelMat; mesh.parent = root;
-            createdMeshes.push(mesh);
-            meshesRef.current.push([mesh, null, `seg-${i}`]);
-          }
-        } else if (roofData?.planes?.length > 0) {
-          // Fallback: render from backend planes[].vertices
-          for (let i = 0; i < roofData.planes.length; i++) {
-            const plane = roofData.planes[i];
-            if (!plane.vertices || plane.vertices.length < 3) continue;
-            const positions: number[] = [];
-            for (const v of plane.vertices) positions.push(v[0], v[1], v[2]);
-            const indices: number[] = [];
-            for (let t = 1; t < plane.vertices.length - 1; t++) { indices.push(0, t, t+1, 0, t+1, t); }
-            const normals: number[] = [];
-            BABYLON.VertexData.ComputeNormals(positions, indices, normals);
-            const mesh = new BABYLON.Mesh(`plane-${i}`, Scene);
-            const vd = new BABYLON.VertexData();
-            vd.positions = positions; vd.indices = indices; vd.normals = normals;
-            vd.applyToMesh(mesh);
-            mesh.material = panelMat; mesh.parent = root;
-            createdMeshes.push(mesh);
-            meshesRef.current.push([mesh, null, `plane-${i}`]);
-          }
-        }
-
-        console.log(`[RoofViewer3D] Rendered ${createdMeshes.length} roof planes`);
-
-        // Auto-center and fit camera to all geometry
-        if (createdMeshes.length > 0) {
-          let bMin = new BABYLON.Vector3(Infinity, Infinity, Infinity);
-          let bMax = new BABYLON.Vector3(-Infinity, -Infinity, -Infinity);
-          for (const mesh of createdMeshes) {
-            mesh.computeWorldMatrix(true);
-            const bi = mesh.getBoundingInfo();
-            bMin = BABYLON.Vector3.Minimize(bMin, bi.boundingBox.minimumWorld);
-            bMax = BABYLON.Vector3.Maximize(bMax, bi.boundingBox.maximumWorld);
-          }
-
-          const cx = (bMin.x + bMax.x) / 2;
-          const cy = (bMin.y + bMax.y) / 2;
-          const cz = (bMin.z + bMax.z) / 2;
-          root.position.set(-cx, -cy, -cz);
-
-          const span = BABYLON.Vector3.Distance(bMin, bMax);
-
-          Camera.setTarget(BABYLON.Vector3.Zero());
-          Camera.radius = span * 0.9;
-          Camera.lowerRadiusLimit = span * 0.2;
-          Camera.upperRadiusLimit = span * 4;
-          Camera.minZ = 0.01;
-          Camera.maxZ = span * 10;
-
-          // Ground plane
-          const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: span * 2, height: span * 2 }, Scene);
-          const groundMat = new BABYLON.StandardMaterial("groundMat", Scene);
-          groundMat.diffuseColor = BABYLON.Color3.FromHexString("#3a4a3a");
-          groundMat.specularColor = BABYLON.Color3.Black();
-          ground.material = groundMat;
-          ground.position.y = -(bMax.y - bMin.y) / 2 - 0.05;
-          ground.parent = root;
-
-          console.log(`[RoofViewer3D] Span: ${span.toFixed(1)}m, camera: ${(span * 0.9).toFixed(1)}`);
-        }
-      }
-
-      // --- FALLBACK: Mock gable roof when no real data ---
-      if (!hasRoofData) {
-        const makePanel = (name: string, side: "left" | "right") => {
-          const boxSettings: any = {
-            width: wTop,
-            height: thickness,
-            depth: slopedLen,
-            updatable: true,
-          };
-          const box = BABYLON.MeshBuilder.CreateBox(name, boxSettings, Scene);
-          boxSettings.instance = box;
-          box.material = panelMat;
-          meshesRef.current.push([box, boxSettings, name]);
-
-          const sign = side === "left" ? -1 : +1;
-          box.rotation.x = sign * slopeAngle;
-
-          const zEdge = (slopedLen / 2) * Math.cos(slopeAngle);
-          const yEdge = (slopedLen / 2) * Math.sin(slopeAngle);
-          box.position.z = sign * zEdge;
-          box.position.y = rise - yEdge;
-          box.parent = root;
-          return box;
-        };
-
-        makePanel("panelL", "left");
-        makePanel("panelR", "right");
-
-        // ridge cap
-        const ridge = BABYLON.MeshBuilder.CreateBox("ridge", {
-          width: wTop * 1.01,
-          height: Math.max(0.06, thickness * 1.2),
-          depth: 0.20,
-        }, Scene);
-        const ridgeMat = new BABYLON.StandardMaterial("ridgeMat", Scene);
-        ridgeMat.diffuseColor = BABYLON.Color3.FromHexString("#374151");
-        ridgeMat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
-        ridge.material = ridgeMat;
-        ridge.position.set(0, rise + ridge.getBoundingInfo().boundingBox.extendSize.y, 0);
-        ridge.parent = root;
-      }
->>>>>>> Website/main
 
       // spin
       let rotationEnabled = isRotating;
       Scene.onBeforeRenderObservable.add(() => {
-<<<<<<< HEAD
         if (rotationEnabled) { // && Editor.ActiveEditor?.Root) {
           Editor.ActiveEditor.Camera.alpha += Engine.getDeltaTime() * 0.0006;
-=======
-        if (rotationEnabled) {
-          root.rotation.y += Engine.getDeltaTime() * 0.0006;
->>>>>>> Website/main
         }
       });
 
@@ -839,23 +572,16 @@ export default function RoofViewer3D({
         rotationEnabled = enabled;
       };
 
-<<<<<<< HEAD
       // [panelMat, ridgeMat].forEach(m => m.freeze?.());
-=======
-      [panelMat].forEach(m => m.freeze?.());
->>>>>>> Website/main
       Scene.blockMaterialDirtyMechanism = true;
 
       Engine.runRenderLoop(() => Scene.render());
       Engine.resize();
-<<<<<<< HEAD
-=======
 
       // Notify parent that canvas is ready for screenshot capture
       if (onCanvasReady && canvasRef.current) {
         onCanvasReady(canvasRef.current);
       }
->>>>>>> Website/main
 
       return () => {
         try { Engine.stopRenderLoop(); } catch { }
@@ -865,7 +591,6 @@ export default function RoofViewer3D({
     })();
 
     return () => { disposed = true; };
-<<<<<<< HEAD
   }, [dims, overhang, thickness, seamSpacing, spin]); // , selectedColor]);
 
   useEffect(() => {
@@ -887,14 +612,6 @@ export default function RoofViewer3D({
     Editor.RoofColor = BABYLON.Color3.FromHexString(selectedColor);
     for (let Sketch of SketchLine.AllDrawings) {
       if (Sketch.DrawLine.MAT) Sketch.DrawLine.MAT.baseColor = Editor.RoofColor;
-=======
-  }, [dims, overhang, thickness, seamSpacing, spin, onCanvasReady, roofData]); // , selectedColor]);
-
-  // Update material color when selectedColor changes
-  useEffect(() => {
-    if (panelMaterialRef.current) {
-      panelMaterialRef.current.diffuseColor = BABYLON.Color3.FromHexString(selectedColor);
->>>>>>> Website/main
     }
     // if (panelMaterialRef.current) {
     //   // Editor.meshesRef = meshesRef;
@@ -925,13 +642,8 @@ export default function RoofViewer3D({
     const cam = cameraRef.current;
 
     const { run, rise } = dims;
-<<<<<<< HEAD
     const target = new BABYLON.Vector3(0, 0, 0);
     const radius = 600; // Math.max(width, run * 2) * 1.2;
-=======
-    const target = new BABYLON.Vector3(0, rise * 0.6, 0);
-    const radius = Math.max(width, run * 2) * 1.2;
->>>>>>> Website/main
 
     switch (currentView) {
       case "top":
@@ -978,61 +690,6 @@ export default function RoofViewer3D({
         <canvas ref={canvasRef} className="block w-full h-full" />
       </div>
 
-<<<<<<< HEAD
-              {/* Controls */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowColorPicker(!showColorPicker)}
-                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${showColorPicker
-                    ? "bg-white text-blue-600"
-                    : "bg-white/20 text-white hover:bg-white/30"
-                    }`}
-                >
-                  Colors
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsRotating(!isRotating)}
-                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${isRotating
-                    ? "bg-white text-blue-600"
-                    : "bg-white/20 text-white hover:bg-white/30"
-                    }`}
-                >
-                  {isRotating ? "Stop" : "Rotate"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Canvas */}
-          <div ref={wrapRef} className="relative bg-gradient-to-br from-gray-100 via-gray-50 to-white dark:from-gray-900 dark:via-gray-950 dark:to-black" style={{ height: hideControls ? '100%' : '400px' }}>
-            <canvas ref={canvasRef} className="block w-full h-full" />
-            {/* <div id="flatmap" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, height: "2000px", width: "2000px", scale: 1 }}></div> */}
-
-            {/* View Selector - Hidden when hideControls is true */}
-            {!hideControls && (
-              <div className="absolute bottom-4 right-4 flex gap-2">
-                {[
-                  { id: "perspective", label: "3D" },
-                  { id: "top", label: "Top" },
-                  { id: "front", label: "Front" },
-                  { id: "side", label: "Side" },
-                ].map((view) => (
-                  <button
-                    key={view.id}
-                    type="button"
-                    onClick={() => setCurrentView(view.id as any)}
-                    className={`px-3 py-2 text-xs font-bold rounded-lg transition-all ${currentView === view.id
-                      ? "bg-blue-500 text-white shadow-lg"
-                      : "bg-white/95 dark:bg-gray-900/95 text-muted-foreground hover:bg-blue-100"
-                      }`}
-                  >
-                    {view.label}
-                  </button>
-                ))}
-              </div>
-=======
       {/* Floating Top Bar - Logo Only */}
       <div className="absolute top-0 left-0 z-10 p-4">
         <div className="flex items-center gap-3 bg-black/40 backdrop-blur-xl rounded-xl px-4 py-2.5 border border-white/10">
@@ -1055,7 +712,6 @@ export default function RoofViewer3D({
             <h3 className="text-xs font-bold text-white/80 uppercase tracking-wider">Panel Profile</h3>
             {panelProfile === "standing-seam" && (
               <span className="text-xs font-bold text-cyan-400">{standingSeamWidth}" width</span>
->>>>>>> Website/main
             )}
           </div>
 
@@ -1067,11 +723,10 @@ export default function RoofViewer3D({
                 onClick={() => {
                   setPanelProfile(profile.id);
                 }}
-                className={`group relative p-3 rounded-xl transition-all ${
-                  panelProfile === profile.id
+                className={`group relative p-3 rounded-xl transition-all ${panelProfile === profile.id
                     ? "bg-gradient-to-br from-cyan-500/30 to-blue-600/30 border-2 border-cyan-400"
                     : "bg-white/5 border border-white/10 hover:border-white/30 hover:bg-white/10"
-                }`}
+                  }`}
               >
                 <div className="flex justify-center mb-2">
                   {profile.id === "standing-seam" && (
@@ -1092,7 +747,7 @@ export default function RoofViewer3D({
                     <div className="flex">
                       {[...Array(5)].map((_, i) => (
                         <div key={i} className={`w-2 h-5 ${panelProfile === profile.id ? "bg-cyan-400" : "bg-white/40"}`}
-                             style={{ clipPath: "polygon(50% 0%, 100% 100%, 0% 100%)" }} />
+                          style={{ clipPath: "polygon(50% 0%, 100% 100%, 0% 100%)" }} />
                       ))}
                     </div>
                   )}
@@ -1134,20 +789,11 @@ export default function RoofViewer3D({
                   <button
                     key={w}
                     type="button"
-<<<<<<< HEAD
-                    onClick={() => setPanelProfile(profile.id)}
-                    className={`p-3 rounded-xl border-2 transition-all text-center ${panelProfile === profile.id
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
-                      : "border-border hover:border-blue-300"
-                      }`}
-=======
                     onClick={() => setStandingSeamWidth(w)}
-                    className={`px-2 py-0.5 text-[10px] font-medium rounded transition-all ${
-                      standingSeamWidth === w
+                    className={`px-2 py-0.5 text-[10px] font-medium rounded transition-all ${standingSeamWidth === w
                         ? "bg-cyan-500 text-white"
                         : "bg-white/10 text-white/50 hover:bg-white/20 hover:text-white/70"
-                    }`}
->>>>>>> Website/main
+                      }`}
                   >
                     {w}"
                   </button>
@@ -1170,11 +816,10 @@ export default function RoofViewer3D({
                 key={view.id}
                 type="button"
                 onClick={() => setCurrentView(view.id as any)}
-                className={`px-3 py-2 text-xs font-semibold rounded-lg transition-all ${
-                  currentView === view.id
+                className={`px-3 py-2 text-xs font-semibold rounded-lg transition-all ${currentView === view.id
                     ? "bg-white text-gray-900"
                     : "text-white/70 hover:text-white hover:bg-white/10"
-                }`}
+                  }`}
               >
                 {view.label}
               </button>
@@ -1185,11 +830,10 @@ export default function RoofViewer3D({
           <button
             type="button"
             onClick={() => setIsRotating(!isRotating)}
-            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl transition-all border ${
-              isRotating
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl transition-all border ${isRotating
                 ? "bg-cyan-500 text-white border-cyan-400"
                 : "bg-black/50 backdrop-blur-xl text-white/70 hover:text-white border-white/10"
-            }`}
+              }`}
             title={isRotating ? "Stop rotation" : "Auto-rotate"}
           >
             <svg className={`w-4 h-4 ${isRotating ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1232,98 +876,11 @@ export default function RoofViewer3D({
                     {(roofData.planes.reduce((s: number, p: any) => s + (p.slope || 0), 0) / roofData.planes.length).toFixed(1)}°
                   </span>
                 </div>
-<<<<<<< HEAD
-                <button
-                  type="button"
-                  onClick={() => setShowColorPicker(false)}
-                  className="text-white hover:bg-white/10 rounded-lg p-1"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="flex flex-col gap-4 p-4 overflow-y-auto flex-1">
-              {/* Series Tabs */}
-              <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-900 rounded-lg">
-                {(["select", "reserve", "benchmark"] as const).map((series) => (
-                  <button
-                    key={series}
-                    type="button"
-                    onClick={() => setSelectedSeries(series)}
-                    className={`flex-1 px-2 py-2 text-xs font-bold rounded-lg transition-all ${selectedSeries === series
-                      ? "bg-white dark:bg-card shadow-md text-orange-600"
-                      : "text-muted-foreground hover:text-foreground"
-                      }`}
-                  >
-                    {series.charAt(0).toUpperCase() + series.slice(1)}
-                  </button>
-                ))}
-              </div>
-
-              {/* Color Grid */}
-              <div>
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Available Colors</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {roofColors[selectedSeries].map((colorOption) => (
-                    <button
-                      key={colorOption.hex}
-                      type="button"
-                      onClick={() => setSelectedColor(colorOption.hex)}
-                      className={`aspect-square rounded-lg transition-all relative group ${selectedColor === colorOption.hex
-                        ? "ring-3 ring-orange-500 ring-offset-2 shadow-lg scale-105"
-                        : "hover:shadow-md hover:scale-105 border-2 border-border"
-                        }`}
-                      style={{ backgroundColor: colorOption.hex }}
-                      title={colorOption.name}
-                    >
-                      {selectedColor === colorOption.hex && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center shadow-lg">
-                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        </div>
-                      )}
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                        {colorOption.name}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Selected Color Display */}
-              {selectedColor && (
-                <div className="pt-3 border-t border-border">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Current Selection</p>
-                  <div className="bg-muted/50 rounded-lg p-3 flex items-center gap-3">
-                    <div
-                      className="w-12 h-12 rounded-lg border-2 border-border shadow-sm flex-shrink-0"
-                      style={{ backgroundColor: selectedColor }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-foreground truncate">
-                        {[...roofColors.select, ...roofColors.reserve, ...roofColors.benchmark]
-                          .find(c => c.hex === selectedColor)?.name || 'Custom'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {[...roofColors.select, ...roofColors.reserve, ...roofColors.benchmark]
-                          .find(c => c.hex === selectedColor)?.coating || 'N/A'}
-                      </p>
-                    </div>
-                  </div>
-=======
               )}
               {roofData.measurements?.ridge_length_ft > 0 && (
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-white/50">Ridge</span>
                   <span className="text-sm font-bold text-white">{roofData.measurements.ridge_length_ft.toFixed(0)} ft</span>
->>>>>>> Website/main
                 </div>
               )}
             </div>
@@ -1333,9 +890,8 @@ export default function RoofViewer3D({
 
       {/* Right Side Panel - Color Selector (30% width, collapsible) */}
       <div
-        className={`absolute top-0 right-0 h-full z-20 transition-all duration-300 ease-in-out ${
-          showColorPicker ? 'w-[30%] min-w-[320px]' : 'w-0'
-        }`}
+        className={`absolute top-0 right-0 h-full z-20 transition-all duration-300 ease-in-out ${showColorPicker ? 'w-[30%] min-w-[320px]' : 'w-0'
+          }`}
       >
         {showColorPicker && (
           <div className="h-full bg-black/70 backdrop-blur-xl border-l border-white/10 flex flex-col">
@@ -1370,11 +926,10 @@ export default function RoofViewer3D({
                     key={series}
                     type="button"
                     onClick={() => setSelectedSeries(series)}
-                    className={`flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
-                      selectedSeries === series
+                    className={`flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${selectedSeries === series
                         ? "bg-white text-gray-900 shadow-lg"
                         : "text-white/60 hover:text-white hover:bg-white/10"
-                    }`}
+                      }`}
                   >
                     {series}
                   </button>
@@ -1390,11 +945,10 @@ export default function RoofViewer3D({
                     key={colorOption.hex}
                     type="button"
                     onClick={() => setSelectedColor(colorOption.hex)}
-                    className={`group relative aspect-square rounded-xl transition-all hover:scale-105 ${
-                      selectedColor === colorOption.hex
+                    className={`group relative aspect-square rounded-xl transition-all hover:scale-105 ${selectedColor === colorOption.hex
                         ? "ring-3 ring-cyan-400 ring-offset-2 ring-offset-black/70 scale-105"
                         : "hover:ring-2 hover:ring-white/30"
-                    }`}
+                      }`}
                     style={{ backgroundColor: colorOption.hex }}
                   >
                     {selectedColor === colorOption.hex && (
