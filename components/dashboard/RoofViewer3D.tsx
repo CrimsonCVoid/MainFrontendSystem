@@ -30,7 +30,7 @@ import * as BABYLON from "@babylonjs/core";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { AdvancedDynamicTexture } from "@babylonjs/gui";
 import { Editor } from "@/lib/editor";
-import { SketchLine } from "@/lib/drawings";
+import { SketchPlane } from "@/lib/drawings";
 // import { CreateGoogleDebugMesh, GetMapCenterLAT, GetMapCenterLON, SetMapCenter } from "@/lib/utils";
 
 declare global { interface Window { BABYLON?: any } }
@@ -104,7 +104,7 @@ export default function RoofViewer3D({
   const [selectedColor, setSelectedColor] = useState(color);
   const [selectedSeries, setSelectedSeries] = useState<"select" | "reserve" | "benchmark">("select");
   const [isRotating, setIsRotating] = useState(spin);
-  const [currentView, setCurrentView] = useState<"perspective" | "top" | "front" | "side">("perspective");
+  const [currentView, setCurrentView] = useState<"perspective" | "orthographic" | "top" | "front" | "side">("perspective");
   const [panelProfile, setPanelProfile] = useState<PanelProfile>("standing-seam");
   const [showColorPicker, setShowColorPicker] = useState(true);
   const [standingSeamWidth, setStandingSeamWidth] = useState(16); // Default 16 inches
@@ -259,12 +259,12 @@ export default function RoofViewer3D({
       Engine.setHardwareScalingLevel(1 / Math.min(window.devicePixelRatio || 1, 2));
       engineRef.current = Engine;
 
-      for (let i in SketchLine.AllDrawings) {
-        SketchLine.AllDrawings[i].Delete();
-        delete SketchLine.AllDrawings[i];
-        // SketchLine.AllDrawings[i] = undefined;
+      for (let i in SketchPlane.AllDrawings) {
+        SketchPlane.AllDrawings[i].Delete();
+        delete SketchPlane.AllDrawings[i];
+        // SketchPlane.AllDrawings[i] = undefined;
       }
-      SketchLine.AllDrawings = [];
+      SketchPlane.AllDrawings = [];
 
       Editor.canvasRef = canvasRef;
 
@@ -275,8 +275,6 @@ export default function RoofViewer3D({
         "https://assets.babylonjs.com/environments/environmentSpecular.env",
         Scene
       );
-
-      const { run, rise, slopeAngle, slopedLen, wTop } = dims;
 
       var InchesInMeter = 39.3701;
 
@@ -311,31 +309,6 @@ export default function RoofViewer3D({
       sun.position = new BABYLON.Vector3(15, 2000, 12);
       sun.intensity = 1.1;
 
-      // Root transform node for rotation control
-      // const root = new BABYLON.TransformNode("root", Scene);
-
-      // Metal roof panel material (PBR with metallic properties)
-      // const panelMat = new BABYLON.PBRMetallicRoughnessMaterial("panelMat", Scene);
-      // panelMat.baseColor = BABYLON.Color3.FromHexString(selectedColor);
-      // panelMat.metallic = .5; panelMat.roughness = 0.25;
-      // panelMat.backFaceCulling = false;
-      // panelMaterialRef.current = panelMat;
-
-      // KY - INTEGRATION POINT:
-      // Replace makePanel logic with actual roof geometry from roofData.planes
-      // Loop through roofData.planes and create meshes from vertices:
-      // roofData.planes.forEach(plane => {
-      //   const mesh = BABYLON.MeshBuilder.CreatePolygon("plane", { shape: plane.vertices }, scene);
-      //   mesh.material = panelMat;
-      // });
-
-
-
-
-
-
-
-
 
       // var UpperMostLayer = new BABYLON.UtilityLayerRenderer(Scene);
 
@@ -346,219 +319,43 @@ export default function RoofViewer3D({
       let light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), Scene);
       light.intensity = 0; // .2; // 0.7;
 
-      // let HoverHighlight = new BABYLON.HighlightLayer("highlight", Scene);
-      // let SelectionHighlight = new BABYLON.HighlightLayer("highlight", Scene);
-      // SelectionHighlight.color3 = 
-
-      // let GUI3D = new BABYLON.GUI.GUI3DManager(Scene);
-      // let actionManager = new BABYLON.ActionManager(Scene);
-      // let PreviousMeshHover;
-      // let PreviousMeshSelected;
-
-      // // Action for when the pointer enters the mesh (hover start)
-      // actionManager.registerAction(
-      //   new BABYLON.ExecuteCodeAction(
-      //     BABYLON.ActionManager.OnPointerOverTrigger,
-      //     function (event) {
-      //       if (event.source && event.source.ShowOnHover)
-      //         for (let SHOW of event.source.ShowOnHover)
-      //           SHOW.isVisible = true;
-      //       if (PreviousMeshHover != null) HoverHighlight.removeMesh(PreviousMeshHover);
-      //       if (event.source == PreviousMeshSelected && PreviousMeshSelected != null) return;
-      //       PreviousMeshHover = event.source;
-      //       if (PreviousMeshHover != null) HoverHighlight.addMesh(PreviousMeshHover, BABYLON.Color3.Blue());
-      //     }
-      //   )
-      // );
-
-      // // Action for when the pointer exits the mesh (hover end)
-      // actionManager.registerAction(
-      //   new BABYLON.ExecuteCodeAction(
-      //     BABYLON.ActionManager.OnPointerOutTrigger,
-      //     function (event) {
-      //       if (event.source && event.source.ShowOnHover)
-      //         for (let SHOW of event.source.ShowOnHover)
-      //           SHOW.isVisible = false;
-      //       if (PreviousMeshHover == null) return;
-      //       HoverHighlight.removeMesh(PreviousMeshHover);
-      //       PreviousMeshHover = null;
-      //     }
-      //   )
-      // );
-
-      // actionManager.registerAction(
-      //   new BABYLON.ExecuteCodeAction(
-      //     BABYLON.ActionManager.OnPickTrigger,
-      //     function (event) {
-      //       // Restore original material color
-      //       console.log("AAAAAAAAA");
-      //       // event.source.edgesColor = new BABYLON.Color4(1, 1, 1, 1);
-      //       // event.source.material.wireframe = true;
-      //       if (PreviousMeshSelected) PreviousMeshSelected.PanelAlt.isVisible = false;
-      //       if (PreviousMeshHover != null) HoverHighlight.removeMesh(PreviousMeshHover);
-      //       PreviousMeshHover = null;
-      //       if (PreviousMeshSelected != null) SelectionHighlight.removeMesh(PreviousMeshSelected);
-      //       PreviousMeshSelected = event.source;
-      //       if (PreviousMeshSelected == null) return;
-      //       SelectionHighlight.addMesh(PreviousMeshSelected, BABYLON.Color3.White());
-      //       PreviousMeshSelected.PanelAlt.isVisible = true;
-      //     }
-      //   )
-      // );
-
-      // BABYLON.MeshDebugPluginMaterial.PrepareMeshForTrianglesAndVerticesMode(Polygon);
-
-      // new BABYLON.MeshDebugPluginMaterial(Polygon.material, {
-      //     mode: BABYLON.MeshDebugMode.TRIANGLES_VERTICES, // TRIANGLES
-      //     wireframeVerticesColor: new BABYLON.Color3(0.8, 0.8, 0.8),
-      //     wireframeThickness: 0.7,
-      //     vertexColor: new BABYLON.Color3(0, 0, 0),
-      //     vertexRadius: 1.2
-      // });
-
       // const CompatibilityXR = BABYLON.WebXRSessionManager.IsSessionSupported('immersive-ar');
 
       let RoofUI = AdvancedDynamicTexture.CreateFullscreenUI("UI");
       RoofUI.idealWidth = 1920 / 2;
       RoofUI.idealHeight = 1080 / 2;
 
-      // import { GoogleDataTesting } from "./BackendLogicTesting.ts";
+      const updateOrtho = () => {
+        const RenderWidth = Engine.getRenderWidth();
+        const RenderHeight = Engine.getRenderHeight();
+        const ratio = RenderWidth / RenderHeight;
+        const zoom = Camera.radius / .29858; // use radius as scale
 
-      async function EEEEE() {
-        // const response = await fetch(`/api/getroofbycoords?lat=${GetMapCenterLAT()}&lon=${GetMapCenterLON()}`, {
-        //   method: "GET",
-        //   headers: {
-        //     "Authorization": "TOKEN",
-        //     "Accept": "application/json"
-        //   }
-        // });
-        // console.log("FFFF");
-        // // console.log('RESPONSE', response);
-        // const RawJSON = await response.json();
-        // if (response.status != 200) {
-        //   console.error('findClosestBuilding\n'); // , RawJSON);
-        //   throw RawJSON;
-        // }
-        // console.log('buildingInsightsResponse'); // , RawJSON);
-        // GoogleDataTesting(RawJSON);
-        // console.log("File content:", fileContent);
-        // Process the file content here
-        // let RawJSON = content; //JSON.parse(content);
-        // ExecuteGoogle(RawJSON);
-        // let Data = Convert_EagleView(RawJSON);
-        // let Data = Convert_Google(RawJSON);
-        // console.log(Data);
-      }
-
-      // let LAT = (37.4449703 + Math.random()); // .toFixed(5);
-      // let LON = (-122.1391467 + Math.random()); // .toFixed(5);
-
-      // let LAT = 37.44288953971293, LON = -122.13907401452673; // COMPLICATED HOUSE //
-      // let LAT = 38.1265454, LON = -121.300558; // HOUSE //
-      // let LAT = 37.4440563, LON = -122.1393081; // GIANT BUILDING //
-      // let LAT = 37.44318785801852, LON = -122.13798024271368; // SIMPLER HOUSE //
-
-      // document.getElementById('randomHouse').addEventListener('click', async function (event) {
-      //   SetMapCenter(LAT, LON);
-      //   EEEEE();
-      // });
-
-      // document.getElementById('coordsHouse').addEventListener('click', async function (event) {
-      //   let LAT_INPUT = document.getElementById('latHouse').value; if ((+LAT_INPUT) == null || LAT_INPUT == "") return;
-      //   let LON_INPUT = document.getElementById('lonHouse').value; if ((+LON_INPUT) == null || LON_INPUT == "") return;
-      //   SetMapCenter(+LAT_INPUT, +LON_INPUT);
-      //   EEEEE();
-      // });
-
-      // Register a render loop to repeatedly render the Scene
-      // Engine.runRenderLoop(function () {
-      //   Scene.render();
-      // });
+        Camera.orthoLeft = -zoom * ratio;
+        Camera.orthoRight = zoom * ratio;
+        Camera.orthoBottom = -zoom;
+        Camera.orthoTop = zoom;
+      };
 
       // Watch for browser/RoofingEditor resize events
-      window.addEventListener("resize", () => Engine.resize());
+      window.addEventListener("resize", () => {
+        Engine.resize();
+        updateOrtho();
+      });
 
+      updateOrtho();
 
+      Camera.onViewMatrixChangedObservable.add(updateOrtho);
 
+      Camera.minZ = 0.1;
+      Camera.maxZ = 100000;
 
+      Camera.lowerBetaLimit = 0; // -Math.PI / 2;
+      Camera.upperBetaLimit = Math.PI / 2;
 
-
-
-
-
-
-      Editor.window = window;
-      console.log("EDITOR WINDOW", window);
-      let ActiveEditor = Editor.ActiveEditor = new Editor(Engine, Scene, Camera, RoofUI, window);
-
-      // Editor.RoofPBR_Material?.dispose();
-      // Editor.RoofPBR_Material?.resetDrawCache?.();
-      // let RoofPBR_Material = Editor.RoofPBR_Material = new BABYLON.PBRMetallicRoughnessMaterial("PanelMaterial", Scene);
+      Editor.ActiveEditor = new Editor(Engine, Scene, Camera, RoofUI);
 
       Editor.RoofColor = BABYLON.Color3.FromHexString(selectedColor);
-      // RoofPBR_Material.baseColor = BABYLON.Color3.FromHexString(selectedColor);
-      // console.log(RoofPBR_Material.baseColor, RoofPBR_Material);
-      // RoofPBR_Material.metallic = .5; RoofPBR_Material.roughness = 0.25;
-      // RoofPBR_Material.backFaceCulling = false;
-      // RoofPBR_Material.useLogarithmicDepth = true; // Disappears?
-
-      // RoofPBR_Material.needDepthPrePass = true;
-      // Editor.MapDebugging.CreateGoogleDebugMesh();
-      // Editor.meshesRef = meshesRef;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      // const makePanel = (name: string, side: "left" | "right") => {
-      //   const boxSettings = {
-      //     width: wTop,
-      //     height: thickness,
-      //     depth: slopedLen,
-      //     updatable: true,
-      //   };
-      //   const box = BABYLON.MeshBuilder.CreateBox(name, boxSettings, Scene);
-      //   boxSettings.instance = box;
-      //   box.material = panelMat;
-      //   Editor.meshesRef = meshesRef;
-      //   meshesRef.current.push([box, boxSettings, name]);
-
-      //   const sign = side === "left" ? -1 : +1;
-      //   box.rotation.x = sign * slopeAngle;
-
-      //   const zEdge = (slopedLen / 2) * Math.cos(slopeAngle);
-      //   const yEdge = (slopedLen / 2) * Math.sin(slopeAngle);
-      //   box.position.z = sign * zEdge;
-      //   box.position.y = rise - yEdge;
-      //   box.parent = root;
-      //   return box;
-      // };
-
-      // makePanel("panelL", "left");
-      // makePanel("panelR", "right");
-
-      // ridge cap
-      // const ridge = BABYLON.MeshBuilder.CreateBox("ridge", {
-      //   width: wTop * 1.01,
-      //   height: Math.max(0.06, thickness * 1.2),
-      //   depth: 0.20,
-      // }, Scene);
-      // const ridgeMat = new BABYLON.PBRMetallicRoughnessMaterial("ridgeMat", Scene);
-      // ridgeMat.baseColor = BABYLON.Color3.FromHexString("#374151");
-      // ridgeMat.metallic = 1; ridgeMat.roughness = 0.3;
-      // ridge.material = ridgeMat;
-      // ridge.position.set(0, rise + ridge.getBoundingInfo().boundingBox.extendSize.y, 0);
-      // ridge.parent = root;
 
       // spin
       let rotationEnabled = isRotating;
@@ -599,8 +396,16 @@ export default function RoofViewer3D({
     Editor.SelectedProfile = panelProfile;
     Editor.SelectedPanelWidth = standingSeamWidth;
     Editor.RoofColor = BABYLON.Color3.FromHexString(selectedColor);
-    for (let Sketch of SketchLine.AllDrawings) Sketch.DrawLine.UpdatePanelMesh();
-  }, [standingSeamWidth, panelProfile, selectedColor]);
+    for (let Sketch of SketchPlane.AllDrawings) {
+      Sketch.RoofColor = BABYLON.Color3.FromHexString(selectedColor);
+      Sketch.UpdatePanelMesh();
+    }
+  }, [standingSeamWidth, panelProfile]);
+  useEffect(() => {
+    // Panel profile changes will trigger scene rebuild via roofData dependency
+    Editor.RoofColor = BABYLON.Color3.FromHexString(selectedColor);
+    for (let Sketch of SketchPlane.AllDrawings) Sketch.RoofColor = BABYLON.Color3.FromHexString(selectedColor);
+  }, [selectedColor]);
 
   // Update rotation when isRotating changes
   useEffect(() => {
@@ -619,20 +424,37 @@ export default function RoofViewer3D({
     const radius = 600; // Math.max(width, run * 2) * 1.2;
 
     switch (currentView) {
+      case "orthographic":
+        cam.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+        cam.lowerBetaLimit = 0;
+        cam.upperBetaLimit = 0;
+        break;
       case "top":
+        cam.mode = BABYLON.Camera.PERSPECTIVE_CAMERA;
+        cam.lowerBetaLimit = 0;
+        cam.upperBetaLimit = Math.PI / 2;
         cam.setPosition(new BABYLON.Vector3(0, rise + radius, 0));
         cam.setTarget(target);
         break;
       case "front":
+        cam.mode = BABYLON.Camera.PERSPECTIVE_CAMERA;
+        cam.lowerBetaLimit = 0;
+        cam.upperBetaLimit = Math.PI / 2;
         cam.setPosition(new BABYLON.Vector3(0, rise * 0.6, -radius));
         cam.setTarget(target);
         break;
       case "side":
+        cam.mode = BABYLON.Camera.PERSPECTIVE_CAMERA;
+        cam.lowerBetaLimit = 0;
+        cam.upperBetaLimit = Math.PI / 2;
         cam.setPosition(new BABYLON.Vector3(radius, rise * 0.6, 0));
         cam.setTarget(target);
         break;
       case "perspective":
       default:
+        cam.mode = BABYLON.Camera.PERSPECTIVE_CAMERA;
+        cam.lowerBetaLimit = 0;
+        cam.upperBetaLimit = Math.PI / 2;
         cam.alpha = BABYLON.Tools.ToRadians(35);
         cam.beta = BABYLON.Tools.ToRadians(60);
         cam.radius = radius;
@@ -781,6 +603,7 @@ export default function RoofViewer3D({
           <div className="flex items-center bg-black/50 backdrop-blur-xl rounded-xl p-1 border border-white/10">
             {[
               { id: "perspective", label: "3D" },
+              { id: "orthographic", label: "Ortho" },
               { id: "top", label: "Top" },
               { id: "front", label: "Front" },
               { id: "side", label: "Side" },

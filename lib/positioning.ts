@@ -1,12 +1,8 @@
 /* eslint-disable prefer-const */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-type xyz_Class = { x: number, y: number, z: number };
-
 export class Vector3 {
     ToCFrame() { return CFrame.fromVector3(this); };
-    ToBabylon!: () => any;
-    ToBabylonXZY!: () => any;
     constructor(X = 0, Y = 0, Z = 0) {
         this.X = X;
         this.Y = Y;
@@ -21,19 +17,12 @@ export class Vector3 {
     get XZ() { return new Vector3(this._X, 0, this._Z); };
     get XZY() { return new Vector3(this._X, this._Z, this._Y); };
 
-    set x(value: number) { this._X = value; };
-    set y(value: number) { this._Y = value; };
-    set z(value: number) { this._Z = value; };
-    set X(value: number) { this._X = value; };
-    set Y(value: number) { this._Y = value; };
-    set Z(value: number) { this._Z = value; };
-
-    get x() { return this._X; };
-    get y() { return this._Y; };
-    get z() { return this._Z; };
-    get X() { return this._X; };
-    get Y() { return this._Y; };
-    get Z() { return this._Z; };
+    get x() { return this._X; }; set x(value: number) { this._X = value; };
+    get y() { return this._Y; }; set y(value: number) { this._Y = value; };
+    get z() { return this._Z; }; set z(value: number) { this._Z = value; };
+    get X() { return this._X; }; set X(value: number) { this._X = value; };
+    get Y() { return this._Y; }; set Y(value: number) { this._Y = value; };
+    get Z() { return this._Z; }; set Z(value: number) { this._Z = value; };
 
     get Magnitude() { return (this.X ** 2 + this.Y ** 2 + this.Z ** 2) ** .5; };
 
@@ -43,20 +32,11 @@ export class Vector3 {
         else return new Vector3();
     }
 
-    ApplyXYZ(X: number, Y: number, Z: number) {
-        this.X = X; this.Y = Y; this.Z = Z;
-        return this;
-    }
-
     Lerp(v3: Vector3, t: number) { return new Vector3(this.X + (v3.X - this.X) * t, this.Y + (v3.Y - this.Y) * t, this.Z + (v3.Z - this.Z) * t); };
     Dot(v3: Vector3) { return this.X * v3.X + this.Y * v3.Y + this.Z * v3.Z; };
     Cross(v3: Vector3) { return new Vector3(this.Y * v3.Z - this.Z * v3.Y, this.Z * v3.X - this.X * v3.Z, this.X * v3.Y - this.Y * v3.X); };
-    Min(v3: Vector3) { return new Vector3(Math.min(this.X, v3.X), Math.min(this.Y, v3.Y), Math.min(this.Z, v3.Z)); };
-    Max(v3: Vector3) { return new Vector3(Math.max(this.X, v3.X), Math.max(this.Y, v3.Y), Math.max(this.Z, v3.Z)); };
 
     Scale(X: number) { return new Vector3(this.X * X, this.Y * X, this.Z * X); };
-    ScaleByZ(Z: number) { return new Vector3(this.X, this.Y, this.Z * Z); };
-    ScaleByVector(v3: Vector3) { return new Vector3(this.X * v3.X, this.Y * v3.Y, this.Z * v3.Z); };
     TranslateAdd(Add: Vector3) { return new Vector3(this.X + Add.X, this.Y + Add.Y, this.Z + Add.Z); };
     TranslateSub(Sub: Vector3) { return new Vector3(this.X - Sub.X, this.Y - Sub.Y, this.Z - Sub.Z); };
     Average(V3: Vector3) { return new Vector3((this.X + V3.X) / 2, (this.Y + V3.Y) / 2, (this.Z + V3.Z) / 2); };
@@ -84,250 +64,9 @@ export class Vector3 {
         let Bounds = Vector3.Bounds(V3s);
         return Bounds[0].Average(Bounds[1]);
     }
-    Edit(V3: Vector3) { this.X = V3.X; this.Y = V3.Y; this.Z = V3.Z; return this; };
-    EditXY(V3: Vector3) { this.X = V3.X; this.Y = V3.Y; return this; };
 
-    ToList() { return [this.X, this.Y, this.Z]; };
-
-
-
-    DistanceFromPoint(A: xyz_Class) { return ((this.x - A.x) ** 2 + (this.y - A.y) ** 2 + (this.z - A.z) ** 2) ** .5; };
-    DistanceFromPointV2(A: Vector3) { return ((this.x - A.x) ** 2 + (this.y - A.y) ** 2) ** .5; };
     DistanceFromPointXZ(A: Vector3) { return ((this.x - A.x) ** 2 + (this.z - A.z) ** 2) ** .5; };
-
-
-    PointOnSegment(a: xyz_Class, b: xyz_Class, eps = 1e-10) {
-        const cross = (b.z - a.z) * (this.x - a.x) -
-            (b.x - a.x) * (this.z - a.z);
-
-        if (Math.abs(cross) > eps) return false; // not colinear
-
-        const dot = (this.x - a.x) * (b.x - a.x) +
-            (this.z - a.z) * (b.z - a.z);
-        if (dot < -eps) return false;
-
-        const lenSq = (b.x - a.x) ** 2 + (b.z - a.z) ** 2;
-        if (dot > lenSq + eps) return false;
-
-        return true;
-    };
-    PointInPolygon(poly: xyz_Class[], epsilon = 1e-10) {
-        let inside = false;
-
-        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-            // console.log(i, j);
-            const xi = poly[i].x, yi = poly[i].z;
-            const xj = poly[j].x, yj = poly[j].z;
-            // Check if point is exactly on a boundary edge
-            // if (this.PointOnSegment(poly[j], poly[i], epsilon)) return true;
-
-            // Check if the ray intersects the edge
-            const intersect =
-                ((yi > this.z) !== (yj > this.z)) &&
-                (this.x < (xj - xi) * (this.z - yi) / (yj - yi + epsilon) + xi);
-
-            if (intersect) inside = !inside; // true; // 
-        }
-
-        return inside;
-    };
-    // LineInPolygon(end: Vector3, poly: Vector3[], epsilon = 1e-10) {
-    //     let inside = false;
-
-    //     for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    //         // console.log(i, j);
-    //         const xi = poly[i].x, yi = poly[i].z;
-    //         const xj = poly[j].x, yj = poly[j].z;
-    //         // Check if point is exactly on a boundary edge
-    //         // if (this.PointOnSegment(poly[j], poly[i], epsilon)) return true;
-
-    //         // Check if the ray intersects the edge
-    //         const intersect =
-    //             ((yi > this.z) !== (yj > this.z)) &&
-    //             (this.x < (xj - xi) * (this.z - yi) / (yj - yi + epsilon) + xi);
-
-    //         if (intersect) inside = !inside; // true; // 
-    //     }
-
-    //     return inside;
-    // };
 }
-
-
-
-
-
-
-
-
-export type SegmentIntersectionInfoType = {
-    Result2D: Vector3 | null;
-    Alpha2D0: number | null;
-    Alpha2D1: number | null;
-    Within2D: boolean | null;
-
-    Result3D: Vector3 | null;
-    Alpha3D0: number | null;
-    Alpha3D1: number | null;
-    Within3D: boolean | null;
-
-    P0_DiffZ: number;
-    P1_DiffZ: number;
-}
-// export function SegmentIntersectionInfo() { };
-export function SegmentIntersectionInfo(P1: Vector3, P2: Vector3, P3: Vector3, P4: Vector3, Epsilon: number) {
-    let S2D = segmentIntersection2D(P1, P2, P3, P4);
-    let S3D = segmentIntersection3D(P1, P2, P3, P4, Epsilon);
-    let Info = { Result2D: S2D?.point, Alpha2D0: S2D?.t1, Alpha2D1: S2D?.t2, Within2D: S2D != null && (0 <= S2D.t1 && S2D.t1 <= 1 && 0 <= S2D.t2 && S2D.t2 <= 1) } as SegmentIntersectionInfoType;
-    if (S3D != null) {
-        Info.Result3D = S3D.point;
-        Info.Alpha3D0 = S3D.t1;
-        Info.Alpha3D1 = S3D.t2;
-        Info.Within3D = 0 <= S3D.t1 && S3D.t1 <= 1 && 0 <= S3D.t2 && S3D.t2 <= 1;
-    }
-    Info.P0_DiffZ = Math.abs(P1.Z - P3.Z);
-    Info.P1_DiffZ = Math.abs(P2.Z - P4.Z);
-    return Info;
-}
-
-export function segmentIntersection2D(p1: xyz_Class, p2: xyz_Class, p3: xyz_Class, p4: xyz_Class) {
-    const x1 = p1.x, y1 = p1.z;
-    const x2 = p2.x, y2 = p2.z;
-    const x3 = p3.x, y3 = p3.z;
-    const x4 = p4.x, y4 = p4.z;
-
-    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-
-    if (Math.abs(denom) < 1e-10)
-        return null; // Parallel or colinear (infinite or none)
-
-    const px =
-        ((x1 * y2 - y1 * x2) * (x3 - x4) -
-            (x1 - x2) * (x3 * y4 - y3 * x4)) / denom;
-
-    const py =
-        ((x1 * y2 - y1 * x2) * (y3 - y4) -
-            (y1 - y2) * (x3 * y4 - y3 * x4)) / denom;
-
-    // let t1 = (new Vector3(px, 0, py).TranslateSub(p1)).ScaleByVector(p2.TranslateSub(p1));
-    // let t1 = 
-
-    return {
-        point: new Vector3(px, py),
-        t1: (((px - x1) ** 2 + (py - y1) ** 2) ** .5) / (((x2 - x1) ** 2 + (y2 - y1) ** 2) ** .5) * Math.min(x1 <= px && px <= x2 || x2 <= px && px <= x1 ? 1 : -1, y1 <= py && py <= y2 || y2 <= py && py <= y1 ? 1 : -1),
-        t2: (((px - x3) ** 2 + (py - y3) ** 2) ** .5) / (((x4 - x3) ** 2 + (y4 - y3) ** 2) ** .5) * Math.min(x3 <= px && px <= x4 || x4 <= px && px <= x3 ? 1 : -1, y3 <= py && py <= y4 || y4 <= py && py <= y3 ? 1 : -1),
-        p1: p1, p2: p2, p3: p3, p4: p4
-    };
-    // return { point: new Vector3(px, py), t1: (point-p1)/(p2-p1), t2: (px - x3) / (x4 - x3), p1: p1, p2: p2, p3: p3, p4: p4 };
-    // return { point: new Vector3(px, py), t1: (px - x1) / (x2 - x1), t2: (px - x3) / (x4 - x3), p1: p1, p2: p2, p3: p3, p4: p4 };
-}
-
-function segmentIntersection3D(p1: Vector3, p2: Vector3, p3: Vector3, p4: Vector3, epsilon = 1e-6) {
-    // Direction vectors
-    const u = p2.TranslateSub(p1); // segment 1 direction
-    const v = p4.TranslateSub(p3); // segment 2 direction
-    const w0 = p1.TranslateSub(p3);
-
-    const a = u.Dot(u); // always >= 0
-    const b = u.Dot(v);
-    const c = v.Dot(v); // always >= 0
-    const d = u.Dot(w0);
-    const e = v.Dot(w0);
-
-    const D = a * c - b * b; // denominator for the system
-
-    // If D is near zero, lines are almost parallel
-    if (Math.abs(D) < epsilon) {
-        // Parallel or almost parallel: either no intersection, or infinite overlap.
-        // You can add extra logic here if you care about colinear overlap.
-        return null;
-    }
-
-    // Parameters of closest points on the infinite lines
-    const s = (b * e - c * d) / D; // parameter on line1 (p1 + s*u)
-    const t = (a * e - b * d) / D; // parameter on line2 (p3 + t*v)
-
-    // Check if closest points are within the segment ranges
-    if (s < -epsilon || s > 1 + epsilon || t < -epsilon || t > 1 + epsilon) {
-        return null; // closest approach is outside one or both segments
-    }
-
-    // Compute the actual closest points
-    const closest1 = p1.TranslateAdd(u.Scale(s));
-    const closest2 = p3.TranslateAdd(v.Scale(t));
-
-    // Distance between closest points
-    const dist = closest1.DistanceFromPoint(closest2);
-
-    if (dist > epsilon) {
-        // Lines are skew or just don't quite meet
-        return null;
-    }
-
-    // Intersection point (average of the two closest points to reduce numerical error)
-    const intersection = new Vector3(
-        0.5 * (closest1.x + closest2.x),
-        0.5 * (closest1.y + closest2.y),
-        0.5 * (closest1.z + closest2.z),
-    );
-
-    return { point: intersection, t1: s, t2: t };
-}
-
-// function segmentIntersection3DMapped2D(p1: Vector3, p2: Vector3, p3: Vector3, p4: Vector3, epsilon = 1e-6) {
-//     // Direction vectors
-//     const u = p2.TranslateSub(p1); u.Y = 0; // segment 1 direction
-//     const v = p4.TranslateSub(p3); v.Y = 0; // segment 2 direction
-//     const w0 = p1.TranslateSub(p3); w0.Y = 0;
-
-//     const a = u.Dot(u); // always >= 0
-//     const b = u.Dot(v);
-//     const c = v.Dot(v); // always >= 0
-//     const d = u.Dot(w0);
-//     const e = v.Dot(w0);
-
-//     const D = a * c - b * b; // denominator for the system
-
-//     // If D is near zero, lines are almost parallel
-//     // Parallel or almost parallel: either no intersection, or infinite overlap.
-//     // You can add extra logic here if you care about colinear overlap.
-//     if (Math.abs(D) < epsilon) return null;
-
-//     // Parameters of closest points on the infinite lines
-//     const s = (b * e - c * d) / D; // parameter on line1 (p1 + s*u)
-//     const t = (a * e - b * d) / D; // parameter on line2 (p3 + t*v)
-
-//     // Check if closest points are within the segment ranges
-//     if (s < -epsilon || s > 1 + epsilon || t < -epsilon || t > 1 + epsilon) return null; // closest approach is outside one or both segments
-
-//     // Compute the actual closest points
-//     const closest1 = p1.TranslateAdd(u.Scale(s)); closest1.Y = 0;
-//     const closest2 = p3.TranslateAdd(v.Scale(t)); closest2.Y = 0;
-
-//     // Distance between closest points
-//     const dist = closest1.DistanceFromPoint(closest2);
-
-//     // Lines are skew or just don't quite meet
-//     if (dist > epsilon) return null;
-
-//     // Intersection point (average of the two closest points to reduce numerical error)
-//     const intersection = closest1.Average(closest2);
-
-//     return { point: intersection, t1: s, t2: t };
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 export class CFrame {
     static RIGHT = new Vector3(1, 0, 0);
@@ -338,7 +77,6 @@ export class CFrame {
     R00 = 1; R01 = 0; R02 = 0; //_X = 0;
     R10 = 0; R11 = 1; R12 = 0; //_Y = 0;
     R20 = 0; R21 = 0; R22 = 1; //_Z = 0;
-    ToBabylon!: () => any[];
 
     set X(value: number) { this._X = value; this._Position.X = value; };
     set Y(value: number) { this._Y = value; this._Position.Y = value; };
@@ -366,19 +104,7 @@ export class CFrame {
     get RightVector() { return this._RightVector; };
     get UpVector() { return this._UpVector; };
 
-    FlattenPoints(V3s: Vector3[]) {
-        let Flattened: Vector3[] = [];
-        for (let V3 of V3s) Flattened.push(this.ToObjectSpace(CFrame.fromVector3(V3)).Position);
-        return Flattened;
-    };
-
-    Vector3Bounds(V3s: Vector3[]) { return Vector3.Bounds(this.FlattenPoints(V3s)); };
-
     constructor(params?: any[]) {
-        // this.R00 = 1; this.R01 = 0; this.R02 = 0;
-        // this.R10 = 0; this.R11 = 1; this.R12 = 0;
-        // this.R20 = 0; this.R21 = 0; this.R22 = 1;
-        // this.CreationType = "Default";
         let length = params == null ? 0 : params.length;
         if (params == null || params.length == 0) return;
         if (length > 12) console.error("Invalid number of arguments: " + length);
