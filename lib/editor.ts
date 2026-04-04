@@ -4,7 +4,7 @@ import * as BABYLON_UI from "@babylonjs/gui";
 import { GridMaterial } from "@babylonjs/materials";
 import { SketchPlane } from "./drawings";
 import "./drawings-babylon";
-import { FromSupabase, FromGoogle } from "./og-backend";
+import { FromSupabase, FromGoogle, GeocodeAddress } from "./og-backend";
 
 export class Editor {
     static ActiveEditor: Editor;
@@ -38,7 +38,6 @@ export class Editor {
             delete SketchPlane.AllDrawings[SketchID];
         }
         SketchPlane.AllDrawings = [];
-
         for (let SketchJson of JSON_Output) {
             let Sketch = new SketchPlane(Editor.ActiveEditor, SketchJson.StartX, SketchJson.StartY, SketchJson.StartZ, SketchJson.Angle);
             Sketch.LeftSidePoints = SketchJson.LeftSide;
@@ -76,35 +75,46 @@ export class Editor {
                 // console.log(kbInfo.event.key)
                 switch (kbInfo.event.key.toLowerCase()) {
                     case "o":
-                        // await FromGoogle(36.278701199722306, -86.53096983274459);
+                        // await FromGoogle(40.26076924275762, -74.7981296370152); // JOHN HOUSE //
+                        // await FromGoogle(37.443185078072716, -122.13801955359011); // ANGLED HOUSE //
+                        // await FromGoogle(37.444938331695944, -122.13916635930947); // THE LIBRARY //
+                        // await FromGoogle(37.44412278382237, -122.13891846157102); // GIANT BUILDING BELOW THE LIBRARY //
+                        // await FromGoogle(36.278676208726246, -86.53094040983781); // STRANGE HOUSE IN NASHVILLE //
+                        // await FromGoogle(35.513601833943504, -80.63195040878824);
+                        // await FromGoogle(27.259709614028147, -80.1990460066902); // KILL YOURSELF //
+                        // await FromGoogle(26.84858029685848, -82.29258639395157); // MRQ PDF EXAMPLE //
                         // console.log('werk?')
                         // if (true) break;
-                        const fileInput = document.createElement("input");
-                        fileInput.type = "file";
-                        fileInput.multiple = true;
-                        fileInput.style.display = "none";
-                        fileInput.accept = ".kyxr";
-                        document.body.appendChild(fileInput);
+                        const TestingGeocoded = await GeocodeAddress("1107 Horseshoe Cove, Mount Juliet, TN");
+                        const ShouldBeOnServer = await FromGoogle(TestingGeocoded);
+                        const Results = await FromSupabase(ShouldBeOnServer);
+                        this.ReconstructFromJson(Results);
+                        // const fileInput = document.createElement("input");
+                        // fileInput.type = "file";
+                        // fileInput.multiple = true;
+                        // fileInput.style.display = "none";
+                        // fileInput.accept = ".kyxr";
+                        // document.body.appendChild(fileInput);
 
-                        fileInput.addEventListener("change", async () => {
-                            const file = fileInput.files?.[0];
-                            if (!file) return;
+                        // fileInput.addEventListener("change", async () => {
+                        //     const file = fileInput.files?.[0];
+                        //     if (!file) return;
 
-                            fileInput.value = "";
-                            fileInput.remove();
+                        //     fileInput.value = "";
+                        //     fileInput.remove();
 
-                            const Bytes = new Uint8Array(await file.arrayBuffer());
-                            const Results = await FromSupabase(Bytes);
+                        //     const Bytes = new Uint8Array(await file.arrayBuffer());
+                        //     const Results = await FromSupabase(Bytes);
 
-                            this.ReconstructFromJson(Results.Main);
+                        //     this.ReconstructFromJson(Results.Main);
 
-                            // console.log("DrawHeights", Results.DrawHeights);
+                        //     // console.log("DrawHeights", Results.DrawHeights);
 
-                            // const ground = createGroundFromHeightArray("E", Results.DrawHeights, Results.DrawRGB, Results.Width, Results.Length, 39.3701 / 10, 39.3701 / 10, Editor.ActiveEditor.Scene);
-                            // ground.position.y -= 5;
-                        });
+                        //     // const ground = createGroundFromHeightArray("E", Results.DrawHeights, Results.DrawRGB, Results.Width, Results.Length, 39.3701 / 10, 39.3701 / 10, Editor.ActiveEditor.Scene);
+                        //     // ground.position.y -= 5;
+                        // });
 
-                        fileInput.click();
+                        // fileInput.click();
                         break;
                 }
             }
