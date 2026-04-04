@@ -4,7 +4,7 @@ import * as BABYLON_UI from "@babylonjs/gui";
 import { GridMaterial } from "@babylonjs/materials";
 import { SketchPlane } from "./drawings";
 import "./drawings-babylon";
-import { FromSupabase, FromGoogle, GeocodeAddress } from "./og-backend";
+// import { FromSupabase, FromGoogle, GeocodeAddress } from "./og-backend";
 
 export class Editor {
     static ActiveEditor: Editor;
@@ -85,10 +85,14 @@ export class Editor {
                         // await FromGoogle(26.84858029685848, -82.29258639395157); // MRQ PDF EXAMPLE //
                         // console.log('werk?')
                         // if (true) break;
-                        const TestingGeocoded = await GeocodeAddress("1107 Horseshoe Cove, Mount Juliet, TN");
-                        const ShouldBeOnServer = await FromGoogle(TestingGeocoded);
-                        const Results = await FromSupabase(ShouldBeOnServer);
-                        this.ReconstructFromJson(Results);
+
+                        // CARTER: USE THIS \\
+                        // const TestingGeocoded = await GeocodeAddress("1107 Horseshoe Cove, Mount Juliet, TN");
+                        // const ShouldBeOnServer = await FromGoogle(TestingGeocoded);
+                        // const Results = await FromSupabase(ShouldBeOnServer);
+                        // this.ReconstructFromJson(Results);
+                        // THIS IS GOOD \\
+
                         // const fileInput = document.createElement("input");
                         // fileInput.type = "file";
                         // fileInput.multiple = true;
