@@ -42,6 +42,7 @@ export default function ProjectViewer({
         spin={false}
         hideControls={false}
         roofData={roofData}
+        projectId={projectId}
         onCanvasReady={onCanvasReady}
       />
     </div>

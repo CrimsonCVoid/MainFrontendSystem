@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
         ...(ALGORITHM_KEY ? { "x-api-key": ALGORITHM_KEY } : {}),
       },
-      body: JSON.stringify({ lat: project.latitude, lng: project.longitude, address }),
+      body: JSON.stringify({ lat: project.latitude, lng: project.longitude, address, projectId }),
     });
 
     if (advRes.ok) {

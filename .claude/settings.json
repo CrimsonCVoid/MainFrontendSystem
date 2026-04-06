@@ -8,6 +8,9 @@
       "Read(//private/tmp/ref-websitedesign/components/**)",
       "Read(//private/tmp/ref-websitedesign/**)",
       "Bash(npx next:*)"
+    ],
+    "additionalDirectories": [
+      "/Users/carterbrady/Backend-api/lazy"
     ]
   }
 }

@@ -8,6 +8,10 @@
         "--access-token",
         "sbp_abe84152e2cb93558d1f6355a0d418a546dca4bc"
       ]
+    },
+    "aidesigner": {
+      "type": "http",
+      "url": "https://api.aidesigner.ai/api/v1/mcp"
     }
   }
 }

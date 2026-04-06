@@ -460,3 +460,6 @@ export class SketchPlane {
         this.UpdateXZ();
     };
 }
+
+// Alias for backwards compatibility — SketchPlane was formerly SketchLine
+export const SketchLine = SketchPlane;

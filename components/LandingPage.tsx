@@ -3,49 +3,46 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { motion, useScroll, useTransform, useSpring } from "framer-motion";
+import { motion, useScroll, useTransform, useSpring, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
-  BadgeCheck,
   Check,
-  ChevronRight,
+  ChevronDown,
   MapPin,
   Ruler,
   Layers,
   Sparkles,
   ShieldCheck,
-  Building2,
   Loader2,
+  Satellite,
+  FileSpreadsheet,
+  Scissors,
+  Eye,
+  FileText,
+  Plug,
 } from "lucide-react";
-// Hero3DTeaser replaced by RoofSchematicDemo (SVG schematic) in hero section
 import { ThemeToggle } from "./theme-toggle";
 
-const RoofViewer3D = dynamic(
-  () => import("./dashboard/RoofViewer3D"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="w-full h-full flex items-center justify-center bg-neutral-100 rounded-2xl">
-        <Loader2 className="w-8 h-8 text-neutral-400 animate-spin" />
-      </div>
-    ),
-  }
-);
+const RoofViewer3D = dynamic(() => import("./dashboard/RoofViewer3D"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-muted rounded-xl">
+      <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
+    </div>
+  ),
+});
 
-const RoofSchematicDemo = dynamic(
-  () => import("./landing/RoofSchematicDemo"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
-          <p className="text-sm text-slate-400">Loading 3D Viewer...</p>
-        </div>
+const RoofSchematicDemo = dynamic(() => import("./landing/RoofSchematicDemo"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-slate-900 rounded-xl">
+      <div className="flex flex-col items-center gap-3">
+        <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+        <p className="text-sm text-slate-400">Loading 3D Viewer...</p>
       </div>
-    ),
-  }
-);
+    </div>
+  ),
+});
 
 const SIGNIN_PATH = "/signin";
 const SIGNUP_PATH = "/signup";
@@ -55,32 +52,26 @@ type LandingPageProps = {
   user?: { id: string; email?: string } | null;
 };
 
-/* -------------------------------------------------------------------------- */
-/*                         Landing Page Root Component                        */
-/* Renders: Nav, Hero, 3D Configurator, Features, Pricing, FAQ, Footer       */
-/* -------------------------------------------------------------------------- */
 export default function LandingPage({ user }: LandingPageProps) {
   return (
-    <main className="min-h-screen bg-white dark:bg-black text-neutral-900 dark:text-white antialiased">
+    <main className="min-h-screen bg-background text-foreground antialiased">
       <Nav isLoggedIn={!!user} />
       <ScrollProgress />
       <Hero />
-      <InteractiveRail />
-      <Configurator3D />
-      <TrustLogos />
-      <FeaturesShowcase />
+      <MetricsBar />
+      <BentoFeatures />
       <HowItWorks />
-      {/* <Pricing /> */}
-      <CTA />
+      <Configurator3D />
+      <Pricing />
       <FAQ />
+      <CTA />
       <Footer />
     </main>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*                     Navigation Bar with Scroll Detection                   */
-/* Sticky header with backdrop blur effect, changes opacity on scroll        */
+/*                                 NAVIGATION                                 */
 /* -------------------------------------------------------------------------- */
 function Nav({ isLoggedIn = false }: { isLoggedIn?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
@@ -93,55 +84,51 @@ function Nav({ isLoggedIn = false }: { isLoggedIn?: boolean }) {
 
   return (
     <header
-      className={`sticky top-0 z-40 transition-all ${scrolled
-          ? "bg-white/70 dark:bg-black/80 backdrop-blur-md border-b border-neutral-200 dark:border-slate-500/20"
-          : "bg-white/30 dark:bg-black/40 backdrop-blur-sm"
-        }`}
+      className={`sticky top-0 z-40 transition-all duration-300 ${
+        scrolled
+          ? "bg-background/80 backdrop-blur-xl border-b border-border shadow-sm"
+          : "bg-background/40 backdrop-blur-sm"
+      }`}
     >
       <div className="mx-auto max-w-7xl h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <motion.div
-            whileHover={{ rotate: 2, scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="h-8 w-8 rounded-xl bg-gradient-to-br from-slate-500 via-slate-600 to-slate-700 text-white grid place-items-center shadow-lg shadow-slate-500/40 dark:shadow-slate-500/60 ring-2 ring-slate-400/30"
-          >
-            <span className="text-[10px] font-black tracking-widest drop-shadow-lg">MMR</span>
-          </motion.div>
-          <span className="sr-only">My Metal Roofer</span>
-          <p className="hidden sm:block text-sm text-neutral-600 dark:text-neutral-400">
-            Precision roof dimensions & estimating
-          </p>
+          <div className="h-8 w-8 rounded-lg bg-cyan-500 text-white grid place-items-center shadow-lg shadow-cyan-500/30">
+            <span className="text-[10px] font-black tracking-widest">MMR</span>
+          </div>
+          <span className="font-display font-bold text-lg tracking-tight text-foreground">
+            My Metal Roofer
+          </span>
         </div>
-        <nav className="hidden md:flex items-center gap-8 text-sm text-neutral-700 dark:text-neutral-300">
-          <a href="#features" className="hover:text-neutral-900 dark:hover:text-slate-400 transition-colors">Features</a>
-          <a href="#how" className="hover:text-neutral-900 dark:hover:text-slate-400 transition-colors">How it works</a>
-          <a href="#faq" className="hover:text-neutral-900 dark:hover:text-slate-400 transition-colors">FAQ</a>
+
+        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
+          <a href="#features" className="hover:text-foreground transition-colors">Features</a>
+          <a href="#how" className="hover:text-foreground transition-colors">How it works</a>
+          <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
+          <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
         </nav>
+
         <div className="flex items-center gap-2">
           <ThemeToggle />
           {isLoggedIn ? (
             <Link
               href={DASHBOARD_PATH}
-              className="mr-1 inline-flex items-center gap-1 rounded-xl bg-neutral-900 dark:bg-slate-500 px-4 py-2 text-sm font-semibold text-white dark:text-black shadow dark:shadow-slate-500/40 transition active:scale-[.98] hover:-translate-y-[1px] dark:hover:bg-slate-400"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-cyan-500/25 transition hover:bg-cyan-600 active:scale-[.98]"
             >
-              Go to Dashboard <ArrowRight className="h-4 w-4" />
+              Dashboard <ArrowRight className="h-4 w-4" />
             </Link>
           ) : (
             <>
-              <Link href={SIGNIN_PATH} className="px-3 py-2 text-sm rounded-xl hover:bg-neutral-100 dark:hover:bg-slate-500/10 dark:hover:text-slate-400 transition-colors">
+              <Link
+                href={SIGNIN_PATH}
+                className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
                 Sign in
               </Link>
               <Link
                 href={SIGNUP_PATH}
-                className="px-3 py-2 text-sm font-semibold text-neutral-900 dark:text-slate-400 underline-offset-4 transition hover:underline"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-cyan-500/25 transition hover:bg-cyan-600 active:scale-[.98]"
               >
-                Create account
-              </Link>
-              <Link
-                href={SIGNUP_PATH}
-                className="mr-1 inline-flex items-center gap-1 rounded-xl bg-neutral-900 dark:bg-slate-500 px-3 py-2 text-sm font-semibold text-white dark:text-black shadow dark:shadow-slate-500/40 transition active:scale-[.98] hover:-translate-y-[1px] dark:hover:bg-slate-400"
-              >
-                Enter Dashboard <ArrowRight className="h-4 w-4" />
+                Get Started <ArrowRight className="h-4 w-4" />
               </Link>
             </>
           )}
@@ -151,15 +138,19 @@ function Nav({ isLoggedIn = false }: { isLoggedIn?: boolean }) {
   );
 }
 
-/* Top scroll progress bar */
 function ScrollProgress() {
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 120, damping: 24, mass: 0.5 });
-  return <motion.div style={{ scaleX }} className="fixed left-0 right-0 top-0 z-50 h-[2px] origin-left bg-neutral-900/80" />;
+  return (
+    <motion.div
+      style={{ scaleX }}
+      className="fixed left-0 right-0 top-0 z-50 h-[2px] origin-left bg-gradient-to-r from-cyan-500 to-emerald-500"
+    />
+  );
 }
 
 /* -------------------------------------------------------------------------- */
-/*                                     HERO                                   */
+/*                                    HERO                                    */
 /* -------------------------------------------------------------------------- */
 function Hero() {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -170,49 +161,78 @@ function Hero() {
 
   return (
     <section ref={ref} className="relative overflow-hidden">
-      {/* ambient glows */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute -top-48 left-1/2 h-[52rem] w-[52rem] -translate-x-1/2 rounded-full bg-neutral-100 blur-3xl" />
-        <div className="absolute -bottom-64 right-1/3 h-[44rem] w-[44rem] translate-x-1/2 rounded-full bg-neutral-50 blur-3xl" />
-      </div>
+      {/* Subtle grid background */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.03] dark:opacity-[0.06] bg-grid-pattern"
+      />
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-24 pb-12">
-        <div className="grid lg:grid-cols-2 gap-10 items-center">
-          {/* Copy */}
-          <motion.div style={{ y, opacity }}>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-20 pb-16 lg:pt-28 lg:pb-20">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <motion.div style={{ y, opacity }} className="space-y-8">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-secondary text-xs font-mono font-medium text-cyan-600 dark:text-cyan-400"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              PRECISION EXTRACTION ENGINE
+            </motion.div>
+
             <motion.h1
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, ease: "easeOut" }}
-              className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight"
+              className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.08]"
             >
-              Metal roof dimensions in minutes, not days.
+              Metal roof dimensions in{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-emerald-500">
+                minutes, not days.
+              </span>
             </motion.h1>
+
             <motion.p
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut", delay: 0.08 }}
-              className="mt-5 text-lg text-neutral-700 max-w-xl"
+              className="text-lg text-muted-foreground max-w-xl leading-relaxed"
             >
-              Extract precise plane geometry from roof data, validate visually, and auto-generate cut sheets, takeoffs, and branded estimates.
+              Extract precise plane geometry from our satellite data, validate
+              visually in 3D, and auto-generate cut sheets, takeoffs, and
+              branded estimates.
             </motion.p>
 
-            <div id="start" className="mt-8 flex flex-wrap gap-3">
-              <MagneticButton href={SIGNUP_PATH} style="primary">Enter Dashboard</MagneticButton>
-              <MagneticButton href="#features" style="ghost">See how it works</MagneticButton>
-            </div>
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.16 }}
+              className="flex flex-wrap gap-3 pt-2"
+            >
+              <Link
+                href={SIGNUP_PATH}
+                className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-cyan-500/25 transition hover:bg-cyan-600 hover:-translate-y-0.5 active:scale-[.98]"
+              >
+                Enter Dashboard <ArrowRight className="h-4 w-4" />
+              </Link>
+              <a
+                href="#how"
+                className="inline-flex items-center gap-2 rounded-lg border border-border px-6 py-3 text-sm font-bold text-foreground transition hover:bg-secondary active:scale-[.98]"
+              >
+                See how it works
+              </a>
+            </motion.div>
 
-            <ul className="mt-8 flex flex-wrap items-center gap-4 text-neutral-600 text-xs">
-              <li className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-neutral-900" /> Precise dimensions
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-neutral-500" /> Visual validation
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-neutral-400" /> Export ready
-              </li>
-            </ul>
+            <div className="flex items-center gap-5 text-xs font-mono text-muted-foreground pt-2">
+              <span className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-500" /> No drone required
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Sub-inch accuracy
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" /> Export ready
+              </span>
+            </div>
           </motion.div>
 
           {/* 3D Roof Preview */}
@@ -223,13 +243,43 @@ function Hero() {
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="relative"
           >
-            <div className="rounded-2xl bg-white/90 shadow-2xl backdrop-blur overflow-hidden">
-              <div className="h-[360px] md:h-[420px]">
+            {/* Faux window chrome */}
+            <div className="rounded-xl border border-border bg-card shadow-2xl overflow-hidden">
+              <div className="h-8 border-b border-border bg-secondary/50 flex items-center px-4 justify-between">
+                <div className="flex gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-border" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-border" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-border" />
+                </div>
+                <span className="font-mono text-[10px] text-muted-foreground tracking-wider">
+                  VIEWPORT // ISOMETRIC
+                </span>
+                <div className="w-16" />
+              </div>
+              <div className="h-[360px] md:h-[420px] bg-slate-900">
                 <RoofSchematicDemo className="h-full w-full" viewRx={heroView?.rx} viewRz={heroView?.rz} />
               </div>
             </div>
 
-            {/* View buttons below frame */}
+            {/* HUD overlay */}
+            <div className="absolute top-14 right-4 bg-slate-900/90 border border-slate-700 rounded-lg p-3 backdrop-blur shadow-xl hidden md:block">
+              <ul className="font-mono text-[10px] space-y-1.5 text-slate-300">
+                <li className="flex justify-between w-28">
+                  <span className="text-slate-500">PITCH</span>
+                  <span className="text-white">6/12</span>
+                </li>
+                <li className="flex justify-between w-28">
+                  <span className="text-slate-500">SQ</span>
+                  <span className="text-white">34.2</span>
+                </li>
+                <li className="flex justify-between w-28">
+                  <span className="text-slate-500">WASTE</span>
+                  <span className="text-emerald-400">12%</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* View toggle */}
             <div className="flex justify-center gap-2 mt-4">
               {[
                 { label: "Top", rx: 90, rz: 0 },
@@ -239,7 +289,7 @@ function Hero() {
                   key={view.label}
                   type="button"
                   onClick={() => setHeroView({ rx: view.rx, rz: view.rz })}
-                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 transition-colors shadow-sm"
+                  className="px-4 py-1.5 text-xs font-semibold rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shadow-sm"
                 >
                   {view.label}
                 </button>
@@ -253,283 +303,35 @@ function Hero() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                   Tabbed Feature Showcase Component                        */
-/* Displays 3 tabs: Panel Profiles, Measurements, Estimate                   */
-/* Uses Framer Motion for smooth transitions between tabs                    */
+/*                                METRICS BAR                                 */
 /* -------------------------------------------------------------------------- */
-type TabKey = "profile" | "measure" | "estimate";
-
-
-function InteractiveRail() {
-  const tabs: { id: TabKey; label: string; icon: React.ReactNode; blurb: string }[] = [
-    { id: "profile", label: "Panel Profiles", icon: <Layers className="h-4 w-4" />, blurb: "Pick standing seam, R-panel, 5V, or corrugated; optimized cut sheets by slope." },
-    { id: "measure", label: "Measurements", icon: <Ruler className="h-4 w-4" />, blurb: "Ridges, hips, valleys, eaves and pitch. Nudge tolerances, then lock." },
-    { id: "estimate", label: "Estimate", icon: <BadgeCheck className="h-4 w-4" />, blurb: "Auto-generated takeoff with metal panels and trims; export a branded proposal." },
-  ];
-
-  const [active, setActive] = useState<TabKey>("profile");
-
-  // refs for each panel
-  const panelRefs = {
-    profile: useRef<HTMLDivElement | null>(null),
-    measure: useRef<HTMLDivElement | null>(null),
-    estimate: useRef<HTMLDivElement | null>(null),
-  };
-
-  // prevent "fighting" between programmatic scroll and observer
-  const isAutoScrollingRef = useRef(false);
-  const autoScrollTimeoutRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const clear = () => {
-      if (autoScrollTimeoutRef.current) {
-        window.clearTimeout(autoScrollTimeoutRef.current);
-        autoScrollTimeoutRef.current = null;
-      }
-      isAutoScrollingRef.current = false;
-    };
-    window.addEventListener("wheel", clear, { passive: true });
-    window.addEventListener("touchmove", clear, { passive: true });
-    return () => {
-      window.removeEventListener("wheel", clear);
-      window.removeEventListener("touchmove", clear);
-    };
-  }, []);
-
-  // IntersectionObserver to update active tab based on centered panel
-  useEffect(() => {
-    const options: IntersectionObserverInit = {
-      // treat the middle 40% of the viewport as the "active" zone
-      root: null,
-      rootMargin: "-30% 0px -30% 0px",
-      threshold: 0.1,
-    };
-    const io = new IntersectionObserver((entries) => {
-      if (isAutoScrollingRef.current) return; // ignore while animating scroll
-      const visible = entries
-        .filter((e) => e.isIntersecting)
-        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-      if (!visible) return;
-
-      const id = (visible.target as HTMLElement).dataset.panelId as TabKey | undefined;
-      if (id && id !== active) setActive(id);
-    }, options);
-
-    Object.values(panelRefs).forEach((r) => r.current && io.observe(r.current!));
-    return () => io.disconnect();
-  }, [active]);
-
-  // Smooth scroll and center a panel on click
-  const scrollToPanel = (id: TabKey) => {
-    const el = panelRefs[id].current;
-    if (!el) return;
-
-    // account for sticky header height (≈ 64px) + a little spacing
-    const headerOffset = 72;
-    const rect = el.getBoundingClientRect();
-    const targetY =
-      window.scrollY + rect.top - (window.innerHeight / 2 - rect.height / 2) - headerOffset;
-
-    isAutoScrollingRef.current = true;
-    window.scrollTo({ top: targetY, behavior: "smooth" });
-
-    // give the scroll time to finish before re-enabling observer updates
-    if (autoScrollTimeoutRef.current) window.clearTimeout(autoScrollTimeoutRef.current);
-    autoScrollTimeoutRef.current = window.setTimeout(() => {
-      isAutoScrollingRef.current = false;
-      setActive(id);
-    }, 700);
-  };
-
-  return (
-    <section className="relative">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid lg:grid-cols-[280px_1fr] gap-10 items-start py-16">
-        {/* Sticky rail */}
-        <div className="hidden lg:block sticky top-24 self-start">
-          <div className="rounded-2xl border border-neutral-200 bg-white/80 backdrop-blur p-2 shadow-sm">
-            {tabs.map((t) => (
-              <RailTab
-                key={t.id}
-                active={active === t.id}
-                onClick={() => scrollToPanel(t.id)}
-                icon={t.icon}
-              >
-                {t.label}
-              </RailTab>
-            ))}
-          </div>
-        </div>
-
-        {/* Panels (stacked) */}
-        <div className="space-y-6">
-          <RailPanel
-            ref={panelRefs.profile}
-            id="profile"
-            active={active}
-            title="Panel Profiles"
-            blurb="Pick standing seam, R-panel, 5V, or corrugated; optimized cut sheets by slope."
-          />
-          <RailPanel
-            ref={panelRefs.measure}
-            id="measure"
-            active={active}
-            title="Measurements"
-            blurb="Ridges, hips, valleys, eaves and pitch. Nudge tolerances, then lock."
-          />
-          <RailPanel
-            ref={panelRefs.estimate}
-            id="estimate"
-            active={active}
-            title="Estimate"
-            blurb="Auto-generated takeoff with metal panels and trims; export a branded proposal."
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-const RailPanel = React.forwardRef<HTMLDivElement, {
-  id: TabKey;
-  active: TabKey;
-  title: string;
-  blurb: string;
-}>(({ id, active, title, blurb }, ref) => {
-  const isActive = id === active;
-  return (
-    <motion.article
-      ref={ref}
-      data-panel-id={id}
-      initial={false}
-      animate={{ opacity: isActive ? 1 : 0.45, scale: isActive ? 1 : 0.985 }}
-      className={`rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm ${isActive ? "ring-1 ring-neutral-200" : ""
-        }`}
-    >
-      <div className="flex flex-col gap-5 md:flex-row md:items-center">
-        <div className="md:w-[48%]">
-          <h3 className="text-xl font-semibold tracking-tight">{title}</h3>
-          <p className="mt-2 text-sm text-neutral-700">{blurb}</p>
-
-          {id === "profile" && (
-            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {["Standing Seam", "R-panel", "5V", "Corrugated"].map((p) => (
-                <motion.button whileTap={{ scale: 0.98 }} key={p} className="rounded-xl border px-3 py-2 text-sm hover:bg-neutral-50">
-                  {p}
-                </motion.button>
-              ))}
-            </div>
-          )}
-
-          {id === "measure" && (
-            <ul className="mt-4 grid grid-cols-2 gap-2 text-sm">
-              <li className="flex items-center gap-2"><Ruler className="h-4 w-4" /> Edge lengths</li>
-              <li className="flex items-center gap-2"><Layers className="h-4 w-4" /> Planes & pitch</li>
-              <li className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Tolerances</li>
-              <li className="flex items-center gap-2"><Sparkles className="h-4 w-4" /> Penetrations</li>
-            </ul>
-          )}
-
-          {id === "estimate" && (
-            <div className="mt-4 grid gap-2 text-sm">
-              <Row label="Panels">142 total (26ga)</Row>
-              <Row label="Trims">Ridge, Eave, Gable, Valley</Row>
-              <Row label="Fasteners">2,480 screws</Row>
-              <Row label="Underlayment">8 rolls</Row>
-            </div>
-          )}
-        </div>
-
-        <div className="md:flex-1">
-          <div className="rounded-xl border bg-neutral-50 overflow-hidden">
-            <div className="h-[260px]">
-              <MVPPreview
-                mode={id === "estimate" ? "bom" : id === "measure" ? "cut" : "diagram"}
-                address={
-                  id === "estimate" ? "Takeoff Preview" : id === "measure" ? "Cut Sheet Preview" : "Diagram Preview"
-                }
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </motion.article>
-  );
-});
-RailPanel.displayName = "RailPanel";
-
-function RailTab({
-  children,
-  icon,
-  active,
-  onClick,
-}: {
-  children: React.ReactNode;
-  icon: React.ReactNode;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`group relative flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition ${active ? "bg-neutral-900 text-white" : "hover:bg-neutral-100"
-        }`}
-    >
-      <span className={`grid h-6 w-6 place-items-center rounded-md ${active ? "bg-white/10" : "bg-neutral-900 text-white"}`}>
-        {icon}
-      </span>
-      <span className="flex-1 text-left">{children}</span>
-      <ChevronRight
-        className={`h-4 w-4 transition ${active ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0"}`}
-      />
-    </button>
-  );
-}
-
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between rounded-lg border px-3 py-2">
-      <span className="text-neutral-500">{label}</span>
-      <span className="font-medium">{children}</span>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*                              FEATURES SHOWCASE                             */
-/* -------------------------------------------------------------------------- */
-function FeaturesShowcase() {
-  const feats = [
-    { t: "Dimensions powered by Google", d: "We derive plane areas, ridges, hips, valleys, and eaves—fast.", k: "Data-driven" },
-    { t: "Panel Profiles & Cut Sheets", d: "Standing seam, R-panel, 5V, corrugated—optimized per slope.", k: "Profiles" },
-    { t: "Visual Validation", d: "Confirm planes, pitch, and penetrations in a lightweight preview.", k: "Preview" },
-    { t: "Metal Panel Takeoff", d: "Panels and trims auto-calculated.", k: "Takeoff" },
-    { t: "Branded Estimates", d: "One-click proposals with your logo and staged pricing.", k: "Proposals" },
-    { t: "Integrations", d: "EagleView and cloud storage.", k: "Beta" },
+function MetricsBar() {
+  const metrics = [
+    { value: "3 Steps", label: "Address to Estimate" },
+    { value: "50+", label: "Premium Paint Colors" },
+    { value: "4 Profiles", label: "Standing Seam, R-Panel, 5V, Corrugated" },
   ];
 
   return (
-    <section id="features" className="py-20">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="max-w-2xl">
-          <h2 className="text-3xl sm:text-4xl font-bold">Everything you need to quote metal roofs</h2>
-          <p className="mt-4 text-neutral-700">A focused toolkit—without the spreadsheet sprawl.</p>
-        </div>
-        <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {feats.map((f, i) => (
+    <section className="border-y border-border bg-secondary/50">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:divide-x divide-border">
+          {metrics.map((m, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.04 }}
-              className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
+              transition={{ delay: i * 0.08 }}
+              className="text-center md:px-8"
             >
-              <span className="inline-block text-[10px] uppercase tracking-widest rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-neutral-600 mb-3">
-                {f.k}
+              <span className="font-mono text-3xl font-bold text-foreground">
+                <span className="text-cyan-500">{m.value.split(" ")[0]}</span>
+                {m.value.includes(" ") ? ` ${m.value.split(" ").slice(1).join(" ")}` : ""}
               </span>
-              <h3 className="text-lg font-semibold">{f.t}</h3>
-              <p className="mt-2 text-sm text-neutral-700">{f.d}</p>
+              <p className="mt-1 text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                {m.label}
+              </p>
             </motion.div>
           ))}
         </div>
@@ -539,103 +341,285 @@ function FeaturesShowcase() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                                 HOW IT WORKS                               */
+/*                              BENTO FEATURES                                */
 /* -------------------------------------------------------------------------- */
-function HowItWorks() {
-  const steps = [
-    { n: 1, t: "Locate the property", d: "Search an address; we fetch using a proprietary roof generation method." },
-    { n: 2, t: "Confirm dimensions", d: "Review plane outlines, pitches, and edges; adjust tolerances." },
-    { n: 3, t: "Generate estimate", d: "Pick profile, gauge, trims. Export proposal and takeoff in seconds." },
-  ];
-
+function BentoFeatures() {
   return (
-    <section id="how" className="py-20 border-t border-neutral-200">
+    <section id="features" className="py-20 lg:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <h2 className="text-3xl sm:text-4xl font-bold">Address | Confirm | Export CAD</h2>
-        <ol className="mt-10 grid md:grid-cols-3 gap-6">
-          {steps.map((s, i) => (
-            <HowStep key={s.n} idx={i} step={s} />
+        <div className="mb-14">
+          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">
+            Everything you need to quote metal roofs.
+          </h2>
+          <p className="mt-4 text-lg text-muted-foreground max-w-2xl">
+            A focused toolkit — without the spreadsheet sprawl.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+          {/* Large card: Satellite Extraction */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="md:col-span-8 rounded-xl border border-border bg-card p-6 lg:p-8 relative group overflow-hidden"
+          >
+            <div className="mb-6 h-44 rounded-lg border border-border bg-secondary/50 overflow-hidden flex items-center justify-center relative">
+              <div className="absolute inset-0 opacity-[0.04] bg-grid-pattern-sm" />
+              <div className="w-32 h-24 bg-secondary border border-border rounded relative transform -rotate-12 group-hover:rotate-0 transition-all duration-500">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-24 h-16 border-2 border-dashed border-emerald-500 relative">
+                    <div className="absolute -top-1 -left-1 w-2 h-2 bg-emerald-500 rounded-full" />
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full" />
+                    <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-emerald-500 rounded-full" />
+                    <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="w-10 h-10 bg-cyan-500/10 border border-cyan-500/20 rounded-lg flex items-center justify-center mb-4">
+              <Satellite className="h-5 w-5 text-cyan-500" />
+            </div>
+            <h3 className="font-display text-xl font-bold mb-2">Satellite-Powered Dimensions</h3>
+            <p className="text-sm text-muted-foreground max-w-md leading-relaxed">
+              Input any address and instantly derive plane areas, ridges, hips, valleys, and eaves
+              from our proprietary satellite data — no drone, no ladder.
+            </p>
+          </motion.div>
+
+          {/* BOM card */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.06 }}
+            className="md:col-span-4 rounded-xl border border-border bg-card p-6 lg:p-8 flex flex-col"
+          >
+            <div className="mb-6 h-44 rounded-lg border border-border bg-secondary/50 overflow-hidden flex flex-col items-center justify-center gap-2 p-4">
+              {[1, 2, 3].map((r) => (
+                <div
+                  key={r}
+                  className={`w-full h-7 rounded flex items-center px-3 gap-3 ${
+                    r === 1 ? "bg-secondary border border-border" : ""
+                  }`}
+                >
+                  <div className="w-14 h-1.5 bg-border rounded" />
+                  <div className="w-8 h-1.5 bg-border rounded" />
+                  <div className={`w-10 h-1.5 rounded ml-auto ${r === 1 ? "bg-cyan-500/50" : "bg-muted-foreground/20"}`} />
+                </div>
+              ))}
+            </div>
+            <div className="mt-auto">
+              <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-center mb-4">
+                <FileSpreadsheet className="h-5 w-5 text-emerald-500" />
+              </div>
+              <h3 className="font-display text-xl font-bold mb-2">Instant BOM Generation</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Auto-calculate every panel, screw, clip, and trim piece. Export to your supplier directly.
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Full-width: Cut Sheets */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.12 }}
+            className="md:col-span-12 rounded-xl border border-border bg-card p-6 lg:p-8 flex flex-col md:flex-row gap-8 items-center relative overflow-hidden"
+          >
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-500 to-emerald-500 rounded-l-xl" />
+            <div className="md:w-1/3">
+              <h3 className="font-display text-2xl font-bold mb-4">Parametric Cut Sheets</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+                Stop drawing templates by hand. We calculate optimal panel lengths factoring in
+                overlap, pitch, and eave details. Hand your crew a foolproof visual guide.
+              </p>
+              <ul className="space-y-2.5 font-mono text-xs text-foreground">
+                <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-cyan-500" /> Standing Seam profiles</li>
+                <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-cyan-500" /> R-Panel & 5V Crimp</li>
+                <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-cyan-500" /> Corrugated & custom trims</li>
+              </ul>
+            </div>
+            <div className="md:w-2/3 w-full">
+              <div className="w-full bg-slate-900 border border-slate-700 rounded-lg p-5 font-mono text-slate-400">
+                <div className="flex justify-between border-b border-slate-800 pb-2 mb-4 text-[10px]">
+                  <span>DOC: CUT_SHEET_04A</span>
+                  <span>REV: 2.1</span>
+                </div>
+                <div className="flex gap-4">
+                  <div className="w-1/2 h-28 border-2 border-slate-700 relative flex items-center justify-center bg-slate-800/30 rounded">
+                    <div className="w-3 h-20 bg-slate-600 border border-slate-500 absolute left-6 rounded-sm" />
+                    <div className="w-3 h-20 bg-slate-600 border border-slate-500 absolute left-12 rounded-sm" />
+                    <div className="w-3 h-20 bg-slate-600 border border-slate-500 absolute left-[4.5rem] rounded-sm" />
+                    <div className="absolute top-2 w-full px-3 flex items-center">
+                      <div className="h-px bg-cyan-400 flex-1" />
+                      <span className="px-2 text-cyan-400 text-[10px]">21&apos; 6&quot;</span>
+                      <div className="h-px bg-cyan-400 flex-1" />
+                    </div>
+                  </div>
+                  <div className="w-1/2 text-[10px] space-y-2">
+                    <div className="flex justify-between border-b border-slate-800 pb-1 text-slate-500">
+                      <span>ID</span><span>QTY</span><span>LEN</span>
+                    </div>
+                    <div className="flex justify-between text-white"><span>PNL_A</span><span>12</span><span>21&apos; 6&quot;</span></div>
+                    <div className="flex justify-between text-white"><span>PNL_B</span><span>08</span><span>14&apos; 2&quot;</span></div>
+                    <div className="flex justify-between text-white"><span>TRM_1</span><span>04</span><span>10&apos; 0&quot;</span></div>
+                    <div className="flex justify-between text-slate-500"><span>SCR_W</span><span>450</span><span>2.0&quot;</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Bottom row: 3 smaller cards */}
+          {[
+            {
+              icon: <Eye className="h-5 w-5 text-cyan-500" />,
+              bg: "bg-cyan-500/10 border-cyan-500/20",
+              title: "Visual Validation",
+              desc: "Confirm planes, pitch, and penetrations in a lightweight 3D preview before generating any output.",
+            },
+            {
+              icon: <FileText className="h-5 w-5 text-emerald-500" />,
+              bg: "bg-emerald-500/10 border-emerald-500/20",
+              title: "Branded Estimates",
+              desc: "One-click proposals with your logo and staged pricing. Export as PDF and send directly to clients.",
+            },
+            {
+              icon: <Plug className="h-5 w-5 text-blue-500" />,
+              bg: "bg-blue-500/10 border-blue-500/20",
+              title: "Integrations",
+              desc: "EagleView and cloud storage connections. More integrations coming soon.",
+              badge: "Beta",
+            },
+          ].map((f, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.06 }}
+              className="md:col-span-4 rounded-xl border border-border bg-card p-6"
+            >
+              <div className={`w-10 h-10 ${f.bg} border rounded-lg flex items-center justify-center mb-4`}>
+                {f.icon}
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="font-display text-lg font-bold">{f.title}</h3>
+                {f.badge && (
+                  <span className="text-[10px] uppercase tracking-widest rounded-md border border-border bg-secondary px-2 py-0.5 text-muted-foreground font-mono">
+                    {f.badge}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+            </motion.div>
           ))}
-        </ol>
+        </div>
       </div>
     </section>
   );
 }
 
-function HowStep({
-  step,
-  idx,
-}: {
-  step: { n: number; t: string; d: string };
-  idx: number;
-}) {
+/* -------------------------------------------------------------------------- */
+/*                               HOW IT WORKS                                 */
+/* -------------------------------------------------------------------------- */
+function HowItWorks() {
+  const steps = [
+    {
+      n: 1,
+      title: "Locate the property",
+      desc: "Search an address — we fetch the highest resolution imagery available within seconds using our proprietary roof generation method.",
+      preview: <MiniMapWindow />,
+    },
+    {
+      n: 2,
+      title: "Confirm dimensions",
+      desc: "Review plane outlines, pitches, and edges. Adjust tolerances and select your panel profile.",
+      preview: <MiniOutlineWindow />,
+    },
+    {
+      n: 3,
+      title: "Generate estimate",
+      desc: "Pick profile, gauge, and trims. Export proposal and takeoff in seconds — CSV, PDF, or branded proposal.",
+      preview: <MiniEstimateWindow />,
+    },
+  ];
+
   return (
-    <motion.li
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay: idx * 0.06 }}
-      className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
-    >
-      <div className="flex items-center gap-3">
-        <div className="h-7 w-7 grid place-items-center rounded-full bg-neutral-900 text-white text-sm font-bold">
-          {step.n}
+    <section id="how" className="py-20 lg:py-24 bg-secondary/30 border-y border-border">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-14">
+          <span className="text-cyan-500 font-mono text-sm font-bold tracking-widest uppercase">
+            Workflow
+          </span>
+          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold mt-3 tracking-tight">
+            Three steps to a complete estimate
+          </h2>
         </div>
-        <h3 className="text-lg font-semibold">{step.t}</h3>
-      </div>
-      <p className="mt-3 text-sm text-neutral-700">{step.d}</p>
 
-      {/* Mini “window” specific to each step */}
-      <div className="mt-4 rounded-lg border overflow-hidden">
-        {step.n === 1 && <MiniMapWindow />}
-        {step.n === 2 && <MiniOutlineWindow />}
-        {step.n === 3 && <MiniEstimateWindow />}
-      </div>
+        <div className="grid md:grid-cols-3 gap-6 relative">
+          {/* Connecting line */}
+          <div className="hidden md:block absolute top-8 left-[16.6%] right-[16.6%] h-px border-t-2 border-dashed border-border" />
 
-      {/* Context chip under the window (optional) */}
-      {step.n === 1 && (
-        <div className="mt-3 flex items-center gap-2 text-sm text-neutral-600">
-          <MapPin className="h-4 w-4" /> 123 Copper Ridge Ln
+          {steps.map((s, i) => (
+            <motion.div
+              key={s.n}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.08 }}
+              className="rounded-xl border border-border bg-card p-6 shadow-sm relative"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div
+                  className={`h-8 w-8 grid place-items-center rounded-full text-sm font-bold ${
+                    s.n === 2
+                      ? "bg-cyan-500 text-white shadow-md shadow-cyan-500/25"
+                      : "bg-secondary text-foreground border border-border"
+                  }`}
+                >
+                  {s.n}
+                </div>
+                <h3 className="font-display text-lg font-bold">{s.title}</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">{s.desc}</p>
+              <div className="rounded-lg border border-border overflow-hidden">{s.preview}</div>
+            </motion.div>
+          ))}
         </div>
-      )}
-    </motion.li>
+      </div>
+    </section>
   );
 }
 
-/* -------------------------- Step 1: Mini map window ------------------------ */
-/* A faux “map” with a search bar and a drop pin animation                    */
+/* Step 1: Mini map */
 function MiniMapWindow() {
   return (
-    <div className="bg-neutral-50">
-      {/* Top bar with faux search */}
-      <div className="flex items-center gap-2 border-b bg-white px-3 py-2">
-        <div className="h-4 w-4 rounded-full bg-neutral-300" />
+    <div className="bg-secondary/50">
+      <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
+        <div className="h-4 w-4 rounded-full bg-border" />
         <input
           aria-label="Address search"
-          className="flex-1 text-sm outline-none placeholder:text-neutral-400"
-          placeholder="Search address (e.g., 123 Copper Ridge Ln)"
+          className="flex-1 text-sm outline-none placeholder:text-muted-foreground bg-transparent"
+          placeholder="Search address..."
           readOnly
         />
-        <button className="text-xs px-2 py-1 rounded-md bg-neutral-900 text-white">Search</button>
+        <button type="button" className="text-xs px-2.5 py-1 rounded-md bg-cyan-500 text-white font-medium">Search</button>
       </div>
-
-      {/* “map” canvas */}
-      <div className="relative h-44 overflow-hidden">
-        <svg viewBox="0 0 400 180" className="w-full h-full">
-          {/* light road grid */}
-          <g stroke="#e5e7eb" strokeWidth="1">
+      <div className="relative h-36 overflow-hidden">
+        <svg viewBox="0 0 400 150" className="w-full h-full">
+          <g stroke="currentColor" strokeWidth="1" opacity="0.1">
             {[...Array(8)].map((_, i) => (
-              <line key={`v${i}`} x1={50 * i} y1="0" x2={50 * i} y2="180" />
+              <line key={`v${i}`} x1={50 * i} y1="0" x2={50 * i} y2="150" />
             ))}
             {[...Array(5)].map((_, i) => (
-              <line key={`h${i}`} x1="0" y1={36 * i} x2="400" y2={36 * i} />
+              <line key={`h${i}`} x1="0" y1={30 * i} x2="400" y2={30 * i} />
             ))}
           </g>
-          {/* “parcel” highlight */}
-          <rect x="180" y="60" width="90" height="50" fill="#dbeafe" stroke="#93c5fd" />
+          <rect x="180" y="50" width="90" height="45" className="fill-cyan-500/10 stroke-cyan-500/40" />
         </svg>
-
-        {/* animated drop pin */}
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -644,8 +628,8 @@ function MiniMapWindow() {
           aria-hidden
         >
           <div className="relative">
-            <div className="h-4 w-4 rounded-full bg-red-500 border-2 border-white shadow" />
-            <div className="absolute left-1/2 top-1/2 -z-10 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500/20 animate-ping" />
+            <div className="h-4 w-4 rounded-full bg-cyan-500 border-2 border-white shadow" />
+            <div className="absolute left-1/2 top-1/2 -z-10 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-500/20 animate-ping" />
           </div>
         </motion.div>
       </div>
@@ -653,42 +637,37 @@ function MiniMapWindow() {
   );
 }
 
-/* ---------------------- Step 2: Roof outline + trims ----------------------- */
-/* Shows detected planes with colored edges (ridge/eave/valley/gable)          */
+/* Step 2: Roof outline */
 function MiniOutlineWindow() {
   return (
-    <div className="bg-white">
-      <div className="h-44 grid grid-cols-[1fr_140px]">
+    <div className="bg-card">
+      <div className="h-36 grid grid-cols-[1fr_120px]">
         <div className="relative">
-          <svg viewBox="0 0 400 180" className="w-full h-full">
+          <svg viewBox="0 0 400 150" className="w-full h-full">
             <defs>
-              <linearGradient id="roofMini" x1="0" x2="1">
-                <stop offset="0%" stopColor="#EFF3F7" />
-                <stop offset="100%" stopColor="#E5ECF2" />
+              <linearGradient id="roofMiniNew" x1="0" x2="1">
+                <stop offset="0%" stopColor="#e2e8f0" />
+                <stop offset="100%" stopColor="#cbd5e1" />
               </linearGradient>
             </defs>
-            {/* Planes */}
-            <polygon points="60,70 260,50 340,100 140,120" fill="url(#roofMini)" stroke="#C9D4DE" strokeWidth="2" />
-            <polygon points="60,70 140,120 120,160 40,120" fill="#F6F8FA" stroke="#C9D4DE" strokeWidth="2" />
-            {/* Trims */}
-            <polyline points="100,62 280,46" stroke="#E5484D" strokeWidth="6" strokeLinecap="round" />   {/* Ridge */}
-            <polyline points="50,125 120,165" stroke="#3B82F6" strokeWidth="6" strokeLinecap="round" />   {/* Eave */}
-            <polyline points="60,70 40,120" stroke="#10B981" strokeWidth="6" strokeLinecap="round" />     {/* Gable */}
-            <polyline points="140,120 340,100" stroke="#7C3AED" strokeWidth="6" strokeLinecap="round" />  {/* Valley */}
+            <polygon points="60,55 260,40 340,80 140,95" fill="url(#roofMiniNew)" stroke="#94a3b8" strokeWidth="2" />
+            <polygon points="60,55 140,95 120,130 40,95" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="2" />
+            <polyline points="100,50 280,37" stroke="#ef4444" strokeWidth="5" strokeLinecap="round" />
+            <polyline points="50,100 120,135" stroke="#3b82f6" strokeWidth="5" strokeLinecap="round" />
+            <polyline points="60,55 40,95" stroke="#10b981" strokeWidth="5" strokeLinecap="round" />
+            <polyline points="140,95 340,80" stroke="#8b5cf6" strokeWidth="5" strokeLinecap="round" />
           </svg>
         </div>
-
-        {/* legend */}
-        <div className="border-l p-2 text-[11px]">
-          <p className="font-medium text-neutral-800 mb-1">Legend</p>
+        <div className="border-l border-border p-2 text-[11px]">
+          <p className="font-medium text-foreground mb-1.5">Legend</p>
           <ul className="space-y-1">
-            <LegendDot c="#E5484D" label="Ridge" />
-            <LegendDot c="#3B82F6" label="Eave" />
-            <LegendDot c="#10B981" label="Gable" />
-            <LegendDot c="#7C3AED" label="Valley" />
+            <LegendDot c="#ef4444" label="Ridge" />
+            <LegendDot c="#3b82f6" label="Eave" />
+            <LegendDot c="#10b981" label="Gable" />
+            <LegendDot c="#8b5cf6" label="Valley" />
           </ul>
-          <div className="mt-2 border-t pt-2 text-neutral-600">
-            Pitch: 6/12<br /> Tolerance: ±1.0″
+          <div className="mt-2 border-t border-border pt-2 text-muted-foreground">
+            Pitch: 6/12<br />Tol: &#177;1.0&quot;
           </div>
         </div>
       </div>
@@ -699,190 +678,308 @@ function MiniOutlineWindow() {
 function LegendDot({ c, label }: { c: string; label: string }) {
   return (
     <li className="flex items-center gap-2">
-      <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: c }} />
-      <span>{label}</span>
+      <span className="inline-block h-2 w-2 rounded-sm" style={{ background: c }} />
+      <span className="text-muted-foreground">{label}</span>
     </li>
   );
 }
 
-/* -------------------------- Step 3: Estimate window ------------------------ */
+/* Step 3: Estimate */
 function MiniEstimateWindow() {
   return (
-    <div className="bg-neutral-50">
-      <div className="h-50 grid grid-cols-1">
-        <div className="p-3">
-          <div className="rounded-lg border bg-white p-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-neutral-500">Profile</span>
-              <span className="font-medium">Standing Seam · 26ga</span>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-sm">
-              <span className="text-neutral-500">Panels</span>
-              <span className="font-medium">46 total</span>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-sm">
-              <span className="text-neutral-500">Trims</span>
-              <span className="font-medium">Ridge/Eave/Gable/Valley</span>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-sm">
-              <span className="text-neutral-500">Est. Cost</span>
-              <span className="font-semibold">$18,500</span>
-            </div>
-          </div>
-
-          <div className="mt-3 flex gap-2">
-            <button className="rounded-md border px-3 py-1.5 text-sm hover:bg-neutral-50">Export PDF</button>
-            <button className="rounded-md border px-3 py-1.5 text-sm hover:bg-neutral-50">Export CSV</button>
-            <button className="ml-auto rounded-md bg-neutral-900 text-white px-3 py-1.5 text-sm hover:bg-neutral-800">
-              Generate Proposal
-            </button>
-          </div>
+    <div className="bg-secondary/50 p-3">
+      <div className="rounded-lg border border-border bg-card p-3">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Profile</span>
+          <span className="font-medium">Standing Seam &middot; 26ga</span>
         </div>
+        <div className="mt-2 flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Panels</span>
+          <span className="font-medium">46 total</span>
+        </div>
+        <div className="mt-2 flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Trims</span>
+          <span className="font-medium">Ridge / Eave / Gable / Valley</span>
+        </div>
+        <div className="mt-2 flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Est. Cost</span>
+          <span className="font-semibold text-foreground">$18,500</span>
+        </div>
+      </div>
+      <div className="mt-3 flex gap-2">
+        <button type="button" className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary transition-colors">
+          Export PDF
+        </button>
+        <button type="button" className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary transition-colors">
+          Export CSV
+        </button>
+        <button type="button" className="ml-auto rounded-md bg-cyan-500 text-white px-3 py-1.5 text-xs font-semibold hover:bg-cyan-600 transition-colors">
+          Generate Proposal
+        </button>
       </div>
     </div>
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*                            3D CONFIGURATOR                                 */
+/* -------------------------------------------------------------------------- */
+function Configurator3D() {
+  return (
+    <section id="configurator" className="py-20 lg:py-24 relative overflow-hidden">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid lg:grid-cols-[1fr_2fr] gap-10 items-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-secondary text-xs font-mono font-medium text-cyan-600 dark:text-cyan-400 mb-6">
+              <Sparkles className="h-3.5 w-3.5" />
+              INTERACTIVE 3D
+            </div>
+            <h2 className="font-display text-3xl lg:text-4xl font-bold tracking-tight mb-4">
+              Configure your roof in{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-emerald-500">
+                real-time 3D
+              </span>
+            </h2>
+            <p className="text-muted-foreground leading-relaxed mb-8">
+              Visualize different metal panel profiles and 50+ premium colors
+              with our interactive configurator. Dormers, varying pitches, complex geometry — it handles it all.
+            </p>
+            <div className="space-y-3">
+              <div className="rounded-lg bg-secondary border border-border p-4">
+                <div className="font-bold text-sm mb-0.5">Auto-Pitch Detection</div>
+                <div className="text-xs text-muted-foreground font-mono">ACCURACY: 98.5%</div>
+              </div>
+              <div className="rounded-lg bg-secondary border border-border p-4 opacity-70">
+                <div className="font-bold text-sm mb-0.5">Waste Optimization</div>
+                <div className="text-xs text-muted-foreground font-mono">STATUS: ENABLED</div>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.15 }}
+          >
+            <RoofViewer3D
+              width={14}
+              depth={10}
+              pitch={0.55}
+              overhang={0.25}
+              thickness={0.035}
+              seamSpacing={0.4572}
+              color="#4B5563"
+              spin={true}
+              hideControls={false}
+            />
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 /* -------------------------------------------------------------------------- */
-/*                                   PRICING                                  */
+/*                                  PRICING                                   */
 /* -------------------------------------------------------------------------- */
 function Pricing() {
-  // Single flat rate pricing
-  const PRICE = 1440;
-  const MAX_SF = 50000;
-
   return (
-    <section id="pricing" className="py-24 bg-gradient-to-br from-white via-slate-50/20 to-white dark:from-black dark:via-slate-950/10 dark:to-black">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <header className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Simple, Transparent Pricing</h2>
-          <p className="mt-3 text-neutral-700 dark:text-neutral-300 text-lg">
-            No subscriptions. No monthly fees. One price for full access.
-          </p>
-        </header>
+    <section id="pricing" className="py-20 lg:py-28 bg-secondary/30 border-y border-border relative">
+      <div className="absolute inset-0 pointer-events-none opacity-[0.02] bg-grid-pattern" />
 
-        {/* Pricing Card */}
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="text-center mb-12">
+          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">
+            One tool. One price.
+          </h2>
+          <p className="mt-3 text-lg text-muted-foreground">
+            No per-report fees. No complex tiers. Full access.
+          </p>
+        </div>
+
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mt-10 max-w-2xl mx-auto rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-card p-8 shadow-xl"
+          className="rounded-2xl border border-border bg-card shadow-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300"
         >
-          <div className="text-center">
-            <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">Full Access Package</p>
-            <div className="text-5xl font-black text-slate-600 dark:text-slate-400">
-              ${PRICE.toLocaleString()}
-            </div>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-2">
-              Up to {MAX_SF.toLocaleString()} SF
-            </p>
-          </div>
-
-          <div className="mt-8 grid sm:grid-cols-2 gap-3">
-            {[
-              "Up to 50,000 SF coverage",
-              "Advanced 3D roof visualization",
-              "50+ premium paint colors",
-              "Material cost calculator",
-              "Bill of materials (BOM)",
-              "Professional quote generator",
-              "CSV/PDF exports",
-              "Priority support",
-            ].map((feature) => (
-              <div key={feature} className="flex items-center gap-2 text-sm">
-                <Check className="h-4 w-4 text-slate-500 flex-shrink-0" />
-                <span>{feature}</span>
+          <div className="grid md:grid-cols-2">
+            {/* Price side */}
+            <div className="p-10 lg:p-12 bg-slate-900 text-white flex flex-col justify-center relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500 rounded-full blur-[80px] opacity-15 -mr-32 -mt-32" />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-slate-700 bg-slate-800/50 text-xs font-bold text-white w-max mb-6">
+                FULL ACCESS
               </div>
-            ))}
-          </div>
+              <div className="flex items-baseline gap-2 mb-2">
+                <span className="text-5xl font-display font-bold">$1,440</span>
+              </div>
+              <p className="text-slate-400 text-sm mb-8">
+                One-time payment &middot; Up to 50,000 SF &middot; No recurring charges
+              </p>
+              <Link
+                href={SIGNUP_PATH}
+                className="w-full py-3.5 text-center bg-white text-slate-900 font-bold rounded-lg hover:bg-slate-200 transition-colors block"
+              >
+                Get Started Now
+              </Link>
+              <p className="text-xs text-slate-500 font-mono text-center mt-4">INSTANT ACCESS AFTER PAYMENT</p>
+            </div>
 
-          <div className="mt-8 text-center">
-            <Link
-              href={SIGNIN_PATH}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-slate-500 to-slate-600 px-6 py-3 text-base font-semibold text-white shadow-lg hover:from-slate-600 hover:to-slate-700 active:scale-[.98] transition-all"
-            >
-              Get Started <ArrowRight className="h-5 w-5" />
-            </Link>
+            {/* Features side */}
+            <div className="p-10 lg:p-12 flex flex-col justify-center">
+              <ul className="space-y-5">
+                {[
+                  { title: "Up to 50,000 SF Coverage", desc: "Full dimensional extraction for any property." },
+                  { title: "All Metal Profiles Included", desc: "Standing seam, R-panel, 5V, corrugated." },
+                  { title: "50+ Premium Paint Colors", desc: "Visualize in the 3D configurator before ordering." },
+                  { title: "CSV & PDF Exports", desc: "Cut sheets, BOMs, and branded proposals." },
+                  { title: "Advanced 3D Visualization", desc: "Interactive roof viewer with real-time configuration." },
+                  { title: "Priority Support", desc: "Direct access to our engineering team." },
+                ].map((f) => (
+                  <li key={f.title} className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-cyan-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-bold text-foreground block">{f.title}</span>
+                      <span className="text-sm text-muted-foreground">{f.desc}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-
-          <p className="mt-4 text-center text-xs text-neutral-500">
-            One-time payment • No recurring charges • Instant access
-          </p>
         </motion.div>
+      </div>
+    </section>
+  );
+}
 
-        {/* FAQ-ish reminders */}
-        <div className="mt-6 flex flex-wrap justify-center gap-3 text-sm text-neutral-600 dark:text-neutral-400">
-          <Badge>No subscription required</Badge>
-          <Badge>No setup fees</Badge>
-          <Badge>One-time payment</Badge>
-          <Badge>CSV/PDF exports included</Badge>
+/* -------------------------------------------------------------------------- */
+/*                                    FAQ                                     */
+/* -------------------------------------------------------------------------- */
+function FAQ() {
+  const qs: { q: string; a: string }[] = [
+    {
+      q: "Where does the roof data come from?",
+      a: "From reputable satellite datasets with consistent coverage. We surface availability and quality per address using our proprietary extraction method.",
+    },
+    {
+      q: "How accurate are the dimensions?",
+      a: "We expose dataset confidence and allow manual adjustments before export. Our digital extraction delivers sub-inch accuracy for standard roof pitches.",
+    },
+    {
+      q: "Can I export my takeoff?",
+      a: "Yes. Export as CSV or PDF with all measurements and material quantities — cut sheets, BOMs, and branded proposals are all included.",
+    },
+    {
+      q: "Do you support non-metal roofs?",
+      a: "We're metal-first today, with broader material support on the roadmap. The dimensional extraction works for any roof type, but BOM and cut sheet generation is optimized for metal panels.",
+    },
+    {
+      q: "Does it account for panel overlap and setbacks?",
+      a: "Yes. Our parametric engine virtually 'installs' the panels based on your selected profile. You define the eave overhang and ridge setbacks, and the software adjusts cut piece lengths accordingly.",
+    },
+  ];
+
+  return (
+    <section id="faq" className="py-20 lg:py-24">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+        <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-12 tracking-tight">
+          Frequently asked questions
+        </h2>
+        <div className="space-y-3">
+          {qs.map((item, i) => (
+            <FAQItem key={i} q={item.q} a={item.a} />
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-/* tiny badge chip */
-function Badge({ children }: { children: React.ReactNode }) {
+function FAQItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
   return (
-    <span className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs">
-      {children}
-    </span>
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between p-5 text-left font-display font-semibold text-foreground hover:bg-secondary/50 transition-colors"
+      >
+        <span>{q}</span>
+        <ChevronDown className={`h-5 w-5 text-muted-foreground flex-shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="px-5 pb-5 text-sm text-muted-foreground leading-relaxed border-t border-border pt-4">
+              {a}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*                                  CTA BANNER                                */
+/*                                CTA BANNER                                  */
 /* -------------------------------------------------------------------------- */
 function CTA() {
   return (
-    <section id="auth" className="py-20 border-t border-neutral-200 bg-neutral-50">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-neutral-200 bg-white/80 backdrop-blur p-8 md:p-10 shadow-sm">
-          <div className="grid md:grid-cols-[1.3fr_.7fr] gap-8 items-center">
-            <div>
-              <h3 className="text-2xl font-semibold tracking-tight">Try it on your next roof</h3>
-              <p className="mt-2 text-neutral-600">
-                Use your work account—passwords stay with your identity provider.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-2">
-                <SSOChip label="Continue with Google" />
-                <SSOChip label="Continue with Microsoft" />
-                <SSOChip label="Continue with Apple" />
-              </div>
-              <p className="mt-4 text-xs text-neutral-500">
-                By continuing you agree to our <Link className="underline" href="/legal/terms">Terms</Link> &{" "}
-                <Link className="underline" href="/legal/privacy">Privacy</Link>.
-              </p>
+    <section className="py-20 lg:py-28 relative overflow-hidden bg-gradient-to-br from-cyan-600 to-blue-600">
+      <div className="absolute top-0 right-0 w-96 h-96 border-[10px] border-white/10 rounded-full transform translate-x-1/3 -translate-y-1/3" />
+      <div className="absolute bottom-0 left-0 w-72 h-72 border border-white/10 rounded-full transform -translate-x-1/3 translate-y-1/3" />
+
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 relative z-10 text-center flex flex-col items-center">
+        <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6">
+          Try it on your next roof
+        </h2>
+        <p className="text-cyan-100 text-lg mb-10 max-w-2xl">
+          Stop leaving money on the table due to estimation errors and wasted
+          hours. Start mapping your first roof in under 60 seconds.
+        </p>
+
+        <div className="bg-background p-8 rounded-xl shadow-2xl w-full max-w-md border border-border">
+          <div className="space-y-4">
+            <Link
+              href={SIGNUP_PATH}
+              className="w-full py-3.5 bg-cyan-500 hover:bg-cyan-600 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
+            >
+              Continue to Dashboard <ArrowRight className="h-4 w-4" />
+            </Link>
+
+            <div className="flex items-center gap-4">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground font-mono">OR SIGN IN WITH</span>
+              <div className="flex-1 h-px bg-border" />
             </div>
-            <div>
-              <div className="rounded-2xl border bg-neutral-50 p-4">
-                <div className="flex items-center gap-2 text-sm text-neutral-600 mb-3">
-                  <Building2 className="h-4 w-4" /> Example Project
-                </div>
-                <div className="rounded-xl border bg-white p-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-neutral-500">Address</span>
-                    <span className="font-medium">123 Copper Ridge Ln</span>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-sm">
-                    <span className="text-neutral-500">Profile</span>
-                    <span className="font-medium">Standing Seam · 26ga</span>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-sm">
-                    <span className="text-neutral-500">Est. Cost</span>
-                    <span className="font-semibold">$18,500</span>
-                  </div>
-                </div>
-                <a
+
+            <div className="grid grid-cols-3 gap-3">
+              {["Google", "Microsoft", "Apple"].map((provider) => (
+                <Link
+                  key={provider}
                   href={SIGNIN_PATH}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 active:scale-[.99]"
+                  className="flex items-center justify-center gap-1.5 border border-border hover:bg-secondary text-foreground py-2.5 rounded-lg text-sm font-medium transition-colors"
                 >
-                  Continue <ArrowRight className="h-4 w-4" />
-                </a>
-              </div>
+                  {provider}
+                </Link>
+              ))}
             </div>
+
+            <p className="text-xs text-muted-foreground text-center pt-2">
+              By continuing you agree to our{" "}
+              <Link className="underline hover:text-foreground" href="/legal/terms">Terms</Link> &{" "}
+              <Link className="underline hover:text-foreground" href="/legal/privacy">Privacy</Link>.
+            </p>
           </div>
         </div>
       </div>
@@ -890,390 +987,61 @@ function CTA() {
   );
 }
 
-function SSOChip({ label }: { label: string }) {
-  return (
-    <button
-      type="button"
-      className="group inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm hover:bg-neutral-50 active:scale-[.99]"
-    >
-      <span className="grid h-6 w-6 place-items-center rounded-md bg-neutral-900 text-white text-[10px] font-black transition group-hover:shadow">
-        •
-      </span>
-      {label}
-      <span className="opacity-0 group-hover:opacity-100 transition-opacity">
-        <ArrowRight className="h-3 w-3" />
-      </span>
-    </button>
-  );
-}
-
 /* -------------------------------------------------------------------------- */
-/*                                      FAQ                                   */
-/* -------------------------------------------------------------------------- */
-function FAQ() {
-  const qs: [string, string][] = [
-    ["Where does the data come from?", "From reputable datasets with consistent coverage; we surface availability and quality per address."],
-    ["How accurate are the dimensions?", "We expose dataset confidence and allow manual adjustments before you export."],
-    ["Can I export my takeoff?", "Yes. Export as CSV or PDF with all measurements and material quantities."],
-    ["Do you support non-metal roofs?", "We're metal-first today, with broader support on the roadmap."],
-  ];
-  return (
-    <section id="faq" className="py-20">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <h2 className="text-3xl sm:text-4xl font-bold">Frequently asked questions</h2>
-        <div className="mt-8 grid md:grid-cols-2 gap-6">
-          {qs.map(([q, a], i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
-            >
-              <p className="font-medium">{q}</p>
-              <p className="mt-2 text-sm text-neutral-700">{a}</p>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*                                    FOOTER                                  */
+/*                                  FOOTER                                    */
 /* -------------------------------------------------------------------------- */
 function Footer() {
   return (
-    <footer className="border-t border-neutral-200 py-12">
+    <footer className="border-t border-border pt-16 pb-8 bg-card">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 text-sm text-neutral-700">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-slate-500 via-slate-600 to-slate-700 grid place-items-center text-[10px] font-bold text-white shadow-md shadow-slate-500/30">MMR</div>
-              <span className="font-semibold text-neutral-900">My Metal Roofer</span>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 mb-16">
+          <div className="col-span-2">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-7 w-7 rounded-lg bg-cyan-500 grid place-items-center text-[9px] font-bold text-white shadow-md shadow-cyan-500/20">
+                MMR
+              </div>
+              <span className="font-display font-bold text-foreground">My Metal Roofer</span>
             </div>
-            <p className="mt-3 max-w-xs">Metal roof dimensions and estimating for metal roofing contractors.</p>
+            <p className="text-sm text-muted-foreground max-w-xs mb-6">
+              Precision roof dimensions and estimating for metal roofing contractors.
+            </p>
           </div>
           <div>
-            <p className="font-semibold text-neutral-900">Product</p>
-            <ul className="mt-2 space-y-1">
-              <li><a className="hover:text-neutral-900" href="#features">Features</a></li>
-              <li><a className="hover:text-neutral-900" href="/changelog">Changelog</a></li>
+            <p className="font-display font-bold text-foreground mb-4">Product</p>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li><a className="hover:text-foreground transition-colors" href="#features">Features</a></li>
+              <li><a className="hover:text-foreground transition-colors" href="#configurator">3D Engine</a></li>
+              <li><a className="hover:text-foreground transition-colors" href="/changelog">Changelog</a></li>
             </ul>
           </div>
           <div>
-            <p className="font-semibold text-neutral-900">Company</p>
-            <ul className="mt-2 space-y-1">
-              <li><a className="hover:text-neutral-900" href="/about">About</a></li>
-              <li><a className="hover:text-neutral-900" href="/contact">Contact</a></li>
-              <li><a className="hover:text-neutral-900" href="mailto:help@mymetalroofer.com">Support</a></li>
-              <li><a className="hover:text-neutral-900" href="/status">Status</a></li>
+            <p className="font-display font-bold text-foreground mb-4">Company</p>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li><a className="hover:text-foreground transition-colors" href="/about">About</a></li>
+              <li><a className="hover:text-foreground transition-colors" href="/contact">Contact</a></li>
+              <li><a className="hover:text-foreground transition-colors" href="mailto:help@mymetalroofer.com">Support</a></li>
+              <li><a className="hover:text-foreground transition-colors" href="/status">Status</a></li>
             </ul>
           </div>
           <div>
-            <p className="font-semibold text-neutral-900">Legal</p>
-            <ul className="mt-2 space-y-1">
-              <li><a className="hover:text-neutral-900" href="/legal/terms">Terms</a></li>
-              <li><a className="hover:text-neutral-900" href="/legal/privacy">Privacy</a></li>
+            <p className="font-display font-bold text-foreground mb-4">Legal</p>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li><a className="hover:text-foreground transition-colors" href="/legal/terms">Terms</a></li>
+              <li><a className="hover:text-foreground transition-colors" href="/legal/privacy">Privacy</a></li>
             </ul>
           </div>
         </div>
-        <p className="mt-10 text-xs text-neutral-500">
-          © {new Date().getFullYear()} My Metal Roofer. All rights reserved.
-        </p>
+
+        <div className="border-t border-border pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <p className="text-xs text-muted-foreground font-mono">
+            &copy; {new Date().getFullYear()} My Metal Roofer. All rights reserved.
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs text-muted-foreground font-mono">ALL SYSTEMS OPERATIONAL</span>
+          </div>
+        </div>
       </div>
     </footer>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*                            MVP PREVIEW (inline)                             */
-/* -------------------------------------------------------------------------- */
-
-type PreviewMode = "diagram" | "cut" | "bom";
-
-function MVPPreview({ mode = "diagram", address = "123 Copper Ridge Ln" }: { mode?: PreviewMode; address?: string }) {
-  return (
-    <div className="h-full w-full grid place-items-center bg-neutral-50">
-      <div className="w-[92%] h-[86%] rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2 border-b">
-          <p className="text-xs text-neutral-600 truncate">{address}</p>
-          <div className="text-[11px] text-neutral-500">
-            {mode === "diagram" ? "Roof Diagram" : mode === "cut" ? "Cut Sheet" : "Takeoff"}
-          </div>
-        </div>
-        {mode === "diagram" && <Diagram />}
-        {mode === "cut" && <CutSheet />}
-        {mode === "bom" && <BOM />}
-      </div>
-    </div>
-  );
-}
-
-/* --- Diagram --- */
-function Diagram() {
-  const cardRef = useRef<HTMLDivElement | null>(null);
-  const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
-
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-    const onMove = (e: MouseEvent) => {
-      const r = el.getBoundingClientRect();
-      const x = (e.clientX - (r.left + r.width / 2)) / r.width;
-      const y = (e.clientY - (r.top + r.height / 2)) / r.height;
-      setTilt({ rx: y * -6, ry: x * 10 });
-    };
-    const reset = () => setTilt({ rx: 0, ry: 0 });
-    el.addEventListener("mousemove", onMove);
-    el.addEventListener("mouseleave", reset);
-    return () => {
-      el.removeEventListener("mousemove", onMove);
-      el.removeEventListener("mouseleave", reset);
-    };
-  }, []);
-
-  return (
-    <div ref={cardRef} className="p-3 grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-4 h-[calc(100%-40px)]">
-      <div className="relative rounded-lg border bg-white flex items-center justify-center" style={{ perspective: 1000 }}>
-        <motion.svg
-          style={{ rotateX: tilt.rx, rotateY: tilt.ry }}
-          viewBox="0 0 640 380"
-          className="w-full h-full max-h-[360px]"
-          role="img"
-          aria-label="Metal roof diagram with colored trims"
-        >
-          <defs>
-            <linearGradient id="roof" x1="0" x2="1">
-              <stop offset="0%" stopColor="#EFF3F7" />
-              <stop offset="100%" stopColor="#E5ECF2" />
-            </linearGradient>
-          </defs>
-          {/* Planes */}
-          <polygon points="80,120 360,80 560,170 280,210" fill="url(#roof)" stroke="#C9D4DE" strokeWidth="2" />
-          <polygon points="80,120 280,210 260,300 60,210" fill="#F6F8FA" stroke="#C9D4DE" strokeWidth="2" />
-          {/* Trims */}
-          <polyline points="150,110 430,90" stroke="#E5484D" strokeWidth="6" strokeLinecap="round" />   {/* Ridge */}
-          <polyline points="70,220 270,310" stroke="#3B82F6" strokeWidth="6" strokeLinecap="round" />   {/* Eave */}
-          <polyline points="80,120 60,210" stroke="#10B981" strokeWidth="6" strokeLinecap="round" />     {/* Gable */}
-          <polyline points="280,210 560,170" stroke="#7C3AED" strokeWidth="6" strokeLinecap="round" />   {/* Valley */}
-          <polyline points="260,300 560,170" stroke="#F59E0B" strokeWidth="6" strokeLinecap="round" />   {/* Side/Endwall */}
-        </motion.svg>
-      </div>
-
-      {/* Legend */}
-      <div className="rounded-lg border p-3">
-        <p className="text-xs font-medium text-neutral-800 mb-2">Legend</p>
-        <ul className="space-y-2 text-[12px]">
-          <LegendItem color="#E5484D" label="Ridge cap" />
-          <LegendItem color="#3B82F6" label="Eave trim" />
-          <LegendItem color="#10B981" label="Gable (rake) trim" />
-          <LegendItem color="#7C3AED" label="Valley metal" />
-          <LegendItem color="#F59E0B" label="Sidewall / Endwall flashing" />
-        </ul>
-        <div className="mt-3 border-t pt-3 text-[11px] text-neutral-600">
-          <p>Pitch: 6/12 · Primary</p>
-          <p>Panels: 46 @ 22.5 ft (example)</p>
-          <p>Waste: 10% (adjustable)</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LegendItem({ color, label }: { color: string; label: string }) {
-  return (
-    <li className="flex items-center gap-2">
-      <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: color }} />
-      <span className="text-neutral-700">{label}</span>
-    </li>
-  );
-}
-
-/* --- Cut Sheet --- */
-function CutSheet() {
-  const rows = [
-    { length: "22.5 ft", qty: 23 },
-    { length: "22.0 ft", qty: 12 },
-    { length: "21.5 ft", qty: 8 },
-    { length: "Misc. (spares)", qty: 2 },
-  ];
-  return (
-    <div className="p-3 h-[calc(100%-40px)]">
-      <div className="rounded-lg border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-neutral-50 border-b">
-            <tr>
-              <th className="text-left px-3 py-2 font-medium text-neutral-700">Panel Length</th>
-              <th className="text-left px-3 py-2 font-medium text-neutral-700">Quantity</th>
-              <th className="text-left px-3 py-2 font-medium text-neutral-700">Coverage</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} className="border-b last:border-0">
-                <td className="px-3 py-2">{r.length}</td>
-                <td className="px-3 py-2">{r.qty}</td>
-                <td className="px-3 py-2">16″ Standing Seam</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-2 text-[11px] text-neutral-500">Export CSV/PDF for fabricator.</p>
-    </div>
-  );
-}
-
-function BOM() {
-  const items = [
-    { label: "Panels (26ga)", value: "46 total" },
-    { label: "Ridge cap", value: "30'0" },
-    { label: "Eave trim", value: "60'0" },
-    { label: "Valley metal", value: "40'0" },
-    { label: "Gable trim", value: "60'0" },
-  ];
-  return (
-    <div className="p-3 h-[calc(100%-40px)] grid grid-cols-1 lg:grid-cols-2 gap-3">
-      <div className="rounded-lg border p-3">
-        <p className="text-xs font-medium text-neutral-800 mb-2">Takeoff</p>
-        <ul className="text-sm space-y-[6px]">
-          {items.map((i) => (
-            <li key={i.label} className="flex items-center justify-between">
-              <span className="text-neutral-600">{i.label}</span>
-              <span className="font-medium">{i.value}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div className="rounded-lg border p-3">
-        <p className="text-xs font-medium text-neutral-800 mb-2">Notes</p>
-        <ul className="text-[12px] text-neutral-700 space-y-2 list-disc pl-5">
-          <li>Waste factor adjustable (default 10%).</li>
-          <li>Trim breakdown auto-populates by detected edges.</li>
-          <li>Export CSV/PDF from this summary.</li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*                                  UTIL / UI                                 */
-/* -------------------------------------------------------------------------- */
-function MagneticButton({
-  href,
-  style = "primary",
-  children,
-}: {
-  href: string;
-  style?: "primary" | "ghost";
-  children: React.ReactNode;
-}) {
-  const ref = useRef<HTMLAnchorElement | null>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const onMove = (e: MouseEvent) => {
-      const r = el.getBoundingClientRect();
-      const x = e.clientX - (r.left + r.width / 2);
-      const y = e.clientY - (r.top + r.height / 2);
-      el.style.setProperty("--x", `${x * 0.06}px`);
-      el.style.setProperty("--y", `${y * 0.06}px`);
-    };
-    const reset = () => {
-      el.style.setProperty("--x", "0px");
-      el.style.setProperty("--y", "0px");
-    };
-    el.addEventListener("mousemove", onMove);
-    el.addEventListener("mouseleave", reset);
-    return () => {
-      el.removeEventListener("mousemove", onMove);
-      el.removeEventListener("mouseleave", reset);
-    };
-  }, []);
-
-  const base =
-    "inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm will-change-transform transition active:scale-[.99]";
-  const cls =
-    style === "primary"
-      ? `${base} bg-neutral-900 text-white hover:shadow-xl hover:-translate-y-[1px]`
-      : `${base} border border-neutral-300 text-neutral-900 hover:bg-neutral-50`;
-
-  return (
-    <a ref={ref} href={href} className={cls} style={{ transform: "translate(var(--x,0), var(--y,0))" }}>
-      {children}
-    </a>
-  );
-}
-
-function TrustLogos() {
-  return (
-    <section className="py-12 border-y border-neutral-200">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <p className="text-center text-xs uppercase tracking-widest text-neutral-500">
-          Trusted by contractors and estimators
-        </p>
-        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-6 opacity-80">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-8 rounded bg-neutral-100 border border-neutral-200" />
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*                         3D ROOF CONFIGURATOR SECTION                        */
-/* -------------------------------------------------------------------------- */
-function Configurator3D() {
-  return (
-    <section id="configurator" className="relative py-24 overflow-hidden bg-gradient-to-br from-white via-slate-50/30 to-white dark:from-black dark:via-slate-950/20 dark:to-black">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-16"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 dark:bg-slate-500/20 text-slate-600 dark:text-slate-400 text-sm font-medium mb-6">
-            <Sparkles className="h-4 w-4" />
-            Interactive 3D Visualization
-          </div>
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
-            Configure Your Roof in{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-500 to-slate-700">
-              Real-Time 3D
-            </span>
-          </h2>
-          <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
-            Visualize different metal panel profiles and 50+ premium colors with our interactive configurator
-          </p>
-        </motion.div>
-
-        {/* 3D Roof Configurator with Babylon.js — full color + panel controls */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.2 }}
-        >
-          <RoofViewer3D
-            width={14}
-            depth={10}
-            pitch={0.55}
-            overhang={0.25}
-            thickness={0.035}
-            seamSpacing={0.4572}
-            color="#4B5563"
-            spin={true}
-            hideControls={false}
-          />
-        </motion.div>
-      </div>
-    </section>
   );
 }
