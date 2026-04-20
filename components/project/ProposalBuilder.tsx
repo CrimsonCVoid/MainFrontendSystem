@@ -69,9 +69,14 @@ const SECTION_ICONS: Record<SectionType, any> = {
   image: ImageIcon,
 };
 
+// Company contact info is now embedded in the Proposal Header section, so
+// the standalone "company" section defaults to off. It's still available
+// in the Sections menu for users who want a separate contact strip (for
+// example, on proposals where the header logo is company-branded without
+// the contact row).
 const DEFAULT_SECTIONS: Section[] = [
   { id: "1", type: "header", enabled: true, title: "Proposal Header" },
-  { id: "2", type: "company", enabled: true, title: "Company Information" },
+  { id: "2", type: "company", enabled: false, title: "Extra Company Contact" },
   { id: "3", type: "client", enabled: true, title: "Client Information" },
   { id: "4", type: "project", enabled: true, title: "Project Details" },
   { id: "5", type: "scope", enabled: true, title: "Scope of Work" },
@@ -252,10 +257,18 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
   const PreviewSection = ({ type }: { type: SectionType }) => {
     switch (type) {
       case "header": return (
-        <div className="flex justify-between items-start mb-6">
+        <div className="flex justify-between items-start mb-6 pb-4 border-b border-neutral-100">
           <div>
             {logoUrl ? <img src={logoUrl} alt="" className="h-10 object-contain mb-2" /> : null}
             <p className="text-[22px] font-bold" style={{ color: accentColor }}>{companyName || "Company Name"}</p>
+            {/* Company contact info merged into the header so it reads like
+                a letterhead. The standalone "company" section defaults off. */}
+            <div className="text-[8px] text-neutral-400 mt-1.5 space-y-0.5 leading-tight">
+              {companyPhone && <p>{companyPhone}</p>}
+              {companyEmail && <p>{companyEmail}</p>}
+              {companyAddress && <p>{companyAddress}</p>}
+              {companyWebsite && <p>{companyWebsite}</p>}
+            </div>
           </div>
           <div className="text-right">
             <p className="text-[18px] font-bold text-neutral-800">PROPOSAL</p>
@@ -373,7 +386,7 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
   // Sections with long-text editors (textareas, multi-column tables) get
   // a wider drawer so the user isn't wrapping in a 420px rail. Preview
   // shift matches half the drawer width so both stay centered.
-  const WIDE_PANELS: SectionType[] = ["scope", "notes", "line-items"];
+  const WIDE_PANELS: SectionType[] = ["scope", "notes", "line-items", "header"];
   const isWidePanel = activePanel
     ? WIDE_PANELS.includes(activePanel as SectionType)
     : false;
@@ -649,10 +662,48 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
               </div>
             )}
             {activePanel === "header" && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2"><Label className="text-[10px]">Proposal Title</Label><Input value={proposalTitle} onChange={(e) => setProposalTitle(e.target.value)} className="mt-1 h-8 text-sm" /></div>
-                <div><Label className="text-[10px]">Number</Label><Input value={proposalNumber} onChange={(e) => setProposalNumber(e.target.value)} className="mt-1 h-8 text-sm" /></div>
-                <div><Label className="text-[10px]">Valid (days)</Label><Input type="number" value={validDays} onChange={(e) => setValidDays(Number(e.target.value))} className="mt-1 h-8 text-sm" /></div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-2">Proposal</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2"><Label className="text-[10px]">Title</Label><Input value={proposalTitle} onChange={(e) => setProposalTitle(e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                    <div><Label className="text-[10px]">Number</Label><Input value={proposalNumber} onChange={(e) => setProposalNumber(e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                    <div><Label className="text-[10px]">Valid (days)</Label><Input type="number" value={validDays} onChange={(e) => setValidDays(Number(e.target.value))} className="mt-1 h-8 text-sm" /></div>
+                  </div>
+                </div>
+                <div className="pt-4 border-t border-neutral-100">
+                  <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-2">Your Company</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2"><Label className="text-[10px]">Company Name</Label><Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                    <div><Label className="text-[10px]">Phone</Label><Input value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                    <div><Label className="text-[10px]">Email</Label><Input value={companyEmail} onChange={(e) => setCompanyEmail(e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                    <div><Label className="text-[10px]">Website</Label><Input value={companyWebsite} onChange={(e) => setCompanyWebsite(e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                    <div><Label className="text-[10px]">Address</Label><Input value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} className="mt-1 h-8 text-sm" /></div>
+                  </div>
+                  <div className="mt-3">
+                    <Label className="text-[10px]">Logo</Label>
+                    <div className="mt-1 flex items-center gap-2">
+                      {logoUrl ? <img src={logoUrl} alt="" className="w-10 h-10 object-contain rounded border" /> : <div className="w-10 h-10 rounded border-2 border-dashed border-neutral-200 flex items-center justify-center"><ImageIcon className="w-4 h-4 text-neutral-300" /></div>}
+                      <label className="cursor-pointer text-[10px] font-medium text-blue-600 hover:text-blue-700">
+                        {logoUrl ? "Change" : "Upload"}
+                        <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                          const file = e.target.files?.[0]; if (!file) return;
+                          try {
+                            const { getSupabaseBrowserClient } = await import("@/lib/supabaseClient");
+                            const sb = getSupabaseBrowserClient();
+                            const path = `logos/${Date.now()}.${file.name.split(".").pop()||"png"}`;
+                            await sb.storage.from("public").upload(path, file, { upsert: true });
+                            const url = sb.storage.from("public").getPublicUrl(path).data.publicUrl;
+                            setLogoUrl(url);
+                            // @ts-expect-error generated Supabase types may not include users table typing
+                            await sb.from("users").update({ company_logo_url: url }).eq("id", user?.id);
+                          } catch (err) { console.error("Upload failed:", err instanceof Error ? err.message : err); }
+                        }} />
+                      </label>
+                      {logoUrl && <button type="button" onClick={() => setLogoUrl("")} className="text-[10px] text-red-400">Remove</button>}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
             {activePanel === "scope" && (<div><Label className="text-[10px]">Scope of Work</Label><Textarea value={scopeText} onChange={(e) => setScopeText(e.target.value)} rows={5} className="mt-1 text-sm" /></div>)}
