@@ -68,6 +68,58 @@ function getServiceClient(): SupabaseClient | null {
   return createClient(url, key);
 }
 
+interface BuildingInsightsResponse {
+  name?: string;
+  center?: { latitude: number; longitude: number };
+  boundingBox?: {
+    sw: { latitude: number; longitude: number };
+    ne: { latitude: number; longitude: number };
+  };
+  imageryDate?: { year: number; month: number; day: number };
+  imageryQuality?: string;
+}
+
+/**
+ * Snap the raw geocoded lat/lng to the centroid of the actual nearest
+ * building Google has on file. This fixes the "wrong house" problem when
+ * the geocoder drops the pin on the road, a sidewalk, or a lot edge — we
+ * then end up fetching Solar imagery centered on a building that's within
+ * a few meters of the intended one.
+ *
+ * Returns null if Solar has no building on file at that location (rural
+ * areas, new construction, etc). Caller should fall back to the raw coords.
+ */
+async function findBuildingCenter(
+  lat: number,
+  lng: number,
+): Promise<{ lat: number; lng: number; quality?: string } | null> {
+  const url = new URL(
+    "https://solar.googleapis.com/v1/buildingInsights:findClosest",
+  );
+  url.searchParams.set("location.latitude", String(lat));
+  url.searchParams.set("location.longitude", String(lng));
+  url.searchParams.set("requiredQuality", "LOW");
+  url.searchParams.set("key", GOOGLE_KEY);
+
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.warn(
+      `[snapshot] buildingInsights:findClosest ${res.status}: ${text.slice(0, 150)}`,
+    );
+    return null;
+  }
+  const data = (await res.json()) as BuildingInsightsResponse;
+  if (data.center?.latitude == null || data.center?.longitude == null) {
+    return null;
+  }
+  return {
+    lat: data.center.latitude,
+    lng: data.center.longitude,
+    quality: data.imageryQuality,
+  };
+}
+
 async function fetchSolarDataLayers(
   lat: number,
   lng: number,
@@ -219,8 +271,33 @@ export async function POST(
     .filter(Boolean)
     .join(", ");
 
-  // Primary path: Google Solar API dataLayers:get
-  const layers = await fetchSolarDataLayers(project.latitude, project.longitude);
+  // Snap to the nearest building's centroid so Solar imagery is centered
+  // on an actual roof, not whatever happens to be at the geocoder's pin
+  // (road, sidewalk, neighbor's lot edge).
+  const snapped = await findBuildingCenter(project.latitude, project.longitude);
+  const centerLat = snapped?.lat ?? project.latitude;
+  const centerLng = snapped?.lng ?? project.longitude;
+  if (snapped) {
+    const dLat = snapped.lat - project.latitude;
+    const dLng = snapped.lng - project.longitude;
+    const approxMeters = Math.hypot(
+      dLat * 111_000,
+      dLng * 111_000 * Math.cos((project.latitude * Math.PI) / 180),
+    );
+    console.log(
+      `[snapshot] buildingInsights snap: (${project.latitude.toFixed(6)},${project.longitude.toFixed(6)}) ` +
+        `-> (${snapped.lat.toFixed(6)},${snapped.lng.toFixed(6)}) ` +
+        `[${approxMeters.toFixed(1)}m, quality=${snapped.quality ?? "?"}]`,
+    );
+  } else {
+    console.log(
+      `[snapshot] buildingInsights found no building at ` +
+        `(${project.latitude.toFixed(6)},${project.longitude.toFixed(6)}) — using raw geocoder coords`,
+    );
+  }
+
+  // Primary path: Google Solar API dataLayers:get centered on the snapped coords
+  const layers = await fetchSolarDataLayers(centerLat, centerLng);
 
   if (layers && layers.dsmUrl && layers.rgbUrl && layers.maskUrl) {
     const [rgbBuf, dsmBuf, maskBuf] = await Promise.all([
@@ -256,8 +333,8 @@ export async function POST(
           width_px: estW,
           height_px: estH,
           meters_per_px: SOLAR_PIXEL_SIZE_M,
-          lat: project.latitude,
-          lng: project.longitude,
+          lat: centerLat,
+          lng: centerLng,
           source_address: formattedAddress || null,
           formatted_address: formattedAddress || null,
           imagery_date: imageryDateToIso(layers.imageryDate),
