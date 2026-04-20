@@ -1,18 +1,19 @@
 /**
  * POST /api/projects/[id]/snapshot
  *
- * Captures a high-resolution aerial view of the project's address
- * (Google Static Maps, satellite, zoom 20, 1280x1280 @2x) and
- * persists it to Supabase Storage. Upserts a `training_samples`
- * row keyed on the project id so the FastAPI sidecar's hillshade
- * endpoint can serve it on subsequent labeler visits.
+ * Fetches aerial imagery + DSM + building mask from Google Solar API
+ * (`dataLayers:get`), uploads all three GeoTIFFs to Supabase Storage,
+ * and upserts a `training_samples` row so the FastAPI sidecar's
+ * pipeline has everything it needs to run plane fitting + cutsheet
+ * generation end-to-end.
  *
- * Fire-and-forget safe: if the sample row already exists and points
- * at a stored image, we skip the Google fetch. Client can call this
- * on every labeler mount; a no-op when cached.
+ * Fallback: if the Solar API has no coverage for the address (no
+ * buildings on file, or rural area), falls back to a Google Static
+ * Maps satellite PNG for RGB only — labeler still works as a 2D
+ * annotation tool but heatmap + cutsheets stay disabled.
  *
  * Response:
- *   { status: "created" | "cached", rgbPath: string }
+ *   { status: "created" | "cached" | "fallback", rgbPath, dsmPath?, maskPath? }
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -25,34 +26,39 @@ const GOOGLE_KEY =
   "";
 
 const SNAPSHOT_BUCKET = "pipeline-outputs";
-const SNAPSHOT_PATH_PREFIX = "aerial";
 
-const STATIC_ZOOM = 20;
-const STATIC_SIZE_PX = 640;
-const STATIC_SCALE = 2;
+const SOLAR_RADIUS_M = 75; // ~150m diameter — covers any single residence
+const SOLAR_PIXEL_SIZE_M = 0.25; // 25cm/px — Solar API's highest commonly available
+const STATIC_FALLBACK_ZOOM = 20;
+const STATIC_FALLBACK_SIZE_PX = 640;
+const STATIC_FALLBACK_SCALE = 2;
+
+interface SolarDataLayers {
+  imageryDate?: { year: number; month: number; day: number };
+  imageryProcessedDate?: { year: number; month: number; day: number };
+  dsmUrl?: string;
+  rgbUrl?: string;
+  maskUrl?: string;
+  imageryQuality?: string;
+}
 
 function googleStaticUrl(lat: number, lng: number): string {
   const params = new URLSearchParams({
     center: `${lat},${lng}`,
-    zoom: String(STATIC_ZOOM),
-    size: `${STATIC_SIZE_PX}x${STATIC_SIZE_PX}`,
-    scale: String(STATIC_SCALE),
+    zoom: String(STATIC_FALLBACK_ZOOM),
+    size: `${STATIC_FALLBACK_SIZE_PX}x${STATIC_FALLBACK_SIZE_PX}`,
+    scale: String(STATIC_FALLBACK_SCALE),
     maptype: "satellite",
     key: GOOGLE_KEY,
   });
   return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
 }
 
-/**
- * Approximate ground resolution in meters per pixel for a Google Static
- * Maps satellite tile at a given zoom and latitude. Based on the
- * Web Mercator formula: 156543.03392 * cos(lat) / 2^zoom, scaled for
- * Google's @2x retina output.
- */
-function estimateMetersPerPx(lat: number, zoom: number, scale: number): number {
+function estimateStaticMetersPerPx(lat: number): number {
   const latRad = (lat * Math.PI) / 180;
-  const base = (156543.03392 * Math.cos(latRad)) / Math.pow(2, zoom);
-  return base / scale;
+  const base =
+    (156543.03392 * Math.cos(latRad)) / Math.pow(2, STATIC_FALLBACK_ZOOM);
+  return base / STATIC_FALLBACK_SCALE;
 }
 
 function getServiceClient(): SupabaseClient | null {
@@ -60,6 +66,71 @@ function getServiceClient(): SupabaseClient | null {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return createClient(url, key);
+}
+
+async function fetchSolarDataLayers(
+  lat: number,
+  lng: number,
+): Promise<SolarDataLayers | null> {
+  const url = new URL("https://solar.googleapis.com/v1/dataLayers:get");
+  url.searchParams.set("location.latitude", String(lat));
+  url.searchParams.set("location.longitude", String(lng));
+  url.searchParams.set("radiusMeters", String(SOLAR_RADIUS_M));
+  url.searchParams.set("view", "FULL_LAYERS");
+  url.searchParams.set("requiredQuality", "LOW"); // accept LOW+ (MEDIUM/HIGH preferred when available)
+  url.searchParams.set("pixelSizeMeters", String(SOLAR_PIXEL_SIZE_M));
+  url.searchParams.set("key", GOOGLE_KEY);
+
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.warn(
+      `[snapshot] Solar dataLayers:get returned ${res.status}: ${text.slice(0, 200)}`,
+    );
+    return null;
+  }
+  return (await res.json()) as SolarDataLayers;
+}
+
+async function fetchGeoTiff(url: string): Promise<Buffer | null> {
+  // Solar GeoTIFF URLs are short-lived and require the API key appended.
+  const withKey = url.includes("?")
+    ? `${url}&key=${GOOGLE_KEY}`
+    : `${url}?key=${GOOGLE_KEY}`;
+  const res = await fetch(withKey);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.warn(
+      `[snapshot] GeoTIFF fetch ${res.status} at ${url.slice(0, 80)}: ${text.slice(0, 150)}`,
+    );
+    return null;
+  }
+  return Buffer.from(await res.arrayBuffer());
+}
+
+async function uploadBuffer(
+  service: SupabaseClient,
+  path: string,
+  buf: Buffer,
+  contentType: string,
+): Promise<boolean> {
+  const upload = await service.storage
+    .from(SNAPSHOT_BUCKET)
+    .upload(path, buf, { contentType, upsert: true });
+  if (upload.error) {
+    console.error(
+      `[snapshot] upload failed (${path}): ${upload.error.message}`,
+    );
+    return false;
+  }
+  return true;
+}
+
+function imageryDateToIso(d?: { year: number; month: number; day: number }) {
+  if (!d?.year || !d?.month || !d?.day) return null;
+  const mm = String(d.month).padStart(2, "0");
+  const dd = String(d.day).padStart(2, "0");
+  return `${d.year}-${mm}-${dd}`;
 }
 
 export async function POST(
@@ -82,7 +153,6 @@ export async function POST(
     );
   }
 
-  // Auth — user must own the project (RLS enforces on the user-scoped client).
   const userClient = await createSupabaseServerClient();
   const {
     data: { user },
@@ -94,7 +164,7 @@ export async function POST(
 
   const { data: projectData } = await userClient
     .from("projects")
-    .select("id, latitude, longitude")
+    .select("id, latitude, longitude, address, city, state, postal_code")
     .eq("id", projectId)
     .maybeSingle();
 
@@ -102,6 +172,10 @@ export async function POST(
     id: string;
     latitude: number | null;
     longitude: number | null;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    postal_code: string | null;
   } | null;
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
@@ -113,90 +187,171 @@ export async function POST(
     );
   }
 
-  // Short-circuit if we've already captured one.
+  // Short-circuit if both RGB and DSM are already persisted.
   const { data: existingSample } = await service
     .from("training_samples")
-    .select("id, rgb_storage_path")
+    .select("id, rgb_storage_path, dsm_storage_path, mask_storage_path")
     .eq("id", projectId)
     .maybeSingle();
 
   const existing = existingSample as {
     id: string;
     rgb_storage_path: string | null;
+    dsm_storage_path: string | null;
+    mask_storage_path: string | null;
   } | null;
 
-  if (existing?.rgb_storage_path) {
+  if (existing?.rgb_storage_path && existing.dsm_storage_path) {
     return NextResponse.json({
       status: "cached",
       rgbPath: existing.rgb_storage_path,
+      dsmPath: existing.dsm_storage_path,
+      maskPath: existing.mask_storage_path ?? undefined,
     });
   }
 
-  // Fetch from Google Static Maps.
+  const formattedAddress = [
+    project.address,
+    project.city,
+    project.state,
+    project.postal_code,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  // Primary path: Google Solar API dataLayers:get
+  const layers = await fetchSolarDataLayers(project.latitude, project.longitude);
+
+  if (layers && layers.dsmUrl && layers.rgbUrl && layers.maskUrl) {
+    const [rgbBuf, dsmBuf, maskBuf] = await Promise.all([
+      fetchGeoTiff(layers.rgbUrl),
+      fetchGeoTiff(layers.dsmUrl),
+      fetchGeoTiff(layers.maskUrl),
+    ]);
+
+    if (rgbBuf && dsmBuf && maskBuf) {
+      const rgbPath = `rgb/${projectId}.tif`;
+      const dsmPath = `dsm/${projectId}.tif`;
+      const maskPath = `mask/${projectId}.tif`;
+
+      const [rgbOk, dsmOk, maskOk] = await Promise.all([
+        uploadBuffer(service, rgbPath, rgbBuf, "image/tiff"),
+        uploadBuffer(service, dsmPath, dsmBuf, "image/tiff"),
+        uploadBuffer(service, maskPath, maskBuf, "image/tiff"),
+      ]);
+
+      if (rgbOk && dsmOk && maskOk) {
+        // Solar API returns GeoTIFFs with native dimensions — we don't
+        // know them without reading the file. Use placeholder values
+        // matching the px_size * radius envelope; the sidecar reads
+        // the real dims from the GeoTIFF header.
+        const estW = Math.round((SOLAR_RADIUS_M * 2) / SOLAR_PIXEL_SIZE_M);
+        const estH = estW;
+
+        const upsert = await service.from("training_samples").upsert({
+          id: projectId,
+          rgb_storage_path: rgbPath,
+          dsm_storage_path: dsmPath,
+          mask_storage_path: maskPath,
+          width_px: estW,
+          height_px: estH,
+          meters_per_px: SOLAR_PIXEL_SIZE_M,
+          lat: project.latitude,
+          lng: project.longitude,
+          source_address: formattedAddress || null,
+          formatted_address: formattedAddress || null,
+          imagery_date: imageryDateToIso(layers.imageryDate),
+          imagery_quality: layers.imageryQuality || "google_solar",
+        });
+        if (upsert.error) {
+          console.error(
+            "[snapshot] training_samples upsert failed:",
+            upsert.error.message,
+          );
+          return NextResponse.json(
+            { error: "training_samples upsert failed" },
+            { status: 502 },
+          );
+        }
+
+        console.log(
+          `[snapshot] solar: captured RGB+DSM+MASK for project ${projectId} ` +
+            `at ${project.latitude},${project.longitude} ` +
+            `(quality=${layers.imageryQuality}, imagery_date=${imageryDateToIso(layers.imageryDate)})`,
+        );
+        return NextResponse.json({
+          status: "created",
+          rgbPath,
+          dsmPath,
+          maskPath,
+        });
+      }
+    }
+    console.warn(
+      "[snapshot] solar URLs returned but one of RGB/DSM/mask failed to download/upload — falling back to static maps",
+    );
+  }
+
+  // Fallback: Google Static Maps (RGB PNG only, no DSM, no mask).
+  console.log(
+    `[snapshot] Solar API unavailable for ${project.latitude},${project.longitude} — using Static Maps fallback`,
+  );
   const staticUrl = googleStaticUrl(project.latitude, project.longitude);
-  const gRes = await fetch(staticUrl);
-  if (!gRes.ok) {
-    const text = await gRes.text().catch(() => "");
-    console.error(`[snapshot] Google returned ${gRes.status}: ${text}`);
+  const staticRes = await fetch(staticUrl);
+  if (!staticRes.ok) {
+    const text = await staticRes.text().catch(() => "");
+    console.error(`[snapshot] Static Maps returned ${staticRes.status}: ${text}`);
     return NextResponse.json(
-      { error: `Google Static Maps returned ${gRes.status}` },
+      { error: `All Google imagery sources failed` },
       { status: 502 },
     );
   }
-  const buf = Buffer.from(await gRes.arrayBuffer());
-
-  // Upload to Supabase Storage.
-  const rgbPath = `${SNAPSHOT_PATH_PREFIX}/${projectId}.png`;
-  const upload = await service.storage
-    .from(SNAPSHOT_BUCKET)
-    .upload(rgbPath, buf, {
-      contentType: "image/png",
-      upsert: true,
-    });
-  if (upload.error) {
-    console.error("[snapshot] Storage upload failed:", upload.error.message);
+  const staticBuf = Buffer.from(await staticRes.arrayBuffer());
+  const fallbackRgbPath = `aerial/${projectId}.png`;
+  const fallbackOk = await uploadBuffer(
+    service,
+    fallbackRgbPath,
+    staticBuf,
+    "image/png",
+  );
+  if (!fallbackOk) {
     return NextResponse.json(
       { error: "Storage upload failed" },
       { status: 502 },
     );
   }
 
-  // Upsert training_samples row. Schema requires width_px, height_px,
-  // meters_per_px, rgb_storage_path, dsm_storage_path, mask_storage_path
-  // all NOT NULL. We provide empty strings for DSM/mask paths — the
-  // sidecar's hillshade and heatmap endpoints fall through to 404 when
-  // those paths are empty, which the labeler UI detects and uses to
-  // disable the Heatmap button.
-  const widthPx = STATIC_SIZE_PX * STATIC_SCALE;
-  const heightPx = STATIC_SIZE_PX * STATIC_SCALE;
-  const metersPerPx = estimateMetersPerPx(
-    project.latitude,
-    STATIC_ZOOM,
-    STATIC_SCALE,
-  );
+  const fallbackWidth = STATIC_FALLBACK_SIZE_PX * STATIC_FALLBACK_SCALE;
+  const fallbackHeight = STATIC_FALLBACK_SIZE_PX * STATIC_FALLBACK_SCALE;
+  const fallbackMpp = estimateStaticMetersPerPx(project.latitude);
 
   const upsert = await service.from("training_samples").upsert({
     id: projectId,
-    rgb_storage_path: rgbPath,
+    rgb_storage_path: fallbackRgbPath,
     dsm_storage_path: "",
     mask_storage_path: "",
-    width_px: widthPx,
-    height_px: heightPx,
-    meters_per_px: metersPerPx,
+    width_px: fallbackWidth,
+    height_px: fallbackHeight,
+    meters_per_px: fallbackMpp,
     lat: project.latitude,
     lng: project.longitude,
-    imagery_quality: "google_static_maps",
+    source_address: formattedAddress || null,
+    formatted_address: formattedAddress || null,
+    imagery_quality: "google_static_maps_fallback",
   });
   if (upsert.error) {
-    console.error("[snapshot] training_samples upsert failed:", upsert.error.message);
+    console.error(
+      "[snapshot] training_samples upsert failed (fallback):",
+      upsert.error.message,
+    );
     return NextResponse.json(
       { error: "training_samples upsert failed" },
       { status: 502 },
     );
   }
 
-  console.log(
-    `[snapshot] captured aerial for project ${projectId} at ${project.latitude},${project.longitude} -> ${rgbPath}`,
-  );
-  return NextResponse.json({ status: "created", rgbPath });
+  return NextResponse.json({
+    status: "fallback",
+    rgbPath: fallbackRgbPath,
+  });
 }
