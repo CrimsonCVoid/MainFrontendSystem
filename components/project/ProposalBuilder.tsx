@@ -3,15 +3,10 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   Download,
-  GripVertical,
   Plus,
   Trash2,
-  Upload,
   Image as ImageIcon,
   FileText,
-  Eye,
-  ChevronDown,
-  ChevronUp,
   Palette,
   Building2,
   User,
@@ -20,11 +15,21 @@ import {
   Ruler,
   Shield,
   PenLine,
+  X,
+  Loader2,
+  ChevronUp,
+  ChevronDown,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { generateAndDownloadProposalBuilder } from "@/lib/pdf-api-client";
 
 // Section types available in the proposal
@@ -353,64 +358,236 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
     }
   };
 
+  const moveSection = (index: number, dir: -1 | 1) => {
+    const target = index + dir;
+    if (target < 0 || target >= sections.length) return;
+    const copy = [...sections];
+    const [m] = copy.splice(index, 1);
+    copy.splice(target, 0, m);
+    setSections(copy);
+  };
+
+  const activeSection = sections.find((s) => s.type === activePanel);
+  const ActiveIcon = activeSection ? SECTION_ICONS[activeSection.type] : FileText;
+
   return (
-    <div className="space-y-4">
-      {/* Top bar */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-neutral-900">Proposal Builder</h2>
-          <p className="text-sm text-neutral-500">Edit on the left, preview updates live on the right</p>
+    <div className="relative min-h-[700px]">
+      {/* Sticky toolbar */}
+      <div className="sticky top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 py-3 mb-6 bg-white/90 backdrop-blur border-b border-neutral-200">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-base md:text-lg font-semibold text-neutral-900 truncate">
+              Proposal
+            </h2>
+            <p className="hidden sm:block text-xs text-neutral-500">
+              Click any section in the preview to edit it
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Sections: toggle + reorder */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 h-9">
+                  <Layers className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline text-xs">Sections</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-0" align="end">
+                <div className="px-3 py-2 border-b border-neutral-100 text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">
+                  Sections
+                </div>
+                <div className="max-h-80 overflow-y-auto p-1">
+                  {sections.map((s, i) => {
+                    const Icon = SECTION_ICONS[s.type];
+                    return (
+                      <div
+                        key={s.id}
+                        className="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-neutral-50"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleSection(s.id)}
+                          className={`w-8 h-4 rounded-full flex-shrink-0 transition-colors ${
+                            s.enabled ? "bg-blue-500" : "bg-neutral-200"
+                          }`}
+                          aria-label={s.enabled ? "Disable" : "Enable"}
+                        >
+                          <div
+                            className={`w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${
+                              s.enabled ? "ml-[18px]" : "ml-0.5"
+                            }`}
+                          />
+                        </button>
+                        <Icon className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
+                        <span
+                          className={`flex-1 truncate text-xs ${
+                            s.enabled ? "text-neutral-800" : "text-neutral-400"
+                          }`}
+                        >
+                          {s.title}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => moveSection(i, -1)}
+                          disabled={i === 0}
+                          className="w-6 h-6 inline-flex items-center justify-center rounded hover:bg-neutral-100 text-neutral-400 disabled:opacity-30 disabled:hover:bg-transparent"
+                          aria-label="Move up"
+                        >
+                          <ChevronUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveSection(i, 1)}
+                          disabled={i === sections.length - 1}
+                          className="w-6 h-6 inline-flex items-center justify-center rounded hover:bg-neutral-100 text-neutral-400 disabled:opacity-30 disabled:hover:bg-transparent"
+                          aria-label="Move down"
+                        >
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Brand color */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 h-9">
+                  <div
+                    className="w-3.5 h-3.5 rounded-full border border-white shadow-inner"
+                    style={{ backgroundColor: accentColor }}
+                  />
+                  <Palette className="w-3.5 h-3.5 hidden sm:block" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-3" align="end">
+                <div className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-2">
+                  Brand Color
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={accentColor}
+                    onChange={(e) => setAccentColor(e.target.value)}
+                    className="w-9 h-9 rounded border border-neutral-200 cursor-pointer"
+                  />
+                  <Input
+                    value={accentColor}
+                    onChange={(e) => setAccentColor(e.target.value)}
+                    className="flex-1 text-xs font-mono h-9"
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {[
+                    "#f97316",
+                    "#dc2626",
+                    "#2563eb",
+                    "#059669",
+                    "#7c3aed",
+                    "#0891b2",
+                    "#475569",
+                    "#111827",
+                  ].map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setAccentColor(c)}
+                      className="w-6 h-6 rounded-full border-2 border-white shadow hover:scale-110 transition"
+                      style={{ backgroundColor: c }}
+                      aria-label={`Set brand color ${c}`}
+                    />
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Download PDF */}
+            <Button
+              onClick={generatePDF}
+              disabled={generating}
+              size="sm"
+              className="gap-1.5 h-9 text-white"
+              style={{ backgroundColor: accentColor }}
+            >
+              {generating ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              <span className="hidden sm:inline text-xs font-medium">
+                {generating ? "Generating…" : "Download PDF"}
+              </span>
+            </Button>
+          </div>
         </div>
-        <Button onClick={generatePDF} disabled={generating} className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 gap-2 shadow-md">
-          {generating ? <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Download className="w-4 h-4" />}
-          {generating ? "Generating..." : "Download PDF"}
-        </Button>
       </div>
 
-      <div className="grid lg:grid-cols-[240px_1fr_340px] gap-4" style={{ minHeight: "700px" }}>
-        {/* Col 1: Section list */}
-        <div className="space-y-3">
-          <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-            <div className="px-3 py-2 border-b border-neutral-100 bg-neutral-50">
-              <p className="text-[10px] font-semibold text-neutral-500 uppercase">Sections — drag to reorder</p>
-            </div>
-            <div className="p-1.5 space-y-0.5">
-              {sections.map((section, index) => {
-                const Icon = SECTION_ICONS[section.type];
-                return (
-                  <div key={section.id} draggable onDragStart={() => onDragStart(index)} onDragEnter={() => onDragEnter(index)} onDragEnd={onDragEnd} onDragOver={(e) => e.preventDefault()}
-                    onClick={() => section.enabled && setActivePanel(section.type)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg cursor-pointer select-none text-[11px] ${
-                      activePanel === section.type && section.enabled ? "bg-orange-50 border border-orange-200 font-semibold" : "hover:bg-neutral-50 border border-transparent"
-                    } ${!section.enabled ? "opacity-30" : ""}`}>
-                    <GripVertical className="w-2.5 h-2.5 text-neutral-300 cursor-grab" />
-                    <Icon className="w-3 h-3 text-neutral-400" />
-                    <span className="flex-1 truncate text-neutral-700">{section.title}</span>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); toggleSection(section.id); }}
-                      className={`w-7 h-3.5 rounded-full flex-shrink-0 ${section.enabled ? "bg-orange-500" : "bg-neutral-200"}`}>
-                      <div className={`w-2.5 h-2.5 rounded-full bg-white shadow-sm ${section.enabled ? "ml-[16px]" : "ml-0.5"}`} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div className="rounded-xl border border-neutral-200 bg-white p-3">
-            <p className="text-[10px] font-semibold text-neutral-500 uppercase mb-2">Brand Color</p>
-            <div className="flex items-center gap-2">
-              <input type="color" value={accentColor} onChange={(e) => setAccentColor(e.target.value)} className="w-8 h-8 rounded border border-neutral-200 cursor-pointer" />
-              <Input value={accentColor} onChange={(e) => setAccentColor(e.target.value)} className="flex-1 text-[10px] font-mono h-7" />
-            </div>
-          </div>
+      {/* Paper preview */}
+      <div className="flex justify-center pb-16 px-4">
+        <div
+          className="bg-white shadow-2xl rounded-sm w-full max-w-[600px] relative"
+          style={{
+            borderTop: `4px solid ${accentColor}`,
+            padding: "40px 44px",
+            minHeight: "750px",
+          }}
+        >
+          {sections.filter((s) => s.enabled).map((s) => {
+            const Icon = SECTION_ICONS[s.type];
+            const isActive = activePanel === s.type;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setActivePanel(s.type)}
+                className={`group relative block w-full text-left rounded transition-all -mx-1.5 px-1.5 py-0.5 ${
+                  isActive
+                    ? "ring-1 ring-blue-400 bg-blue-50/40"
+                    : "hover:ring-1 hover:ring-blue-200 hover:bg-blue-50/20"
+                }`}
+              >
+                <PreviewSection type={s.type} />
+                <span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-0.5 text-[9px] font-medium text-blue-600 bg-white rounded-full px-1.5 py-0.5 shadow-sm border border-blue-100">
+                  <Icon className="w-2.5 h-2.5" /> Edit
+                </span>
+              </button>
+            );
+          })}
+          <div
+            className="mt-6 h-1 rounded-full"
+            style={{ backgroundColor: accentColor }}
+          />
         </div>
+      </div>
 
-        {/* Col 2: Editor */}
-        <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-neutral-100 bg-gradient-to-r from-neutral-50 to-white flex items-center gap-2">
-            {(() => { const Icon = SECTION_ICONS[activePanel as SectionType] || FileText; return <Icon className="w-4 h-4 text-orange-500" />; })()}
-            <h3 className="text-sm font-semibold text-neutral-900">{sections.find((s) => s.type === activePanel)?.title || "Select a section"}</h3>
-          </div>
-          <div className="p-4 flex-1 overflow-y-auto space-y-4">
+      {/* Slide-in editor drawer */}
+      {activePanel && (
+        <>
+          <button
+            type="button"
+            aria-label="Close editor"
+            onClick={() => setActivePanel(null)}
+            className="fixed inset-0 z-30 bg-black/10 animate-in fade-in"
+          />
+          <div className="fixed inset-y-0 right-0 z-40 w-full sm:w-[420px] bg-white shadow-2xl border-l border-neutral-200 flex flex-col animate-in slide-in-from-right duration-200">
+            <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between bg-neutral-50/60">
+              <div className="flex items-center gap-2 min-w-0">
+                <ActiveIcon className="w-4 h-4 text-neutral-500 flex-shrink-0" />
+                <h3 className="text-sm font-semibold text-neutral-900 truncate">
+                  {activeSection?.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setActivePanel(null)}
+                className="w-8 h-8 inline-flex items-center justify-center rounded-md hover:bg-neutral-100 text-neutral-500"
+                aria-label="Close editor"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {activePanel === "company" && (
               <>
                 <div className="grid grid-cols-2 gap-3">
@@ -504,38 +681,15 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
             {activePanel === "notes" && (<div><Label className="text-[10px]">Notes</Label><Textarea value={notesText} onChange={(e) => setNotesText(e.target.value)} rows={3} className="mt-1 text-sm" placeholder="Special instructions..." /></div>)}
             {(activePanel === "terms" || activePanel === "signature") && (
               <p className="text-xs text-neutral-500 bg-neutral-50 rounded-lg p-3">
-                {activePanel === "terms" ? "Standard terms auto-generated from your deposit and validity settings." : "Signature block with customer and contractor lines."}
+                {activePanel === "terms"
+                  ? "Standard terms auto-generated from your deposit and validity settings."
+                  : "Signature block with customer and contractor lines."}
               </p>
             )}
-          </div>
-        </div>
-
-        {/* Col 3: Live Preview */}
-        <div className="rounded-xl border border-neutral-200 bg-neutral-100 overflow-hidden flex flex-col">
-          <div className="px-3 py-2 border-b border-neutral-200 bg-white flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Eye className="w-3.5 h-3.5 text-neutral-400" />
-              <span className="text-[10px] font-semibold text-neutral-500 uppercase">Live Preview</span>
-            </div>
-            <div className="flex gap-0.5">
-              <div className="w-2 h-2 rounded-full bg-red-400" />
-              <div className="w-2 h-2 rounded-full bg-yellow-400" />
-              <div className="w-2 h-2 rounded-full bg-green-400" />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 flex justify-center">
-            <div className="bg-white rounded shadow-lg w-full max-w-[300px] p-6 text-neutral-900" style={{ fontSize: "10px", minHeight: "420px", borderTop: `3px solid ${accentColor}` }}>
-              {sections.filter((s) => s.enabled).map((s) => (
-                <div key={s.id} className={activePanel === s.type ? "ring-1 ring-orange-300 rounded -mx-1 px-1 py-0.5 bg-orange-50/30" : ""}>
-                  <PreviewSection type={s.type} />
-                </div>
-              ))}
-              {/* Bottom accent */}
-              <div className="mt-6 h-1 rounded-full" style={{ backgroundColor: accentColor }} />
-            </div>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
