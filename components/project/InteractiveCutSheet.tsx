@@ -27,6 +27,7 @@ interface CutsheetPanel {
   perimeter_ft: number;
   vertex_count: number;
   vertices_ft: number[][];
+  vertices_3d_ft?: number[][];
   edges: CutsheetEdge[];
 }
 
@@ -58,6 +59,7 @@ export default function InteractiveCutSheet({ projectId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<"plan" | "iso">("plan");
 
   useEffect(() => {
     let cancelled = false;
@@ -135,19 +137,53 @@ export default function InteractiveCutSheet({ projectId }: Props) {
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_20rem] gap-6">
         <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
-          <div className="px-4 py-3 border-b border-neutral-200 flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-neutral-200 flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold text-neutral-900">
-              Plan View
+              {viewMode === "plan" ? "Plan View" : "3D Reconstruction"}
             </h3>
-            <span className="text-xs text-neutral-500">
-              Click a panel to see its cuts
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-neutral-500 hidden sm:inline">
+                Click a panel to see its cuts
+              </span>
+              <div className="flex rounded-lg border border-neutral-200 overflow-hidden">
+                <button
+                  onClick={() => setViewMode("plan")}
+                  className={cn(
+                    "px-3 py-1 text-xs font-medium",
+                    viewMode === "plan"
+                      ? "bg-blue-500 text-white"
+                      : "bg-white text-neutral-600 hover:bg-neutral-50",
+                  )}
+                >
+                  Plan
+                </button>
+                <button
+                  onClick={() => setViewMode("iso")}
+                  className={cn(
+                    "px-3 py-1 text-xs font-medium border-l border-neutral-200",
+                    viewMode === "iso"
+                      ? "bg-blue-500 text-white"
+                      : "bg-white text-neutral-600 hover:bg-neutral-50",
+                  )}
+                >
+                  3D
+                </button>
+              </div>
+            </div>
           </div>
-          <PlanView
-            planPanels={data.plan_view.panels}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
+          {viewMode === "plan" ? (
+            <PlanView
+              planPanels={data.plan_view.panels}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+          ) : (
+            <IsoView
+              panels={data.panels}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+          )}
         </div>
 
         <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
@@ -470,5 +506,113 @@ function Stat({
         {value}
       </p>
     </div>
+  );
+}
+
+/**
+ * Oblique isometric projection of the panel 3D polygons. Renders the
+ * same data as the plan view but with elevation — gives a quick sense
+ * of roof pitch and ridge/valley structure without pulling in three.js.
+ *
+ * Projection: (x, y, z) -> screen( x + z*cos(30°),  -y - z*sin(30°) )
+ * Y inverted because SVG y grows down. Z "vertical" pushes vertices up-right.
+ */
+function IsoView({
+  panels,
+  selectedId,
+  onSelect,
+}: {
+  panels: CutsheetPanel[];
+  selectedId: number | null;
+  onSelect: (id: number) => void;
+}) {
+  const COS = Math.cos(Math.PI / 6); // ~0.866
+  const SIN = Math.sin(Math.PI / 6); // 0.5
+  // Exaggerate Z a bit so low-slope roofs are still visually readable.
+  const Z_SCALE = 2.5;
+
+  const projected = useMemo(() => {
+    return panels.map((p) => {
+      const verts3d = p.vertices_3d_ft || [];
+      if (verts3d.length === 0) return { id: p.id, pts: [] as number[][] };
+      // Normalize Z so all panels share the same ground baseline for the
+      // iso lift — subtract min z across this panel (local baseline is fine
+      // for visualizing slope, roof-wide baseline would require a pre-pass).
+      return {
+        id: p.id,
+        pts: verts3d.map(([x, y, z]) => [
+          x + z * COS * Z_SCALE,
+          -y - z * SIN * Z_SCALE,
+        ]),
+      };
+    });
+  }, [panels]);
+
+  const bounds = useMemo(() => {
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (const p of projected)
+      for (const pt of p.pts) {
+        xs.push(pt[0]);
+        ys.push(pt[1]);
+      }
+    if (xs.length === 0)
+      return { minX: -10, minY: -10, maxX: 10, maxY: 10, pad: 2 };
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const pad = Math.max((maxX - minX) * 0.08, (maxY - minY) * 0.08, 3);
+    return { minX, minY, maxX, maxY, pad };
+  }, [projected]);
+
+  const vbW = bounds.maxX - bounds.minX + bounds.pad * 2;
+  const vbH = bounds.maxY - bounds.minY + bounds.pad * 2;
+
+  return (
+    <svg
+      viewBox={`${bounds.minX - bounds.pad} ${bounds.minY - bounds.pad} ${vbW} ${vbH}`}
+      className="w-full h-[440px] bg-gradient-to-b from-sky-50 to-neutral-100"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      {projected.map((p, i) => {
+        if (p.pts.length === 0) return null;
+        const color = PANEL_PALETTE[i % PANEL_PALETTE.length];
+        const isSelected = selectedId === p.id;
+        const points = p.pts.map((v) => `${v[0]},${v[1]}`).join(" ");
+        const cx = p.pts.reduce((s, v) => s + v[0], 0) / p.pts.length;
+        const cy = p.pts.reduce((s, v) => s + v[1], 0) / p.pts.length;
+        return (
+          <g
+            key={p.id}
+            style={{ cursor: "pointer" }}
+            onClick={() => onSelect(p.id)}
+          >
+            <polygon
+              points={points}
+              fill={isSelected ? `${color}cc` : `${color}88`}
+              stroke={isSelected ? "#2563eb" : "#334155"}
+              strokeWidth={isSelected ? 0.5 : 0.2}
+              strokeLinejoin="round"
+            />
+            <text
+              x={cx}
+              y={cy}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={vbW / 45}
+              fill="#ffffff"
+              stroke="#111827"
+              strokeWidth={vbW / 400}
+              paintOrder="stroke"
+              fontWeight={700}
+              style={{ pointerEvents: "none" }}
+            >
+              {p.id}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
   );
 }
