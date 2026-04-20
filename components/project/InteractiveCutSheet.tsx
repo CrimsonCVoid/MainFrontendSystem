@@ -557,11 +557,19 @@ function OrbitView({
     const ct = Math.cos(tilt);
     const st = Math.sin(tilt);
     return (x: number, y: number, z: number) => {
+      // Yaw around world +Z (compass spin).
       const x1 = cy * x - sy * y;
       const y1 = sy * x + cy * y;
-      const y2 = ct * y1 - st * z;
-      const depth = st * y1 + ct * z; // +depth = further from camera
-      return { sx: x1, sy: -y2, depth };
+      // Tilt around camera X. Camera up vector in world = (0, sin t, cos t),
+      // so screen-up (negative SVG y) = sin(t)*y1 + cos(t)*z. At t=π/2
+      // (top-down) ridge height drops out and world north (y1) climbs;
+      // at t=0 (side view) z climbs. Earlier version had the sin/cos
+      // swapped, which rendered the roof upside-down.
+      const screenY = -(st * y1 + ct * z);
+      // Depth toward camera. At t=0: camera looks along +y, so depth=+y1.
+      // At t=π/2: camera looks along -z, so depth=-z.
+      const depth = ct * y1 - st * z;
+      return { sx: x1, sy: screenY, depth };
     };
   }, [yaw, tilt]);
 
