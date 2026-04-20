@@ -116,17 +116,20 @@ export function HillshadeCanvas({
     : "";
   const [fallbackImage, fallbackStatus] = useImage(fallbackUrl, "anonymous");
 
-  const image = sidecarImage ?? (sidecarStatus === "failed" ? fallbackImage : null);
-  const imageStatus =
+  // Prefer the sidecar image only after it actually loaded. Any other state
+  // (loading, failed) falls back to the already-loaded Google aerial so the
+  // canvas never flashes blank — e.g. during a cache-bust reload after the
+  // snapshot route writes the training_samples row.
+  const image =
     sidecarStatus === "loaded"
+      ? (sidecarImage ?? fallbackImage ?? null)
+      : (fallbackImage ?? null);
+  const imageStatus =
+    sidecarStatus === "loaded" || fallbackStatus === "loaded"
       ? "loaded"
-      : sidecarStatus === "loading"
+      : sidecarStatus === "loading" || fallbackStatus === "loading"
         ? "loading"
-        : fallbackStatus === "loaded"
-          ? "loaded"
-          : fallbackStatus === "loading"
-            ? "loading"
-            : "failed";
+        : "failed";
 
   const heatmapUrl = `${API_BASE}/api/hillshade/${sampleId}/heatmap${cacheBust ? `?v=${cacheBust}` : ""}`;
   const [heatmapImage, heatmapStatus] = useImage(heatmapUrl, "anonymous");
