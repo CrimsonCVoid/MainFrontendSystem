@@ -7,7 +7,7 @@ import { FileText, Loader2, Maximize2, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { useLabelerStore } from "@/stores/labeler-store";
-import { getLabels, saveLabels, snapPreview, ApiError } from "@/lib/labeler-api";
+import { getLabels, saveLabels, ApiError } from "@/lib/labeler-api";
 import { initErrorCapture } from "@/lib/labeler-errors";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { LabelingHeader } from "@/components/labeling/LabelingHeader";
@@ -57,7 +57,6 @@ export function LabelingWorkspace({
   const { toast } = useToast();
   const loadPanels = useLabelerStore((s) => s.loadPanels);
   const isSaving = useLabelerStore((s) => s.isSaving);
-  const isLoadingPreview = useLabelerStore((s) => s.isLoadingPreview);
 
   useKeyboardShortcuts();
 
@@ -133,50 +132,6 @@ export function LabelingWorkspace({
       });
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleSnapPreview = async () => {
-    const {
-      panels,
-      snapPreview: currentPreview,
-      setSnapPreview,
-      setIsLoadingPreview,
-    } = useLabelerStore.getState();
-
-    if (currentPreview) {
-      setSnapPreview(null);
-      return;
-    }
-
-    if (panels.length < 2) {
-      toast({
-        variant: "destructive",
-        title: "Snap preview failed",
-        description: "Label at least 2 panels, then try again.",
-      });
-      return;
-    }
-
-    setIsLoadingPreview(true);
-    try {
-      const result = await snapPreview({ panels });
-      setSnapPreview({
-        features: result.feature_graph.features,
-        snappedPolygons: result.snapped_polygons,
-      });
-      toast({
-        title: "Snap preview ready",
-        description: `${result.feature_graph.features.length} features detected.`,
-      });
-    } catch {
-      toast({
-        variant: "destructive",
-        title: "Snap preview failed",
-        description: "Label at least 2 panels, then try again.",
-      });
-    } finally {
-      setIsLoadingPreview(false);
     }
   };
 
@@ -256,8 +211,6 @@ export function LabelingWorkspace({
         />
       )}
       <LabelingToolbar
-        onSnapPreview={handleSnapPreview}
-        isLoadingPreview={isLoadingPreview}
         showHeatmap={showHeatmap && heatmapAvailable}
         onToggleHeatmap={() => setShowHeatmap((v) => !v)}
         heatmapOpacity={heatmapOpacity}

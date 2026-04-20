@@ -7,7 +7,6 @@ import {
   Undo2,
   Redo2,
   Trash2,
-  Zap,
   Flame,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,8 +22,6 @@ import { useLabelerStore } from "@/stores/labeler-store";
 import { cn } from "@/lib/utils";
 
 interface LabelingToolbarProps {
-  onSnapPreview?: () => void;
-  isLoadingPreview?: boolean;
   showHeatmap?: boolean;
   onToggleHeatmap?: () => void;
   heatmapOpacity?: number;
@@ -39,8 +36,6 @@ const modeActiveEdit =
 const modeIdle = "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50";
 
 export function LabelingToolbar({
-  onSnapPreview,
-  isLoadingPreview,
   showHeatmap = false,
   onToggleHeatmap,
   heatmapOpacity = 0.5,
@@ -164,29 +159,6 @@ export function LabelingToolbar({
             </Button>
           </TooltipTrigger>
           <TooltipContent>Delete selected panel</TooltipContent>
-        </Tooltip>
-
-        <Separator orientation="vertical" className="mx-2 h-6 bg-neutral-200" />
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onSnapPreview}
-              disabled={isLoadingPreview || panels.length < 2}
-              className={cn(
-                "h-8",
-                modeIdle,
-                "disabled:text-neutral-300 disabled:hover:bg-transparent",
-              )}
-              aria-label="Snap Preview"
-            >
-              <Zap className="h-4 w-4 mr-1.5" />
-              Snap Preview
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Detect shared hip/ridge apices across panels</TooltipContent>
         </Tooltip>
 
         <Separator orientation="vertical" className="mx-2 h-6 bg-neutral-200" />
