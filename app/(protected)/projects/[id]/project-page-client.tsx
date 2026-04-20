@@ -9,7 +9,6 @@ import {
   Loader2,
   MapPin,
   FileText,
-  Box,
   DollarSign,
   Check,
   Download,
@@ -29,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import ProjectViewer from "@/components/project/ProjectViewer";
+import { LabelingWorkspace } from "@/components/labeling/LabelingWorkspace";
 import { type AddressData } from "@/components/project/AddressInput";
 import EstimationTab from "@/components/project/EstimationTab";
 import CutSheetTab from "@/components/project/CutSheetTab";
@@ -77,7 +76,7 @@ export default function ProjectPageClient({
   const [project, setProject] = useState<ProjectRow>(initialProject);
   const [user, setUser] = useState<UserRow | null>(null);
   const [creator, setCreator] = useState<CreatorInfo | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "3d-model" | "estimation" | "cut-sheet" | "proposal" | "photos" | "financials">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "labeler" | "estimation" | "cut-sheet" | "proposal" | "photos" | "financials">("overview");
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
@@ -516,7 +515,7 @@ export default function ProjectPageClient({
 
   const tabs = [
     { id: "overview", label: "Overview", icon: FileText },
-    { id: "3d-model", label: "3D Model", icon: Box },
+    { id: "labeler", label: "Labeler", icon: Pencil },
     { id: "estimation", label: "Estimation", icon: DollarSign },
     { id: "cut-sheet", label: "Cut Sheet", icon: Layers },
     { id: "photos", label: "Photos", icon: Calendar },
@@ -624,7 +623,7 @@ export default function ProjectPageClient({
       </div>
 
       {/* Main Content */}
-      <main className={activeTab === "3d-model" ? "" : "max-w-7xl mx-auto px-4 sm:px-6 py-6"}>
+      <main className={activeTab === "labeler" ? "" : "max-w-7xl mx-auto px-4 sm:px-6 py-6"}>
         <AnimatePresence mode="wait">
           {/* OVERVIEW TAB */}
           {activeTab === "overview" && (
@@ -951,12 +950,12 @@ export default function ProjectPageClient({
                       <Button
                         variant="outline"
                         className="w-full justify-start h-12 border-blue-200 hover:border-blue-300 hover:bg-blue-50/50 group"
-                        onClick={() => setActiveTab("3d-model")}
+                        onClick={() => setActiveTab("labeler")}
                       >
                         <div className="w-8 h-8 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center mr-3 transition-colors">
-                          <Box className="w-4 h-4 text-blue-600" />
+                          <Pencil className="w-4 h-4 text-blue-600" />
                         </div>
-                        <span className="font-medium">View 3D Model</span>
+                        <span className="font-medium">Open Labeler</span>
                       </Button>
                       <Button
                         variant="outline"
@@ -1034,50 +1033,20 @@ export default function ProjectPageClient({
             </motion.div>
           )}
 
-          {/* 3D MODEL TAB */}
-          {activeTab === "3d-model" && (
+          {/* LABELER TAB */}
+          {activeTab === "labeler" && (
             <motion.div
-              key="3d-model"
+              key="labeler"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 top-[120px] z-10"
             >
-              {roofGenerating ? (
-                <div className="flex flex-col items-center justify-center h-full gap-4 bg-neutral-50">
-                  <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
-                  <div className="text-center">
-                    <p className="text-lg font-semibold text-neutral-900">Generating 3D Roof Model</p>
-                    <p className="text-sm text-neutral-500 mt-1">Analyzing satellite imagery for {project.address}...</p>
-                  </div>
-                </div>
-              ) : roofError ? (
-                <div className="flex flex-col items-center justify-center h-full gap-4 bg-neutral-50">
-                  <div className="text-center">
-                    <p className="text-lg font-semibold text-red-600">Roof Generation Failed</p>
-                    <p className="text-sm text-neutral-500 mt-1">{roofError}</p>
-                    <Button
-                      className="mt-4"
-                      variant="outline"
-                      onClick={() => {
-                        setRoofError(null);
-                        setProject((prev) => ({ ...prev, roof_data: null }));
-                      }}
-                    >
-                      Retry
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <ProjectViewer
-                  projectId={project.id}
-                  projectName={project.name}
-                  roofData={project.roof_data}
-                  onCanvasReady={(canvas) => {
-                    canvasRef.current = canvas;
-                  }}
-                />
-              )}
+              <LabelingWorkspace
+                projectId={project.id}
+                projectName={project.name}
+                chrome="embedded"
+              />
             </motion.div>
           )}
 

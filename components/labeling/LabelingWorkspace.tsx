@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
+import { FileText, Loader2, Maximize2, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 import { useLabelerStore } from "@/stores/labeler-store";
 import { getLabels, saveLabels, snapPreview, ApiError } from "@/lib/labeler-api";
 import { initErrorCapture } from "@/lib/labeler-errors";
@@ -30,9 +33,22 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 interface LabelingWorkspaceProps {
   projectId: string;
   projectName?: string | null;
+  /**
+   * Chrome mode:
+   * - "page" (default): fullscreen h-screen wrapper + LabelingHeader.
+   *   Used by /projects/[id]/label dedicated route.
+   * - "embedded": fills its parent container, no header. Used inside
+   *   the project page's labeler tab where the outer chrome is already
+   *   provided by the project shell.
+   */
+  chrome?: "page" | "embedded";
 }
 
-export function LabelingWorkspace({ projectId, projectName }: LabelingWorkspaceProps) {
+export function LabelingWorkspace({
+  projectId,
+  projectName,
+  chrome = "page",
+}: LabelingWorkspaceProps) {
   const { toast } = useToast();
   const loadPanels = useLabelerStore((s) => s.loadPanels);
   const isSaving = useLabelerStore((s) => s.isSaving);
@@ -177,16 +193,35 @@ export function LabelingWorkspace({ projectId, projectName }: LabelingWorkspaceP
     }
   };
 
+  const isEmbedded = chrome === "embedded";
+
   return (
-    <div className="flex flex-col h-screen bg-zinc-950">
-      <LabelingHeader
-        projectId={projectId}
-        projectName={projectName}
-        onSave={handleSave}
-        isSaving={isSaving}
-        onGeneratePdf={handleGeneratePdf}
-        isGeneratingPdf={isGeneratingPdf}
-      />
+    <div
+      className={
+        isEmbedded
+          ? "flex flex-col h-full w-full bg-zinc-950"
+          : "flex flex-col h-screen bg-zinc-950"
+      }
+    >
+      {!isEmbedded && (
+        <LabelingHeader
+          projectId={projectId}
+          projectName={projectName}
+          onSave={handleSave}
+          isSaving={isSaving}
+          onGeneratePdf={handleGeneratePdf}
+          isGeneratingPdf={isGeneratingPdf}
+        />
+      )}
+      {isEmbedded && (
+        <EmbeddedLabelingActions
+          projectId={projectId}
+          onSave={handleSave}
+          isSaving={isSaving}
+          onGeneratePdf={handleGeneratePdf}
+          isGeneratingPdf={isGeneratingPdf}
+        />
+      )}
       <LabelingToolbar
         onSnapPreview={handleSnapPreview}
         isLoadingPreview={isLoadingPreview}
@@ -202,6 +237,61 @@ export function LabelingWorkspace({ projectId, projectName }: LabelingWorkspaceP
           heatmapOpacity={heatmapOpacity}
         />
       </div>
+    </div>
+  );
+}
+
+interface EmbeddedActionsProps {
+  projectId: string;
+  onSave: () => void;
+  isSaving: boolean;
+  onGeneratePdf: () => void;
+  isGeneratingPdf: boolean;
+}
+
+function EmbeddedLabelingActions({
+  projectId,
+  onSave,
+  isSaving,
+  onGeneratePdf,
+  isGeneratingPdf,
+}: EmbeddedActionsProps) {
+  return (
+    <div className="h-10 bg-zinc-900 flex items-center px-4 gap-2 shrink-0 border-b border-zinc-800">
+      <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
+        Labeler
+      </span>
+      <div className="flex-1" />
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={onGeneratePdf}
+        disabled={isGeneratingPdf}
+        className="h-7 text-zinc-300 hover:text-white"
+      >
+        {isGeneratingPdf ? (
+          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+        ) : (
+          <FileText className="h-3.5 w-3.5 mr-1.5" />
+        )}
+        {isGeneratingPdf ? "Generating…" : "PDF"}
+      </Button>
+      <Button
+        size="sm"
+        onClick={onSave}
+        disabled={isSaving}
+        className="h-7 bg-blue-500 hover:bg-blue-600 text-white"
+      >
+        <Save className="h-3.5 w-3.5 mr-1.5" />
+        {isSaving ? "Saving…" : "Save"}
+      </Button>
+      <Link
+        href={`/projects/${projectId}/label`}
+        aria-label="Open labeler fullscreen"
+        className="inline-flex items-center justify-center h-7 w-7 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+      >
+        <Maximize2 className="h-3.5 w-3.5" />
+      </Link>
     </div>
   );
 }
