@@ -1,37 +1,40 @@
 /**
  * GET /api/projects/[id]/cutsheet-data
  *
- * Auth-gates and proxies to the sidecar's cutsheet JSON endpoint
- * (mirrors /generate-pdf but returns structured panel data instead of
- * a rendered PDF). Response shape in the sidecar code comment.
+ * Auth-gated proxy to the sidecar's cutsheet JSON endpoint, with a
+ * Supabase-backed cache on `projects.cutsheet_cache`.
+ *
+ * Cache flow:
+ *   1. Read `cutsheet_cache` + `cutsheet_cache_updated_at` + the paired
+ *      `training_labels.updated_at` for this project.
+ *   2. If cache exists AND its timestamp is newer than the labels row,
+ *      return it immediately. (X-Cache: HIT)
+ *   3. Otherwise, fetch the sidecar, persist the result, return. (MISS)
+ *
+ * Pass `?refresh=1` to skip the cache read and force a recompute.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
-/**
- * Resolve the sidecar base URL. Falls back through:
- *   1. ALGORITHM_API_URL (production/internal route)
- *   2. NEXT_PUBLIC_API_URL (same URL the browser uses for hillshade/labels)
- *   3. http://127.0.0.1:8000 (local dev default; avoids Node's IPv6-first
- *      DNS resolution of "localhost" which fails fast on IPv4-only servers)
- */
 function resolveSidecarUrl(): string {
   const raw =
     process.env.ALGORITHM_API_URL ||
     process.env.NEXT_PUBLIC_API_URL ||
     "http://127.0.0.1:8000";
-  // Normalize: strip trailing slash and rewrite "localhost" to 127.0.0.1 to
-  // dodge the IPv6 fetch-failure on macOS + Node 18+.
-  return raw.replace(/\/$/, "").replace(/^http:\/\/localhost(:\d+)?/, "http://127.0.0.1$1");
+  return raw
+    .replace(/\/$/, "")
+    .replace(/^http:\/\/localhost(:\d+)?/, "http://127.0.0.1$1");
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: { id: string } | Promise<{ id: string }> },
 ) {
   const sidecarUrl = resolveSidecarUrl();
   const { id: projectId } = await context.params;
+  const url = new URL(req.url);
+  const forceRefresh = url.searchParams.get("refresh") === "1";
 
   const supabase = await createSupabaseServerClient();
   const {
@@ -44,11 +47,34 @@ export async function GET(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id")
+    .select("id, cutsheet_cache, cutsheet_cache_updated_at")
     .eq("id", projectId)
     .maybeSingle();
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  if (!forceRefresh && project.cutsheet_cache && project.cutsheet_cache_updated_at) {
+    // Compare against training_labels.updated_at. If labels were saved
+    // after the cache was written, cache is stale. Serve cache only when
+    // we can prove it's at least as new as the labels row.
+    const { data: labels, error: labelsErr } = await supabase
+      .from("training_labels")
+      .select("updated_at")
+      .eq("sample_id", projectId)
+      .maybeSingle();
+
+    if (!labelsErr && labels?.updated_at) {
+      const labelsTime = new Date(labels.updated_at).getTime();
+      const cacheTime = new Date(project.cutsheet_cache_updated_at).getTime();
+      if (cacheTime >= labelsTime) {
+        return NextResponse.json(project.cutsheet_cache, {
+          headers: { "X-Cache": "HIT" },
+        });
+      }
+    }
+    // else: no labels row, no updated_at column, or labels newer than
+    // cache -- fall through to recompute via sidecar.
   }
 
   const target = `${sidecarUrl}/api/pipeline/cutsheet-data/${projectId}`;
@@ -61,7 +87,26 @@ export async function GET(
       return NextResponse.json(err, { status: res.status });
     }
     const data = await res.json();
-    return NextResponse.json(data);
+
+    // Write-through: stash the payload so the next GET skips the sidecar.
+    // Done inline (not fire-and-forget) so a failed write surfaces in logs;
+    // the happy path is fast so the extra round-trip is acceptable.
+    const { error: cacheErr } = await supabase
+      .from("projects")
+      .update({
+        cutsheet_cache: data,
+        cutsheet_cache_updated_at: new Date().toISOString(),
+      })
+      .eq("id", projectId);
+    if (cacheErr) {
+      console.warn(
+        `[cutsheet-data] cache write failed for ${projectId}: ${cacheErr.message}`,
+      );
+    }
+
+    return NextResponse.json(data, {
+      headers: { "X-Cache": "MISS" },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error(
