@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { CoilRequirementsCalc } from "@/components/project/CoilRequirementsCalc";
 
 interface CutsheetEdge {
   length_ft_in: string;
@@ -205,6 +206,16 @@ export default function InteractiveCutSheet({ projectId }: Props) {
       </div>
 
       {selected && <PanelDetail panel={selected} />}
+
+      <CoilRequirementsCalc
+        totals={{
+          totalPerimeterFt: data.panels.reduce(
+            (s, p) => s + (p.perimeter_ft || 0),
+            0,
+          ),
+          panelCount: data.totals.panel_count,
+        }}
+      />
     </div>
   );
 }
