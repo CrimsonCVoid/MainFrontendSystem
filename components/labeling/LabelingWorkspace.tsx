@@ -34,6 +34,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 interface LabelingWorkspaceProps {
   projectId: string;
   projectName?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   /**
    * Chrome mode:
    * - "page" (default): fullscreen h-screen wrapper + LabelingHeader.
@@ -48,6 +50,8 @@ interface LabelingWorkspaceProps {
 export function LabelingWorkspace({
   projectId,
   projectName,
+  latitude,
+  longitude,
   chrome = "page",
 }: LabelingWorkspaceProps) {
   const { toast } = useToast();
@@ -83,6 +87,32 @@ export function LabelingWorkspace({
     const cleanup = initErrorCapture(projectId);
     return cleanup;
   }, [projectId]);
+
+  // Fire-and-forget: ensure a training_samples row exists for this
+  // project by having the server capture an aerial snapshot from Google
+  // Static Maps and upload it to Supabase Storage. If the row already
+  // exists this short-circuits server-side. Canvas image loads from the
+  // sidecar once this resolves.
+  const [snapshotVersion, setSnapshotVersion] = useState(0);
+  useEffect(() => {
+    if (latitude == null || longitude == null) return;
+    let cancelled = false;
+    fetch(`/api/projects/${projectId}/snapshot`, { method: "POST" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        // Bust the canvas image cache so it re-fetches from the sidecar
+        // with the freshly persisted row.
+        setSnapshotVersion((v) => v + 1);
+      })
+      .catch(() => {
+        // Silent — HillshadeCanvas falls back to the "no aerial view"
+        // state which is still drawable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, latitude, longitude]);
 
   const handleSave = async () => {
     const { panels, setIsSaving } = useLabelerStore.getState();
@@ -236,6 +266,9 @@ export function LabelingWorkspace({
           sampleId={projectId}
           showHeatmap={showHeatmap}
           heatmapOpacity={heatmapOpacity}
+          latitude={latitude}
+          longitude={longitude}
+          cacheBust={snapshotVersion}
         />
       </div>
     </div>

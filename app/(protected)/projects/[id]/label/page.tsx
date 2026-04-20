@@ -13,6 +13,8 @@ import { LabelingWorkspace } from "@/components/labeling/LabelingWorkspace";
 interface ProjectRow {
   id: string;
   name: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export default async function LabelingPage({
@@ -32,7 +34,7 @@ export default async function LabelingPage({
 
   const { data } = await supabase
     .from("projects")
-    .select("id, name")
+    .select("id, name, latitude, longitude")
     .eq("id", projectId)
     .maybeSingle();
 
@@ -43,6 +45,11 @@ export default async function LabelingPage({
   }
 
   return (
-    <LabelingWorkspace projectId={project.id} projectName={project.name} />
+    <LabelingWorkspace
+      projectId={project.id}
+      projectName={project.name}
+      latitude={project.latitude}
+      longitude={project.longitude}
+    />
   );
 }

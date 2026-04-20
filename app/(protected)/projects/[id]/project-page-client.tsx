@@ -1009,6 +1009,8 @@ export default function ProjectPageClient({
               <LabelingWorkspace
                 projectId={project.id}
                 projectName={project.name}
+                latitude={project.latitude}
+                longitude={project.longitude}
                 chrome="embedded"
               />
             </motion.div>

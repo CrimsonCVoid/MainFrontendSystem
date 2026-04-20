@@ -45,9 +45,40 @@ interface HillshadeCanvasProps {
   sampleId: string;
   showHeatmap: boolean;
   heatmapOpacity: number;
+  latitude?: number | null;
+  longitude?: number | null;
+  /**
+   * Bumped by the workspace after an aerial snapshot is persisted, so
+   * this canvas re-fetches the sidecar image with a cache-bust.
+   */
+  cacheBust?: number;
 }
 
-export function HillshadeCanvas({ sampleId, showHeatmap, heatmapOpacity }: HillshadeCanvasProps) {
+const GOOGLE_KEY =
+  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
+  process.env.NEXT_PUBLIC_GOOGLE_API_KEY ||
+  "";
+
+function googleStaticUrl(lat: number, lng: number): string {
+  const params = new URLSearchParams({
+    center: `${lat},${lng}`,
+    zoom: "20",
+    size: "640x640",
+    scale: "2",
+    maptype: "satellite",
+    key: GOOGLE_KEY,
+  });
+  return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
+}
+
+export function HillshadeCanvas({
+  sampleId,
+  showHeatmap,
+  heatmapOpacity,
+  latitude,
+  longitude,
+  cacheBust = 0,
+}: HillshadeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
@@ -67,10 +98,30 @@ export function HillshadeCanvas({ sampleId, showHeatmap, heatmapOpacity }: Hills
   const moveVertex = useLabelerStore((s) => s.moveVertex);
   const insertVertex = useLabelerStore((s) => s.insertVertex);
 
-  const rgbUrl = `${API_BASE}/api/hillshade/${sampleId}/rgb`;
-  const [image, imageStatus] = useImage(rgbUrl, "anonymous");
+  const rgbUrl = `${API_BASE}/api/hillshade/${sampleId}/rgb${cacheBust ? `?v=${cacheBust}` : ""}`;
+  const [sidecarImage, sidecarStatus] = useImage(rgbUrl, "anonymous");
 
-  const heatmapUrl = `${API_BASE}/api/hillshade/${sampleId}/heatmap`;
+  // Google Static Maps fallback for immediate display. Loads in parallel;
+  // if the sidecar image wins we prefer that (it's the source of truth).
+  const hasCoords = latitude != null && longitude != null && GOOGLE_KEY;
+  const fallbackUrl = hasCoords
+    ? googleStaticUrl(latitude as number, longitude as number)
+    : "";
+  const [fallbackImage, fallbackStatus] = useImage(fallbackUrl, "anonymous");
+
+  const image = sidecarImage ?? (sidecarStatus === "failed" ? fallbackImage : null);
+  const imageStatus =
+    sidecarStatus === "loaded"
+      ? "loaded"
+      : sidecarStatus === "loading"
+        ? "loading"
+        : fallbackStatus === "loaded"
+          ? "loaded"
+          : fallbackStatus === "loading"
+            ? "loading"
+            : "failed";
+
+  const heatmapUrl = `${API_BASE}/api/hillshade/${sampleId}/heatmap${cacheBust ? `?v=${cacheBust}` : ""}`;
   const [heatmapImage] = useImage(heatmapUrl, "anonymous");
 
   const [hasFitImage, setHasFitImage] = useState(false);
