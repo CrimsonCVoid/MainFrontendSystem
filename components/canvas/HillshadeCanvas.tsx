@@ -76,7 +76,9 @@ export function HillshadeCanvas({ sampleId, showHeatmap, heatmapOpacity }: Hills
   const [hasFitImage, setHasFitImage] = useState(false);
   useEffect(() => {
     const stage = stageRef.current;
-    if (image && !hasFitImage && stage) {
+    if (hasFitImage || !stage) return;
+    // With image: fit to image bounds.
+    if (image) {
       const scaleX = dimensions.width / image.width;
       const scaleY = dimensions.height / image.height;
       const fitScale = Math.min(scaleX, scaleY) * 0.95;
@@ -86,8 +88,23 @@ export function HillshadeCanvas({ sampleId, showHeatmap, heatmapOpacity }: Hills
       stage.position({ x: offsetX, y: offsetY });
       setZoomScale(fitScale);
       setHasFitImage(true);
+      return;
     }
-  }, [image, hasFitImage, dimensions]);
+    // Without image (sidecar 404 or not configured): apply a sensible
+    // default so the user can still draw on an empty canvas. Assumes a
+    // 512x512 working area centered in the container.
+    if (imageStatus === "failed") {
+      const defaultImageSize = 512;
+      const fitScale =
+        Math.min(dimensions.width, dimensions.height) / defaultImageSize;
+      const offsetX = (dimensions.width - defaultImageSize * fitScale) / 2;
+      const offsetY = (dimensions.height - defaultImageSize * fitScale) / 2;
+      stage.scale({ x: fitScale, y: fitScale });
+      stage.position({ x: offsetX, y: offsetY });
+      setZoomScale(fitScale);
+      setHasFitImage(true);
+    }
+  }, [image, hasFitImage, dimensions, imageStatus]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -209,15 +226,16 @@ export function HillshadeCanvas({ sampleId, showHeatmap, heatmapOpacity }: Hills
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full">
+    <div ref={containerRef} className="w-full h-full relative">
       {imageStatus === "loading" && (
-        <div className="flex items-center justify-center h-full text-zinc-500">
-          Loading satellite image...
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded bg-zinc-800/90 text-zinc-300 text-xs pointer-events-none">
+          Loading satellite image…
         </div>
       )}
       {imageStatus === "failed" && (
-        <div className="flex items-center justify-center h-full text-red-400">
-          Failed to load satellite image
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded bg-amber-900/90 text-amber-100 text-xs max-w-md text-center pointer-events-none">
+          No satellite imagery for this project yet — drawing enabled on
+          blank canvas. Add a training_samples row to enable the hillshade.
         </div>
       )}
       <Stage

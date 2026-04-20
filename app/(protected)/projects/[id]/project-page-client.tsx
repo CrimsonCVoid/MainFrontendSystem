@@ -158,47 +158,11 @@ export default function ProjectPageClient({
     fetchLatestProject();
   }, [initialProject.id, supabase]);
 
-  // Auto-generate roof data ONCE if project has address but no roof_data
+  // Legacy auto-roof-generation removed. The labeler is now the
+  // canonical source of roof geometry — users open the Labeler tab
+  // and draw panels directly. The /api/roof-generate route still
+  // exists for manual triggering but is no longer called on mount.
   const roofGenAttempted = useRef(false);
-  useEffect(() => {
-    if (roofGenAttempted.current) return;
-    // if (project.roof_data) return; // TODO: re-enable after testing — always regenerate for now
-    if (!project.address) return;
-
-    const fullAddress = [project.address, project.city, project.state, project.postal_code]
-      .filter(Boolean)
-      .join(", ");
-    if (!fullAddress) return;
-
-    roofGenAttempted.current = true;
-    setRoofGenerating(true);
-    setRoofError(null);
-
-    console.log("[ProjectPage] No roof_data found, auto-generating for:", fullAddress);
-
-    fetch("/api/roof-generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId: project.id, address: fullAddress }),
-    })
-      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
-      .then(({ ok, data }) => {
-        if (!ok) throw new Error(data.error || "Generation failed");
-        if (data.success && data.roofData) {
-          console.log("[ProjectPage] Roof generated:", data.roofData.total_area_sf, "sf");
-          setProject((prev) => ({
-            ...prev,
-            roof_data: data.roofData,
-            square_footage: data.roofData.total_area_sf || prev.square_footage,
-          }));
-        }
-      })
-      .catch((err) => {
-        console.error("[ProjectPage] Roof generation failed:", err.message);
-        setRoofError(err.message);
-      })
-      .finally(() => setRoofGenerating(false));
-  }, [project.id, project.address, project.city, project.state, project.postal_code, project.roof_data]);
 
   // Fetch user data and project creator
   useEffect(() => {

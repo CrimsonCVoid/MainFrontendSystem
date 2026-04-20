@@ -855,40 +855,15 @@ export default function DashboardClient() {
       };
       setProjects((current) => [projectWithCreator, ...current]);
 
-      // Transition to verification step — generate roof
+      // Legacy auto-roof-generation removed. We skip straight to the
+      // verification/continue step — the user opens the project and uses
+      // the Labeler tab to draw roof geometry by hand.
       setVerifyProjectId(project.id);
       setVerifyAddress(selectedAddress);
-      setVerifyStep("generating");
+      setVerifyStep("verify");
       setVerifyError(null);
+      setVerifyRoofData(null);
       setShowCreateModal(false);
-
-      // Generate roof
-      const fullAddr = selectedAddress.formatted_address || `${selectedAddress.address}, ${selectedAddress.city}, ${selectedAddress.state} ${selectedAddress.postal_code}`;
-      try {
-        const roofRes = await fetch("/api/roof-generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId: project.id, address: fullAddr }),
-        });
-        const roofResult = await roofRes.json();
-        if (roofResult.success && roofResult.roofData) {
-          setVerifyRoofData(roofResult.roofData);
-          setVerifyStep("verify");
-          // Update local project
-          setProjects((current) =>
-            current.map((p) => p.id === project.id
-              ? { ...p, square_footage: roofResult.roofData?.total_area_sf, roof_data: roofResult.roofData }
-              : p
-            )
-          );
-        } else {
-          setVerifyError(roofResult.error || "Google Solar could not find this building. It may be new construction or in an unmapped area.");
-          setVerifyStep("verify");
-        }
-      } catch (err: any) {
-        setVerifyError(err.message || "Roof generation failed");
-        setVerifyStep("verify");
-      }
 
       // Reset create form (but keep verification open)
       setCreateForm(emptyForm);
