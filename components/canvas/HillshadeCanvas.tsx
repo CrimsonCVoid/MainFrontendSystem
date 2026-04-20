@@ -226,16 +226,29 @@ export function HillshadeCanvas({ sampleId, showHeatmap, heatmapOpacity }: Hills
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full relative">
+    <div
+      ref={containerRef}
+      className="w-full h-full relative bg-neutral-100"
+      style={{
+        backgroundImage:
+          "radial-gradient(circle, rgba(0,0,0,0.08) 1px, transparent 1px)",
+        backgroundSize: "24px 24px",
+      }}
+    >
       {imageStatus === "loading" && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded bg-zinc-800/90 text-zinc-300 text-xs pointer-events-none">
-          Loading satellite image…
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-lg bg-white/95 border border-neutral-200 shadow-sm text-neutral-600 text-xs pointer-events-none flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+          Loading satellite imagery…
         </div>
       )}
       {imageStatus === "failed" && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded bg-amber-900/90 text-amber-100 text-xs max-w-md text-center pointer-events-none">
-          No satellite imagery for this project yet — drawing enabled on
-          blank canvas. Add a training_samples row to enable the hillshade.
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-2 rounded-lg bg-white/95 border border-amber-200 shadow-sm text-neutral-700 text-xs max-w-sm text-center pointer-events-none">
+          <span className="font-medium text-amber-700">
+            No aerial view available yet
+          </span>
+          <span className="block text-neutral-500 mt-0.5">
+            You can still draw and save panel outlines on the blank canvas.
+          </span>
         </div>
       )}
       <Stage

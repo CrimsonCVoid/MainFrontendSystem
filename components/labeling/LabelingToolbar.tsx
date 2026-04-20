@@ -1,6 +1,15 @@
 "use client";
 
-import { Pencil, MousePointer2, Move, Undo2, Redo2, Trash2, Zap, Flame } from "lucide-react";
+import {
+  Pencil,
+  MousePointer2,
+  Move,
+  Undo2,
+  Redo2,
+  Trash2,
+  Zap,
+  Flame,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -11,6 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useLabelerStore } from "@/stores/labeler-store";
+import { cn } from "@/lib/utils";
 
 interface LabelingToolbarProps {
   onSnapPreview?: () => void;
@@ -20,6 +30,11 @@ interface LabelingToolbarProps {
   heatmapOpacity?: number;
   onHeatmapOpacityChange?: (v: number) => void;
 }
+
+const modeActive = "bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-700";
+const modeActiveEdit =
+  "bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-700";
+const modeIdle = "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50";
 
 export function LabelingToolbar({
   onSnapPreview,
@@ -45,17 +60,17 @@ export function LabelingToolbar({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="h-11 bg-zinc-900 border-b border-zinc-800 flex items-center px-4 gap-1 shrink-0">
+      <div className="h-12 bg-white border-b border-neutral-200 flex items-center px-4 gap-1 shrink-0">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant={mode === "draw" ? "default" : "ghost"}
+              variant="ghost"
               size="sm"
               onClick={() => setMode("draw")}
-              className={mode === "draw" ? "bg-blue-500 hover:bg-blue-600" : ""}
+              className={cn("h-8", mode === "draw" ? modeActive : modeIdle)}
               aria-label="Draw mode"
             >
-              <Pencil className="h-4 w-4 mr-1" />
+              <Pencil className="h-4 w-4 mr-1.5" />
               Draw
             </Button>
           </TooltipTrigger>
@@ -65,13 +80,13 @@ export function LabelingToolbar({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant={mode === "select" ? "default" : "ghost"}
+              variant="ghost"
               size="sm"
               onClick={() => setMode("select")}
-              className={mode === "select" ? "bg-blue-500 hover:bg-blue-600" : ""}
+              className={cn("h-8", mode === "select" ? modeActive : modeIdle)}
               aria-label="Select mode"
             >
-              <MousePointer2 className="h-4 w-4 mr-1" />
+              <MousePointer2 className="h-4 w-4 mr-1.5" />
               Select
             </Button>
           </TooltipTrigger>
@@ -81,42 +96,52 @@ export function LabelingToolbar({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant={mode === "edit" ? "default" : "ghost"}
+              variant="ghost"
               size="sm"
               onClick={() => setMode("edit")}
-              className={mode === "edit" ? "bg-amber-500 hover:bg-amber-600" : ""}
+              className={cn("h-8", mode === "edit" ? modeActiveEdit : modeIdle)}
               aria-label="Edit mode"
             >
-              <Move className="h-4 w-4 mr-1" />
+              <Move className="h-4 w-4 mr-1.5" />
               Edit
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Edit mode — drag vertices, click edges to add points (E)</TooltipContent>
+          <TooltipContent>Edit — drag vertices, click edges to add points (E)</TooltipContent>
         </Tooltip>
 
-        <Separator orientation="vertical" className="mx-2 h-6" />
+        <Separator orientation="vertical" className="mx-2 h-6 bg-neutral-200" />
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="sm" onClick={handleUndo} aria-label="Undo">
-              <Undo2 className="h-4 w-4 mr-1" />
-              Undo
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleUndo}
+              className={cn("h-8", modeIdle)}
+              aria-label="Undo"
+            >
+              <Undo2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Undo (Cmd+Z)</TooltipContent>
+          <TooltipContent>Undo (⌘Z)</TooltipContent>
         </Tooltip>
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="sm" onClick={handleRedo} aria-label="Redo">
-              <Redo2 className="h-4 w-4 mr-1" />
-              Redo
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRedo}
+              className={cn("h-8", modeIdle)}
+              aria-label="Redo"
+            >
+              <Redo2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Redo (Cmd+Shift+Z)</TooltipContent>
+          <TooltipContent>Redo (⌘⇧Z)</TooltipContent>
         </Tooltip>
 
-        <Separator orientation="vertical" className="mx-2 h-6" />
+        <Separator orientation="vertical" className="mx-2 h-6 bg-neutral-200" />
 
         <Tooltip>
           <TooltipTrigger asChild>
@@ -125,17 +150,20 @@ export function LabelingToolbar({
               size="sm"
               onClick={handleDelete}
               disabled={selectedPanelIndex === null}
-              className="text-red-500 hover:text-red-400 disabled:text-zinc-600"
+              className={cn(
+                "h-8 text-red-600 hover:text-red-700 hover:bg-red-50",
+                "disabled:text-neutral-300 disabled:hover:bg-transparent",
+              )}
               aria-label="Delete selected panel"
             >
-              <Trash2 className="h-4 w-4 mr-1" />
+              <Trash2 className="h-4 w-4 mr-1.5" />
               Delete
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Delete selected panel (Delete key)</TooltipContent>
+          <TooltipContent>Delete selected panel</TooltipContent>
         </Tooltip>
 
-        <Separator orientation="vertical" className="mx-2 h-6" />
+        <Separator orientation="vertical" className="mx-2 h-6 bg-neutral-200" />
 
         <Tooltip>
           <TooltipTrigger asChild>
@@ -144,27 +172,37 @@ export function LabelingToolbar({
               size="sm"
               onClick={onSnapPreview}
               disabled={isLoadingPreview || panels.length < 2}
+              className={cn(
+                "h-8",
+                modeIdle,
+                "disabled:text-neutral-300 disabled:hover:bg-transparent",
+              )}
               aria-label="Snap Preview"
             >
-              <Zap className="h-4 w-4 mr-1" />
+              <Zap className="h-4 w-4 mr-1.5" />
               Snap Preview
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Run snap preview on current panels</TooltipContent>
+          <TooltipContent>Detect shared hip/ridge apices across panels</TooltipContent>
         </Tooltip>
 
-        <Separator orientation="vertical" className="mx-2 h-6" />
+        <Separator orientation="vertical" className="mx-2 h-6 bg-neutral-200" />
 
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant={showHeatmap ? "default" : "ghost"}
+              variant="ghost"
               size="sm"
               onClick={onToggleHeatmap}
-              className={showHeatmap ? "bg-orange-600 hover:bg-orange-700" : ""}
+              className={cn(
+                "h-8",
+                showHeatmap
+                  ? "bg-orange-50 text-orange-700 hover:bg-orange-100 hover:text-orange-700"
+                  : modeIdle,
+              )}
               aria-label="Toggle elevation heatmap"
             >
-              <Flame className="h-4 w-4 mr-1" />
+              <Flame className="h-4 w-4 mr-1.5" />
               Heatmap
             </Button>
           </TooltipTrigger>
@@ -173,7 +211,7 @@ export function LabelingToolbar({
 
         {showHeatmap && (
           <div className="flex items-center gap-2 ml-1">
-            <span className="text-xs text-zinc-400">Opacity</span>
+            <span className="text-xs text-neutral-500 font-medium">Opacity</span>
             <input
               type="range"
               min={0}
@@ -183,12 +221,17 @@ export function LabelingToolbar({
               onChange={(e) => onHeatmapOpacityChange?.(parseFloat(e.target.value))}
               className="w-20 h-1 accent-orange-500"
             />
-            <span className="text-xs text-zinc-500 w-8">{Math.round(heatmapOpacity * 100)}%</span>
+            <span className="text-xs text-neutral-500 w-8 tabular-nums">
+              {Math.round(heatmapOpacity * 100)}%
+            </span>
           </div>
         )}
 
         <div className="flex-1" />
-        <Badge variant="secondary" className="text-xs">
+        <Badge
+          variant="secondary"
+          className="bg-neutral-100 text-neutral-700 border border-neutral-200 text-xs font-medium"
+        >
           {panels.length} panel{panels.length !== 1 ? "s" : ""}
         </Badge>
       </div>

@@ -21,8 +21,9 @@ const HillshadeCanvas = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex-1 flex items-center justify-center text-zinc-500">
-        Loading canvas...
+      <div className="flex-1 flex items-center justify-center bg-neutral-100 text-neutral-500 text-sm">
+        <Loader2 className="w-5 h-5 mr-2 animate-spin text-neutral-400" />
+        Loading canvas…
       </div>
     ),
   },
@@ -199,8 +200,8 @@ export function LabelingWorkspace({
     <div
       className={
         isEmbedded
-          ? "flex flex-col h-full w-full bg-zinc-950"
-          : "flex flex-col h-screen bg-zinc-950"
+          ? "flex flex-col h-full w-full bg-neutral-50"
+          : "flex flex-col h-screen bg-neutral-50"
       }
     >
       {!isEmbedded && (
@@ -257,8 +258,8 @@ function EmbeddedLabelingActions({
   isGeneratingPdf,
 }: EmbeddedActionsProps) {
   return (
-    <div className="h-10 bg-zinc-900 flex items-center px-4 gap-2 shrink-0 border-b border-zinc-800">
-      <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
+    <div className="h-11 bg-white flex items-center px-4 gap-2 shrink-0 border-b border-neutral-200">
+      <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
         Labeler
       </span>
       <div className="flex-1" />
@@ -267,7 +268,7 @@ function EmbeddedLabelingActions({
         variant="ghost"
         onClick={onGeneratePdf}
         disabled={isGeneratingPdf}
-        className="h-7 text-zinc-300 hover:text-white"
+        className="h-8 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50"
       >
         {isGeneratingPdf ? (
           <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -280,7 +281,7 @@ function EmbeddedLabelingActions({
         size="sm"
         onClick={onSave}
         disabled={isSaving}
-        className="h-7 bg-blue-500 hover:bg-blue-600 text-white"
+        className="h-8 bg-blue-500 hover:bg-blue-600 text-white shadow-sm"
       >
         <Save className="h-3.5 w-3.5 mr-1.5" />
         {isSaving ? "Saving…" : "Save"}
@@ -288,7 +289,7 @@ function EmbeddedLabelingActions({
       <Link
         href={`/projects/${projectId}/label`}
         aria-label="Open labeler fullscreen"
-        className="inline-flex items-center justify-center h-7 w-7 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+        className="inline-flex items-center justify-center h-8 w-8 rounded text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 transition-colors border border-transparent hover:border-neutral-200"
       >
         <Maximize2 className="h-3.5 w-3.5" />
       </Link>

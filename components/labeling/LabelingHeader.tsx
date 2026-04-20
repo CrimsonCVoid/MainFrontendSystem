@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
@@ -24,29 +24,35 @@ export function LabelingHeader({
   const router = useRouter();
 
   return (
-    <div className="h-12 bg-zinc-900 flex items-center px-6 gap-4 shrink-0">
+    <header className="h-14 sticky top-0 z-40 bg-white border-b border-neutral-200 flex items-center px-6 gap-4 shrink-0">
       <Button
         variant="ghost"
         size="icon"
         onClick={() => router.push(`/projects/${projectId}`)}
         aria-label="Back to project"
+        className="text-neutral-600 hover:text-neutral-900"
       >
         <ArrowLeft className="h-5 w-5" />
       </Button>
-      <h1 className="text-xl font-semibold text-white">
-        Labeling: {projectName || projectId}
-      </h1>
+      <div className="flex flex-col leading-tight">
+        <span className="text-xs uppercase tracking-wider text-neutral-500 font-medium">
+          Labeler
+        </span>
+        <h1 className="text-base font-semibold text-neutral-900 truncate max-w-[28rem]">
+          {projectName || projectId}
+        </h1>
+      </div>
       <div className="flex-1" />
       <Button
         onClick={onGeneratePdf}
         disabled={isGeneratingPdf}
         variant="outline"
-        className="border-zinc-700 text-zinc-300 hover:text-white"
+        className="h-9 border-neutral-200 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50"
       >
         {isGeneratingPdf ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Generating...
+            Generating…
           </>
         ) : (
           <>
@@ -58,10 +64,11 @@ export function LabelingHeader({
       <Button
         onClick={onSave}
         disabled={isSaving}
-        className="bg-blue-500 hover:bg-blue-600 text-white"
+        className="h-9 bg-blue-500 hover:bg-blue-600 text-white shadow-sm"
       >
-        {isSaving ? "Saving..." : "Save Labels"}
+        <Save className="h-4 w-4 mr-2" />
+        {isSaving ? "Saving…" : "Save Labels"}
       </Button>
-    </div>
+    </header>
   );
 }
