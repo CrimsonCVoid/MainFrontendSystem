@@ -524,8 +524,12 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
         </div>
       </div>
 
-      {/* Paper preview */}
-      <div className="flex justify-center pb-16 px-4">
+      {/* Paper preview — shifts left when drawer opens so both stay visible */}
+      <div
+        className={`flex justify-center pb-16 px-4 transition-transform duration-300 ease-out will-change-transform ${
+          activePanel ? "sm:-translate-x-[210px]" : ""
+        }`}
+      >
         <div
           className="bg-white shadow-2xl rounded-sm w-full max-w-[820px] relative text-[14px]"
           style={{
@@ -568,15 +572,10 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
         </div>
       </div>
 
-      {/* Slide-in editor drawer */}
+      {/* Slide-in editor drawer. No dim backdrop: the preview slides left
+          to stay visible, so the user can click another section directly. */}
       {activePanel && (
         <>
-          <button
-            type="button"
-            aria-label="Close editor"
-            onClick={() => setActivePanel(null)}
-            className="fixed inset-0 z-30 bg-black/10 animate-in fade-in"
-          />
           <div className="fixed inset-y-0 right-0 z-40 w-full sm:w-[420px] bg-white shadow-2xl border-l border-neutral-200 flex flex-col animate-in slide-in-from-right duration-200">
             <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between bg-neutral-50/60">
               <div className="flex items-center gap-2 min-w-0">
