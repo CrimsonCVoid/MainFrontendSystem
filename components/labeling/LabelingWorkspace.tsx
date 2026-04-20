@@ -268,8 +268,6 @@ export function LabelingWorkspace({
           sampleId={projectId}
           showHeatmap={showHeatmap && heatmapAvailable}
           heatmapOpacity={heatmapOpacity}
-          latitude={latitude}
-          longitude={longitude}
           cacheBust={snapshotVersion}
           onHeatmapAvailabilityChange={setHeatmapAvailable}
         />
