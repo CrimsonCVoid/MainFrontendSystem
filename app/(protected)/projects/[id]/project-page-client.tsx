@@ -31,7 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { LabelingWorkspace } from "@/components/labeling/LabelingWorkspace";
 import { type AddressData } from "@/components/project/AddressInput";
 import EstimationTab from "@/components/project/EstimationTab";
-import CutSheetTab from "@/components/project/CutSheetTab";
+import InteractiveCutSheet from "@/components/project/InteractiveCutSheet";
 import ProposalBuilder from "@/components/project/ProposalBuilder";
 import PhotoGalleryTab from "@/components/project/PhotoGalleryTab";
 import FinancialsTab from "@/components/project/FinancialsTab";
@@ -1044,7 +1044,7 @@ export default function ProjectPageClient({
               exit={{ opacity: 0 }}
               className="space-y-6"
             >
-              <CutSheetTab project={project} roofData={project.roof_data as any} />
+              <InteractiveCutSheet projectId={project.id} />
             </motion.div>
           )}
 
