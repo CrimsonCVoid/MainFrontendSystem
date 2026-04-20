@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Loader2,
   Ruler,
@@ -546,10 +546,35 @@ function OrbitView({
   // good pitch readability without collapsing the roof to a line.
   const DEFAULT_YAW = Math.PI / 6;
   const DEFAULT_TILT = Math.PI / 3;
+  const AUTO_ROTATE_RAD_PER_SEC = 0.2; // full loop ≈ 31s
+  const RESUME_AFTER_INTERACTION_MS = 2000;
   const [yaw, setYaw] = useState(DEFAULT_YAW);
   const [tilt, setTilt] = useState(DEFAULT_TILT);
   const [zoom, setZoom] = useState(1);
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
+  const [autoRotateEnabled, setAutoRotateEnabled] = useState(true);
+  // Timestamp (performance.now()) of last user interaction; auto-rotate
+  // pauses for RESUME_AFTER_INTERACTION_MS after this bumps.
+  const lastInteractionRef = useRef<number>(Number.NEGATIVE_INFINITY);
+  const bumpInteraction = () => {
+    lastInteractionRef.current = performance.now();
+  };
+
+  useEffect(() => {
+    if (!autoRotateEnabled) return;
+    let rafId: number;
+    let prevT = performance.now();
+    const tick = (t: number) => {
+      const dt = (t - prevT) / 1000;
+      prevT = t;
+      const idleFor = performance.now() - lastInteractionRef.current;
+      const isIdle = !drag && idleFor > RESUME_AFTER_INTERACTION_MS;
+      if (isIdle) setYaw((y) => y + AUTO_ROTATE_RAD_PER_SEC * dt);
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [drag, autoRotateEnabled]);
 
   const rotate = useMemo(() => {
     const cy = Math.cos(yaw);
@@ -620,6 +645,7 @@ function OrbitView({
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
     setDrag({ x: e.clientX, y: e.clientY });
+    bumpInteraction();
   };
   const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!drag) return;
@@ -631,19 +657,23 @@ function OrbitView({
       return Math.max(0.05, Math.min(Math.PI / 2 - 0.05, next));
     });
     setDrag({ x: e.clientX, y: e.clientY });
+    bumpInteraction();
   };
   const onPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
     (e.currentTarget as SVGSVGElement).releasePointerCapture?.(e.pointerId);
     setDrag(null);
+    bumpInteraction();
   };
   const onWheel = (e: React.WheelEvent<SVGSVGElement>) => {
     e.preventDefault();
     setZoom((z) => Math.max(0.4, Math.min(4, z * (1 - e.deltaY * 0.001))));
+    bumpInteraction();
   };
   const resetView = () => {
     setYaw(DEFAULT_YAW);
     setTilt(DEFAULT_TILT);
     setZoom(1);
+    bumpInteraction();
   };
 
   const fontSize = Math.max(bounds.w, bounds.h) / 45;
@@ -705,14 +735,27 @@ function OrbitView({
           );
         })}
       </svg>
-      <button
-        onClick={resetView}
-        className="absolute top-2 right-2 rounded-md border border-neutral-200 bg-white/90 backdrop-blur px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-white shadow-sm"
-      >
-        Reset View
-      </button>
+      <div className="absolute top-2 right-2 flex items-center gap-1.5">
+        <button
+          onClick={() => {
+            setAutoRotateEnabled((v) => !v);
+            bumpInteraction();
+          }}
+          className="rounded-md border border-neutral-200 bg-white/90 backdrop-blur px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-white shadow-sm"
+          aria-label={autoRotateEnabled ? "Pause auto-rotate" : "Resume auto-rotate"}
+          title={autoRotateEnabled ? "Pause auto-rotate" : "Resume auto-rotate"}
+        >
+          {autoRotateEnabled ? "⏸ Pause" : "▶ Auto"}
+        </button>
+        <button
+          onClick={resetView}
+          className="rounded-md border border-neutral-200 bg-white/90 backdrop-blur px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-white shadow-sm"
+        >
+          Reset View
+        </button>
+      </div>
       <div className="absolute bottom-2 left-2 text-[10px] text-neutral-500 bg-white/80 rounded px-1.5 py-0.5 pointer-events-none">
-        drag to orbit · scroll to zoom
+        drag to orbit · scroll to zoom · auto-rotates when idle
       </div>
     </div>
   );
