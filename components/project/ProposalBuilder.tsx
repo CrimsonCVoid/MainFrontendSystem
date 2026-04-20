@@ -370,6 +370,20 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
   const activeSection = sections.find((s) => s.type === activePanel);
   const ActiveIcon = activeSection ? SECTION_ICONS[activeSection.type] : FileText;
 
+  // Sections with long-text editors (textareas, multi-column tables) get
+  // a wider drawer so the user isn't wrapping in a 420px rail. Preview
+  // shift matches half the drawer width so both stay centered.
+  const WIDE_PANELS: SectionType[] = ["scope", "notes", "line-items"];
+  const isWidePanel = activePanel
+    ? WIDE_PANELS.includes(activePanel as SectionType)
+    : false;
+  const drawerWidthClass = isWidePanel ? "sm:w-[580px]" : "sm:w-[420px]";
+  const previewShiftClass = activePanel
+    ? isWidePanel
+      ? "sm:-translate-x-[290px]"
+      : "sm:-translate-x-[210px]"
+    : "";
+
   return (
     <div className="relative min-h-[700px]">
       {/* Sticky toolbar */}
@@ -526,9 +540,7 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
 
       {/* Paper preview — shifts left when drawer opens so both stay visible */}
       <div
-        className={`flex justify-center pb-16 px-4 transition-transform duration-300 ease-out will-change-transform ${
-          activePanel ? "sm:-translate-x-[210px]" : ""
-        }`}
+        className={`flex justify-center pb-16 px-4 transition-transform duration-300 ease-out will-change-transform ${previewShiftClass}`}
       >
         <div
           className="bg-white shadow-2xl rounded-sm w-full max-w-[820px] relative text-[14px]"
@@ -576,7 +588,9 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
           to stay visible, so the user can click another section directly. */}
       {activePanel && (
         <>
-          <div className="fixed inset-y-0 right-0 z-40 w-full sm:w-[420px] bg-white shadow-2xl border-l border-neutral-200 flex flex-col animate-in slide-in-from-right duration-200">
+          <div
+            className={`fixed inset-y-0 right-0 z-40 w-full ${drawerWidthClass} bg-white shadow-2xl border-l border-neutral-200 flex flex-col animate-in slide-in-from-right duration-200 transition-[width] ease-out`}
+          >
             <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between bg-neutral-50/60">
               <div className="flex items-center gap-2 min-w-0">
                 <ActiveIcon className="w-4 h-4 text-neutral-500 flex-shrink-0" />
