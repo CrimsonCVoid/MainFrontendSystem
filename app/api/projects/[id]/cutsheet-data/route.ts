@@ -45,16 +45,41 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // First: confirm the project exists (small, always-safe query).
   const { data: project } = await supabase
     .from("projects")
-    .select("id, cutsheet_cache, cutsheet_cache_updated_at")
+    .select("id")
     .eq("id", projectId)
     .maybeSingle();
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (!forceRefresh && project.cutsheet_cache && project.cutsheet_cache_updated_at) {
+  // Then: try to read the cache columns. If migration 017 hasn't been
+  // applied yet, this returns an error -- treat as "no cache available"
+  // and fall through to the sidecar. Keeps the app working without the
+  // schema change in place.
+  type CacheRow = {
+    cutsheet_cache: unknown;
+    cutsheet_cache_updated_at: string | null;
+  };
+  let cacheRow: CacheRow | null = null;
+  if (!forceRefresh) {
+    const { data, error: cacheColsErr } = await supabase
+      .from("projects")
+      .select("cutsheet_cache, cutsheet_cache_updated_at")
+      .eq("id", projectId)
+      .maybeSingle();
+    if (cacheColsErr) {
+      console.warn(
+        `[cutsheet-data] cache columns unavailable (run migration 017?): ${cacheColsErr.message}`,
+      );
+    } else {
+      cacheRow = data as CacheRow | null;
+    }
+  }
+
+  if (!forceRefresh && cacheRow?.cutsheet_cache && cacheRow?.cutsheet_cache_updated_at) {
     // Compare against training_labels.updated_at. If labels were saved
     // after the cache was written, cache is stale. Serve cache only when
     // we can prove it's at least as new as the labels row.
@@ -62,13 +87,13 @@ export async function GET(
       .from("training_labels")
       .select("updated_at")
       .eq("sample_id", projectId)
-      .maybeSingle();
+      .maybeSingle<{ updated_at: string | null }>();
 
     if (!labelsErr && labels?.updated_at) {
       const labelsTime = new Date(labels.updated_at).getTime();
-      const cacheTime = new Date(project.cutsheet_cache_updated_at).getTime();
+      const cacheTime = new Date(cacheRow.cutsheet_cache_updated_at).getTime();
       if (cacheTime >= labelsTime) {
-        return NextResponse.json(project.cutsheet_cache, {
+        return NextResponse.json(cacheRow.cutsheet_cache, {
           headers: { "X-Cache": "HIT" },
         });
       }
@@ -93,10 +118,12 @@ export async function GET(
     // the happy path is fast so the extra round-trip is acceptable.
     const { error: cacheErr } = await supabase
       .from("projects")
+      // Cache columns are added by migration 017; the generated Supabase
+      // types haven't been regenerated yet, so cast past the typed client.
       .update({
         cutsheet_cache: data,
         cutsheet_cache_updated_at: new Date().toISOString(),
-      })
+      } as never)
       .eq("id", projectId);
     if (cacheErr) {
       console.warn(
