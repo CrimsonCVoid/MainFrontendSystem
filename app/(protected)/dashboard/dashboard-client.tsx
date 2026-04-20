@@ -76,10 +76,6 @@ const PipelineTab = dynamic(() => import("@/components/dashboard/PipelineTab"), 
 const CalendarTab = dynamic(() => import("@/components/dashboard/CalendarTab"), { ssr: false });
 const CrewTab = dynamic(() => import("@/components/dashboard/CrewTab"), { ssr: false });
 
-const RoofViewer3D = dynamic(() => import("@/components/dashboard/RoofViewer3D"), {
-  ssr: false,
-  loading: () => <div className="w-full h-full flex items-center justify-center bg-neutral-100"><Loader2 className="w-8 h-8 animate-spin text-neutral-400" /></div>,
-});
 import {
   type ActivityLogEntry,
   type ActivityCategory,
@@ -2335,53 +2331,70 @@ export default function DashboardClient() {
                       </div>
                     </div>
                   ) : (
-                    /* Success — show 3D viewer + map */
+                    /* Success — high-res aerial view + obstruction checklist */
                     <>
-                      {/* 3D Roof Preview */}
-                      <div className="rounded-xl overflow-hidden border border-neutral-200" style={{ height: "220px" }}>
-                        <RoofViewer3D
-                          roofData={verifyRoofData}
-                          spin={true}
-                          hideControls={true}
-                          className="h-full w-full"
-                        />
-                      </div>
-
-                      {/* Roof stats bar */}
-                      {verifyRoofData && (
-                        <div className="flex items-center justify-center gap-6 py-2">
-                          <div className="text-center">
-                            <p className="text-2xl font-bold text-neutral-900">
-                              {verifyRoofData.total_area_sf?.toLocaleString()}
-                            </p>
-                            <p className="text-xs text-neutral-500">Square Feet</p>
-                          </div>
-                          <div className="w-px h-8 bg-neutral-200" />
-                          <div className="text-center">
-                            <p className="text-2xl font-bold text-neutral-900">
-                              {verifyRoofData.planes?.length || 0}
-                            </p>
-                            <p className="text-xs text-neutral-500">Roof Planes</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Google Maps satellite view */}
-                      {verifyAddress?.latitude && verifyAddress?.longitude && (
-                        <div className="rounded-xl overflow-hidden border border-neutral-200">
+                      {/* High-res Google Maps aerial */}
+                      {verifyAddress?.latitude && verifyAddress?.longitude ? (
+                        <div className="rounded-xl overflow-hidden border border-neutral-200 shadow-sm">
                           <iframe
                             src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}&center=${verifyAddress.latitude},${verifyAddress.longitude}&zoom=21&maptype=satellite`}
                             className="w-full border-0"
-                            style={{ height: "160px" }}
+                            style={{ height: "440px" }}
                             allowFullScreen
                             loading="lazy"
-                            title="Satellite view"
+                            title="High-resolution aerial view"
                           />
-                          <div className="bg-neutral-50 px-4 py-2 text-xs text-neutral-500">
-                            {verifyAddress.formatted_address || `${verifyAddress.address}, ${verifyAddress.city}, ${verifyAddress.state}`}
+                          <div className="bg-neutral-50 px-4 py-2.5 text-xs text-neutral-600 border-t border-neutral-200">
+                            <span className="font-medium text-neutral-900">
+                              {verifyAddress.formatted_address ||
+                                `${verifyAddress.address}, ${verifyAddress.city}, ${verifyAddress.state}`}
+                            </span>
                           </div>
                         </div>
+                      ) : (
+                        <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-8 text-center text-sm text-neutral-500">
+                          Aerial view not available — address has no
+                          coordinates yet.
+                        </div>
                       )}
+
+                      {/* Obstruction-verification checklist */}
+                      <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                            !
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="text-sm font-semibold text-neutral-900">
+                              Verify the entire roof is visible
+                            </h3>
+                            <p className="text-xs text-neutral-600 mt-1 leading-relaxed">
+                              Before continuing, zoom and pan the aerial view
+                              above and confirm that{" "}
+                              <span className="font-medium text-neutral-900">
+                                no part of the roof — not even the smallest
+                                corner — is covered by trees, power lines,
+                                adjacent structures, or other obstructions.
+                              </span>{" "}
+                              Obstructed areas reduce measurement accuracy.
+                            </p>
+                            <ul className="text-xs text-neutral-600 mt-3 space-y-1.5">
+                              <li className="flex items-start gap-2">
+                                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                                All roof edges visible (no tree canopy)
+                              </li>
+                              <li className="flex items-start gap-2">
+                                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                                Ridges, hips, and valleys clearly defined
+                              </li>
+                              <li className="flex items-start gap-2">
+                                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                                No shadows or glare hiding large sections
+                              </li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
 
                       {/* Action buttons */}
                       <div className="flex gap-3 pt-2">
@@ -2391,14 +2404,14 @@ export default function DashboardClient() {
                           onClick={() => setShowTicketForm(true)}
                         >
                           <X className="w-4 h-4 mr-2" />
-                          This Doesn&apos;t Look Right
+                          Roof is obstructed
                         </Button>
                         <Button
-                          className="flex-1 h-12 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white"
+                          className="flex-1 h-12 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white shadow-sm"
                           onClick={handleVerifyConfirm}
                         >
                           <Check className="w-4 h-4 mr-2" />
-                          Looks Good — Continue
+                          Roof is fully visible — Continue
                         </Button>
                       </div>
                     </>
