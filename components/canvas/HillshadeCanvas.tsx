@@ -52,6 +52,12 @@ interface HillshadeCanvasProps {
    * this canvas re-fetches the sidecar image with a cache-bust.
    */
   cacheBust?: number;
+  /**
+   * Fired when the heatmap image load resolves (loaded or failed), so
+   * the toolbar can disable the Heatmap button when no DSM is available
+   * for this sample.
+   */
+  onHeatmapAvailabilityChange?: (available: boolean) => void;
 }
 
 const GOOGLE_KEY =
@@ -78,6 +84,7 @@ export function HillshadeCanvas({
   latitude,
   longitude,
   cacheBust = 0,
+  onHeatmapAvailabilityChange,
 }: HillshadeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -122,7 +129,13 @@ export function HillshadeCanvas({
             : "failed";
 
   const heatmapUrl = `${API_BASE}/api/hillshade/${sampleId}/heatmap${cacheBust ? `?v=${cacheBust}` : ""}`;
-  const [heatmapImage] = useImage(heatmapUrl, "anonymous");
+  const [heatmapImage, heatmapStatus] = useImage(heatmapUrl, "anonymous");
+
+  useEffect(() => {
+    if (!onHeatmapAvailabilityChange) return;
+    if (heatmapStatus === "loaded") onHeatmapAvailabilityChange(true);
+    else if (heatmapStatus === "failed") onHeatmapAvailabilityChange(false);
+  }, [heatmapStatus, onHeatmapAvailabilityChange]);
 
   const [hasFitImage, setHasFitImage] = useState(false);
   useEffect(() => {

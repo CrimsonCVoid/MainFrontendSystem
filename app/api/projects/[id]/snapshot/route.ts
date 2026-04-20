@@ -27,16 +27,32 @@ const GOOGLE_KEY =
 const SNAPSHOT_BUCKET = "pipeline-outputs";
 const SNAPSHOT_PATH_PREFIX = "aerial";
 
+const STATIC_ZOOM = 20;
+const STATIC_SIZE_PX = 640;
+const STATIC_SCALE = 2;
+
 function googleStaticUrl(lat: number, lng: number): string {
   const params = new URLSearchParams({
     center: `${lat},${lng}`,
-    zoom: "20",
-    size: "640x640",
-    scale: "2",
+    zoom: String(STATIC_ZOOM),
+    size: `${STATIC_SIZE_PX}x${STATIC_SIZE_PX}`,
+    scale: String(STATIC_SCALE),
     maptype: "satellite",
     key: GOOGLE_KEY,
   });
   return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
+}
+
+/**
+ * Approximate ground resolution in meters per pixel for a Google Static
+ * Maps satellite tile at a given zoom and latitude. Based on the
+ * Web Mercator formula: 156543.03392 * cos(lat) / 2^zoom, scaled for
+ * Google's @2x retina output.
+ */
+function estimateMetersPerPx(lat: number, zoom: number, scale: number): number {
+  const latRad = (lat * Math.PI) / 180;
+  const base = (156543.03392 * Math.cos(latRad)) / Math.pow(2, zoom);
+  return base / scale;
 }
 
 function getServiceClient(): SupabaseClient | null {
@@ -145,10 +161,31 @@ export async function POST(
     );
   }
 
-  // Upsert training_samples row so the sidecar can serve it.
+  // Upsert training_samples row. Schema requires width_px, height_px,
+  // meters_per_px, rgb_storage_path, dsm_storage_path, mask_storage_path
+  // all NOT NULL. We provide empty strings for DSM/mask paths — the
+  // sidecar's hillshade and heatmap endpoints fall through to 404 when
+  // those paths are empty, which the labeler UI detects and uses to
+  // disable the Heatmap button.
+  const widthPx = STATIC_SIZE_PX * STATIC_SCALE;
+  const heightPx = STATIC_SIZE_PX * STATIC_SCALE;
+  const metersPerPx = estimateMetersPerPx(
+    project.latitude,
+    STATIC_ZOOM,
+    STATIC_SCALE,
+  );
+
   const upsert = await service.from("training_samples").upsert({
     id: projectId,
     rgb_storage_path: rgbPath,
+    dsm_storage_path: "",
+    mask_storage_path: "",
+    width_px: widthPx,
+    height_px: heightPx,
+    meters_per_px: metersPerPx,
+    lat: project.latitude,
+    lng: project.longitude,
+    imagery_quality: "google_static_maps",
   });
   if (upsert.error) {
     console.error("[snapshot] training_samples upsert failed:", upsert.error.message);

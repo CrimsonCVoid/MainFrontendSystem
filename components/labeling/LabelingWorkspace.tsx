@@ -182,6 +182,7 @@ export function LabelingWorkspace({
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [heatmapOpacity, setHeatmapOpacity] = useState(0.5);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [heatmapAvailable, setHeatmapAvailable] = useState(false);
 
   const handleGeneratePdf = async () => {
     const { panels } = useLabelerStore.getState();
@@ -256,19 +257,21 @@ export function LabelingWorkspace({
       <LabelingToolbar
         onSnapPreview={handleSnapPreview}
         isLoadingPreview={isLoadingPreview}
-        showHeatmap={showHeatmap}
+        showHeatmap={showHeatmap && heatmapAvailable}
         onToggleHeatmap={() => setShowHeatmap((v) => !v)}
         heatmapOpacity={heatmapOpacity}
         onHeatmapOpacityChange={setHeatmapOpacity}
+        heatmapAvailable={heatmapAvailable}
       />
       <div className="flex-1" data-testid="labeler-canvas">
         <HillshadeCanvas
           sampleId={projectId}
-          showHeatmap={showHeatmap}
+          showHeatmap={showHeatmap && heatmapAvailable}
           heatmapOpacity={heatmapOpacity}
           latitude={latitude}
           longitude={longitude}
           cacheBust={snapshotVersion}
+          onHeatmapAvailabilityChange={setHeatmapAvailable}
         />
       </div>
     </div>

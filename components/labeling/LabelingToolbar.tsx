@@ -29,6 +29,8 @@ interface LabelingToolbarProps {
   onToggleHeatmap?: () => void;
   heatmapOpacity?: number;
   onHeatmapOpacityChange?: (v: number) => void;
+  /** False if the sidecar returned no DSM for this sample. */
+  heatmapAvailable?: boolean;
 }
 
 const modeActive = "bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-700";
@@ -43,6 +45,7 @@ export function LabelingToolbar({
   onToggleHeatmap,
   heatmapOpacity = 0.5,
   onHeatmapOpacityChange,
+  heatmapAvailable = false,
 }: LabelingToolbarProps) {
   const mode = useLabelerStore((s) => s.mode);
   const setMode = useLabelerStore((s) => s.setMode);
@@ -194,11 +197,13 @@ export function LabelingToolbar({
               variant="ghost"
               size="sm"
               onClick={onToggleHeatmap}
+              disabled={!heatmapAvailable}
               className={cn(
                 "h-8",
                 showHeatmap
                   ? "bg-orange-50 text-orange-700 hover:bg-orange-100 hover:text-orange-700"
                   : modeIdle,
+                "disabled:text-neutral-300 disabled:hover:bg-transparent disabled:cursor-not-allowed",
               )}
               aria-label="Toggle elevation heatmap"
             >
@@ -206,10 +211,14 @@ export function LabelingToolbar({
               Heatmap
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Toggle elevation heatmap overlay</TooltipContent>
+          <TooltipContent>
+            {heatmapAvailable
+              ? "Toggle elevation heatmap overlay"
+              : "Elevation data (DSM) not available for this project"}
+          </TooltipContent>
         </Tooltip>
 
-        {showHeatmap && (
+        {showHeatmap && heatmapAvailable && (
           <div className="flex items-center gap-2 ml-1">
             <span className="text-xs text-neutral-500 font-medium">Opacity</span>
             <input
