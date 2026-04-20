@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import jsPDF from "jspdf";
+import { generateAndDownloadProposalBuilder } from "@/lib/pdf-api-client";
 
 // Section types available in the proposal
 type SectionType =
@@ -191,368 +191,52 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
   const generatePDF = useCallback(async () => {
     setGenerating(true);
     try {
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
-      const pw = pdf.internal.pageSize.getWidth();
-      const ph = pdf.internal.pageSize.getHeight();
-      const ml = 18, mr = 18;
-      const cw = pw - ml - mr;
-      let y = 16;
-
-      const hexToRgb = (hex: string) => {
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return { r, g, b };
-      };
-      const accent = hexToRgb(accentColor);
-
-      const addPageIfNeeded = (needed: number) => {
-        if (y + needed > ph - 20) {
-          // Footer
-          pdf.setFontSize(7);
-          pdf.setTextColor(150, 150, 150);
-          pdf.text(companyName, ml, ph - 8);
-          pdf.text(`Page ${pdf.getNumberOfPages()}`, pw - mr, ph - 8, { align: "right" });
-          pdf.addPage();
-          y = 16;
-        }
-      };
-
-      const money = (n: number) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-      const enabledSections = sections.filter((s) => s.enabled);
-
-      for (const section of enabledSections) {
-        switch (section.type) {
-          case "header": {
-            // Accent bar
-            pdf.setFillColor(accent.r, accent.g, accent.b);
-            pdf.rect(0, 0, pw, 4, "F");
-
-            pdf.setFontSize(22);
-            pdf.setFont("helvetica", "bold");
-            pdf.setTextColor(30, 30, 30);
-            pdf.text("PROPOSAL", pw - mr, y + 8, { align: "right" });
-
-            pdf.setFontSize(9);
-            pdf.setFont("helvetica", "normal");
-            pdf.setTextColor(100, 100, 100);
-            pdf.text(`#${proposalNumber}`, pw - mr, y + 14, { align: "right" });
-
-            const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-            const validDate = new Date(Date.now() + validDays * 86400000).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-            pdf.setFontSize(8);
-            pdf.text(`Date: ${today}`, pw - mr, y + 20, { align: "right" });
-            pdf.text(`Valid until: ${validDate}`, pw - mr, y + 24, { align: "right" });
-
-            y += 30;
-            break;
-          }
-
-          case "company": {
-            addPageIfNeeded(25);
-            pdf.setFontSize(14);
-            pdf.setFont("helvetica", "bold");
-            pdf.setTextColor(accent.r, accent.g, accent.b);
-            pdf.text(companyName, ml, y);
-            y += 5;
-            pdf.setFontSize(8);
-            pdf.setFont("helvetica", "normal");
-            pdf.setTextColor(100, 100, 100);
-            if (companyPhone) { pdf.text(companyPhone, ml, y); y += 3.5; }
-            if (companyEmail) { pdf.text(companyEmail, ml, y); y += 3.5; }
-            if (companyAddress) { pdf.text(companyAddress, ml, y); y += 3.5; }
-            if (companyWebsite) { pdf.text(companyWebsite, ml, y); y += 3.5; }
-            y += 4;
-            pdf.setDrawColor(220, 220, 220);
-            pdf.setLineWidth(0.2);
-            pdf.line(ml, y, pw - mr, y);
-            y += 8;
-            break;
-          }
-
-          case "client": {
-            addPageIfNeeded(25);
-            pdf.setFontSize(7);
-            pdf.setFont("helvetica", "normal");
-            pdf.setTextColor(140, 140, 140);
-            pdf.text("PREPARED FOR", ml, y);
-            y += 5;
-            pdf.setFontSize(11);
-            pdf.setFont("helvetica", "bold");
-            pdf.setTextColor(30, 30, 30);
-            pdf.text(clientName || "Property Owner", ml, y);
-            y += 5;
-            pdf.setFontSize(9);
-            pdf.setFont("helvetica", "normal");
-            pdf.setTextColor(80, 80, 80);
-            if (clientAddress) { pdf.text(clientAddress, ml, y); y += 4; }
-            if (clientPhone) { pdf.text(clientPhone, ml, y); y += 4; }
-            if (clientEmail) { pdf.text(clientEmail, ml, y); y += 4; }
-            y += 6;
-            break;
-          }
-
-          case "project": {
-            addPageIfNeeded(20);
-            pdf.setFontSize(7);
-            pdf.setTextColor(140, 140, 140);
-            pdf.text("PROJECT", ml, y);
-            y += 5;
-            pdf.setFontSize(11);
-            pdf.setFont("helvetica", "bold");
-            pdf.setTextColor(30, 30, 30);
-            pdf.text(project.name, ml, y);
-            y += 5;
-            pdf.setFontSize(9);
-            pdf.setFont("helvetica", "normal");
-            pdf.setTextColor(80, 80, 80);
-            const addr = [project.address, project.city, project.state, project.postal_code].filter(Boolean).join(", ");
-            if (addr) { pdf.text(addr, ml, y); y += 4; }
-            if (sqft) { pdf.setTextColor(140, 140, 140); pdf.text(`${sqft.toLocaleString()} sq ft | ${roofData?.planes?.length || 0} roof planes`, ml, y); y += 4; }
-            y += 6;
-            pdf.setDrawColor(220, 220, 220);
-            pdf.line(ml, y, pw - mr, y);
-            y += 8;
-            break;
-          }
-
-          case "scope": {
-            addPageIfNeeded(25);
-            pdf.setFontSize(10);
-            pdf.setFont("helvetica", "bold");
-            pdf.setTextColor(30, 30, 30);
-            pdf.text("Scope of Work", ml, y);
-            y += 6;
-            pdf.setFontSize(9);
-            pdf.setFont("helvetica", "normal");
-            pdf.setTextColor(60, 60, 60);
-            const lines = pdf.splitTextToSize(scopeText, cw);
-            pdf.text(lines, ml, y);
-            y += lines.length * 4 + 8;
-            break;
-          }
-
-          case "line-items": {
-            addPageIfNeeded(40);
-            // Table header
-            pdf.setFillColor(245, 245, 245);
-            pdf.rect(ml, y - 2, cw, 7, "F");
-            pdf.setFontSize(7);
-            pdf.setFont("helvetica", "bold");
-            pdf.setTextColor(100, 100, 100);
-            pdf.text("ITEM", ml + 2, y + 3);
-            pdf.text("QTY", pw - mr - 50, y + 3, { align: "right" });
-            pdf.text("RATE", pw - mr - 25, y + 3, { align: "right" });
-            pdf.text("AMOUNT", pw - mr, y + 3, { align: "right" });
-            y += 9;
-
-            for (let i = 0; i < lineItems.length; i++) {
-              addPageIfNeeded(14);
-              const item = lineItems[i];
-              if (i % 2 === 1) {
-                pdf.setFillColor(250, 250, 250);
-                pdf.rect(ml, y - 3, cw, 12, "F");
-              }
-              pdf.setFontSize(9);
-              pdf.setFont("helvetica", "bold");
-              pdf.setTextColor(30, 30, 30);
-              pdf.text(item.name || "Item", ml + 2, y + 1);
-              if (item.description) {
-                pdf.setFontSize(7);
-                pdf.setFont("helvetica", "normal");
-                pdf.setTextColor(140, 140, 140);
-                pdf.text(item.description, ml + 2, y + 5);
-              }
-              pdf.setFontSize(9);
-              pdf.setFont("helvetica", "normal");
-              pdf.setTextColor(60, 60, 60);
-              pdf.text(item.qty.toString(), pw - mr - 50, y + 2, { align: "right" });
-              pdf.text(money(item.unitPrice), pw - mr - 25, y + 2, { align: "right" });
-              pdf.setFont("helvetica", "bold");
-              pdf.setTextColor(30, 30, 30);
-              pdf.text(money(item.qty * item.unitPrice), pw - mr, y + 2, { align: "right" });
-              y += 12;
-            }
-            pdf.setDrawColor(200, 200, 200);
-            pdf.line(ml, y - 2, pw - mr, y - 2);
-            y += 6;
-            break;
-          }
-
-          case "measurements": {
-            addPageIfNeeded(30);
-            pdf.setFontSize(10);
-            pdf.setFont("helvetica", "bold");
-            pdf.setTextColor(30, 30, 30);
-            pdf.text("Roof Measurements", ml, y);
-            y += 7;
-            pdf.setFontSize(8);
-            pdf.setFont("helvetica", "normal");
-            const meas = [
-              ["Total Area", `${sqft.toLocaleString()} SF`],
-              ["Ridge", `${measurements.ridge_length_ft || 0} LF`],
-              ["Eave", `${measurements.eave_length_ft || 0} LF`],
-              ["Valley", `${measurements.valley_length_ft || 0} LF`],
-              ["Hip", `${measurements.hip_length_ft || 0} LF`],
-              ["Perimeter", `${measurements.total_perimeter_ft || 0} LF`],
-              ["Roof Planes", `${roofData?.planes?.length || 0}`],
-            ];
-            for (const [label, val] of meas) {
-              pdf.setTextColor(100, 100, 100);
-              pdf.text(label, ml + 2, y);
-              pdf.setTextColor(30, 30, 30);
-              pdf.setFont("helvetica", "bold");
-              pdf.text(val, ml + 50, y);
-              pdf.setFont("helvetica", "normal");
-              y += 4.5;
-            }
-            y += 6;
-            break;
-          }
-
-          case "totals": {
-            addPageIfNeeded(40);
-            const right = pw - mr;
-            const labelX = right - 55;
-            pdf.setFontSize(9);
-
-            pdf.setTextColor(100, 100, 100);
-            pdf.text("Subtotal", labelX, y, { align: "right" });
-            pdf.setTextColor(60, 60, 60);
-            pdf.text(money(subtotal), right, y, { align: "right" });
-            y += 5;
-
-            if (discount > 0) {
-              pdf.setTextColor(100, 100, 100);
-              pdf.text(`Discount (${discountPercent}%)`, labelX, y, { align: "right" });
-              pdf.setTextColor(34, 197, 94);
-              pdf.text(`-${money(discount)}`, right, y, { align: "right" });
-              y += 5;
-            }
-
-            if (tax > 0) {
-              pdf.setTextColor(100, 100, 100);
-              pdf.text(`Tax (${taxRate}%)`, labelX, y, { align: "right" });
-              pdf.setTextColor(60, 60, 60);
-              pdf.text(money(tax), right, y, { align: "right" });
-              y += 5;
-            }
-
-            y += 2;
-            pdf.setDrawColor(200, 200, 200);
-            pdf.line(labelX - 10, y, right, y);
-            y += 6;
-            pdf.setFontSize(12);
-            pdf.setFont("helvetica", "bold");
-            pdf.setTextColor(30, 30, 30);
-            pdf.text("Total", labelX, y, { align: "right" });
-            pdf.text(money(total), right, y, { align: "right" });
-            y += 8;
-
-            pdf.setFontSize(8);
-            pdf.setFont("helvetica", "normal");
-            pdf.setTextColor(100, 100, 100);
-            pdf.text(`Deposit (${depositPercent}%)`, labelX, y, { align: "right" });
-            pdf.text(money(deposit), right, y, { align: "right" });
-            y += 4;
-            pdf.text("Balance Due", labelX, y, { align: "right" });
-            pdf.text(money(total - deposit), right, y, { align: "right" });
-            y += 10;
-            break;
-          }
-
-          case "notes": {
-            if (!notesText.trim()) break;
-            addPageIfNeeded(20);
-            pdf.setFontSize(7);
-            pdf.setTextColor(140, 140, 140);
-            pdf.text("NOTES", ml, y);
-            y += 4;
-            pdf.setFontSize(8);
-            pdf.setTextColor(60, 60, 60);
-            const nLines = pdf.splitTextToSize(notesText, cw);
-            pdf.text(nLines, ml, y);
-            y += nLines.length * 3.5 + 8;
-            break;
-          }
-
-          case "terms": {
-            addPageIfNeeded(60);
-            pdf.setFontSize(9);
-            pdf.setFont("helvetica", "bold");
-            pdf.setTextColor(30, 30, 30);
-            pdf.text("Terms & Conditions", ml, y);
-            y += 6;
-            pdf.setFontSize(7);
-            pdf.setFont("helvetica", "normal");
-            pdf.setTextColor(80, 80, 80);
-            const terms = [
-              `1. Payment: ${depositPercent}% deposit required to schedule. Balance due upon completion.`,
-              "2. Materials covered by manufacturer warranty (20-40 years). Workmanship guaranteed 5 years.",
-              "3. Price valid for " + validDays + " days from proposal date.",
-              "4. Additional charges may apply for unforeseen structural conditions.",
-              "5. Customer may cancel within 3 business days for full deposit refund.",
-            ];
-            for (const t of terms) {
-              const tl = pdf.splitTextToSize(t, cw);
-              pdf.text(tl, ml, y);
-              y += tl.length * 3 + 3;
-            }
-            y += 6;
-            break;
-          }
-
-          case "signature": {
-            addPageIfNeeded(35);
-            pdf.setDrawColor(180, 180, 180);
-            pdf.setLineWidth(0.3);
-
-            pdf.setFontSize(8);
-            pdf.setTextColor(140, 140, 140);
-            pdf.text("ACCEPTANCE", ml, y);
-            y += 6;
-
-            pdf.setFontSize(7);
-            pdf.text("Customer Signature", ml, y);
-            pdf.text("Contractor Signature", ml + cw / 2 + 10, y);
-            y += 12;
-            pdf.line(ml, y, ml + cw / 2 - 5, y);
-            pdf.line(ml + cw / 2 + 10, y, pw - mr, y);
-            y += 4;
-            pdf.text("Name / Date", ml, y);
-            pdf.text("Name / Date", ml + cw / 2 + 10, y);
-            y += 10;
-            break;
-          }
-        }
-      }
-
-      // Final footer
-      pdf.setFontSize(7);
-      pdf.setTextColor(150, 150, 150);
-      pdf.text(companyName, ml, ph - 8);
-      if (companyWebsite) pdf.text(companyWebsite, pw / 2, ph - 8, { align: "center" });
-      pdf.text(`Page ${pdf.getNumberOfPages()}`, pw - mr, ph - 8, { align: "right" });
-
-      // Accent bar bottom
-      pdf.setFillColor(accent.r, accent.g, accent.b);
-      pdf.rect(0, ph - 3, pw, 3, "F");
-
-      // Download
-      const blob = pdf.output("blob");
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Proposal_${project.name.replace(/\s+/g, "_")}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await generateAndDownloadProposalBuilder({
+        projectId: project.id,
+        projectName: project.name,
+        proposalNumber,
+        proposalTitle,
+        validDays,
+        accentColor,
+        sections: sections.filter((s) => s.enabled),
+        company: {
+          name: companyName,
+          phone: companyPhone,
+          email: companyEmail,
+          address: companyAddress,
+          website: companyWebsite,
+          logoUrl,
+        },
+        client: {
+          name: clientName,
+          email: clientEmail,
+          phone: clientPhone,
+          address: clientAddress,
+        },
+        projectMeta: {
+          address: [project.address, project.city, project.state, project.postal_code].filter(Boolean).join(", "),
+          squareFootage: sqft,
+          planeCount: roofData?.planes?.length || 0,
+          measurements,
+        },
+        scopeText,
+        lineItems,
+        totals: {
+          subtotal,
+          discount,
+          discountPercent,
+          tax,
+          taxRate,
+          total,
+          deposit,
+          depositPercent,
+        },
+        notesText,
+      });
     } finally {
       setGenerating(false);
     }
-  }, [sections, companyName, companyPhone, companyEmail, companyAddress, companyWebsite, clientName, clientEmail, clientPhone, clientAddress, proposalNumber, proposalTitle, validDays, scopeText, lineItems, taxRate, depositPercent, discountPercent, notesText, accentColor, subtotal, discount, tax, total, deposit, sqft, measurements, roofData, project]);
+  }, [sections, companyName, companyPhone, companyEmail, companyAddress, companyWebsite, logoUrl, clientName, clientEmail, clientPhone, clientAddress, proposalNumber, proposalTitle, validDays, scopeText, lineItems, taxRate, depositPercent, discountPercent, notesText, accentColor, subtotal, discount, tax, total, deposit, sqft, measurements, roofData, project]);
 
   const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   const validDate = new Date(Date.now() + validDays * 86400000).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });

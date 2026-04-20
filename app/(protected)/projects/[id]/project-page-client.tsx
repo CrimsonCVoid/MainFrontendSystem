@@ -48,7 +48,7 @@ import { getPricingTier } from "@/lib/pricing";
 import { findDuplicateProject, type DuplicateProjectResult } from "@/lib/projects";
 import type { Tables } from "@/lib/database.types";
 import { useOrg, useSFPool } from "@/components/providers/org-provider";
-import { generateAndDownloadProposal, type ProposalData } from "@/lib/pdf-generator";
+import { generateAndDownloadProposal, type ProposalData } from "@/lib/pdf-api-client";
 
 type ProjectRow = Tables<"projects">;
 type UserRow = Tables<"users">;

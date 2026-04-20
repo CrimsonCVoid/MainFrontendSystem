@@ -66,10 +66,9 @@ import {
   type EstimateFormData,
 } from "@/lib/estimate-types";
 import {
-  PDFGenerator,
   generateAndDownloadProposal,
   type ProposalData,
-} from "@/lib/pdf-generator";
+} from "@/lib/pdf-api-client";
 import { captureTopDownScreenshot } from "@/lib/capture-3d";
 import { ShareEstimateModal } from "@/components/estimate/ShareEstimateModal";
 import { ShareDetailsDialog } from "@/components/estimate/ShareDetailsDialog";
