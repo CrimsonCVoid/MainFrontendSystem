@@ -179,7 +179,7 @@ export default function InteractiveCutSheet({ projectId }: Props) {
               onSelect={setSelectedId}
             />
           ) : (
-            <IsoView
+            <OrbitView
               panels={data.panels}
               selectedId={selectedId}
               onSelect={setSelectedId}
@@ -522,14 +522,18 @@ function Stat({
 }
 
 /**
- * Oblique isometric projection of the panel 3D polygons. Renders the
- * same data as the plan view but with elevation — gives a quick sense
- * of roof pitch and ridge/valley structure without pulling in three.js.
+ * Orbitable 3D view of the roof. True 1:1 geometry — no z exaggeration,
+ * so a 4/12 roof looks like a 4/12 roof. Drag to orbit, wheel to zoom,
+ * reset button to snap back to the default camera.
  *
- * Projection: (x, y, z) -> screen( x + z*cos(30°),  -y - z*sin(30°) )
- * Y inverted because SVG y grows down. Z "vertical" pushes vertices up-right.
+ * Camera model:
+ *   1. Yaw rotates the world around +Z (compass spin).
+ *   2. Tilt rotates the resulting frame around camera X (look-down angle).
+ *   3. Orthographic project — drop the depth axis, flip Y for SVG.
+ * Painter's-algorithm depth sort on mean projected depth keeps near
+ * panels on top of far panels at any orientation.
  */
-function IsoView({
+function OrbitView({
   panels,
   selectedId,
   onSelect,
@@ -538,27 +542,49 @@ function IsoView({
   selectedId: number | null;
   onSelect: (id: number) => void;
 }) {
-  const COS = Math.cos(Math.PI / 6); // ~0.866
-  const SIN = Math.sin(Math.PI / 6); // 0.5
-  // Exaggerate Z a bit so low-slope roofs are still visually readable.
-  const Z_SCALE = 2.5;
+  // Defaults: a gentle NW-looking bird's-eye pitch. ~60° down-tilt gives
+  // good pitch readability without collapsing the roof to a line.
+  const DEFAULT_YAW = Math.PI / 6;
+  const DEFAULT_TILT = Math.PI / 3;
+  const [yaw, setYaw] = useState(DEFAULT_YAW);
+  const [tilt, setTilt] = useState(DEFAULT_TILT);
+  const [zoom, setZoom] = useState(1);
+  const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
+
+  const rotate = useMemo(() => {
+    const cy = Math.cos(yaw);
+    const sy = Math.sin(yaw);
+    const ct = Math.cos(tilt);
+    const st = Math.sin(tilt);
+    return (x: number, y: number, z: number) => {
+      const x1 = cy * x - sy * y;
+      const y1 = sy * x + cy * y;
+      const y2 = ct * y1 - st * z;
+      const depth = st * y1 + ct * z; // +depth = further from camera
+      return { sx: x1, sy: -y2, depth };
+    };
+  }, [yaw, tilt]);
 
   const projected = useMemo(() => {
-    return panels.map((p) => {
+    const out = panels.map((p, originalIdx) => {
       const verts3d = p.vertices_3d_ft || [];
-      if (verts3d.length === 0) return { id: p.id, pts: [] as number[][] };
-      // Normalize Z so all panels share the same ground baseline for the
-      // iso lift — subtract min z across this panel (local baseline is fine
-      // for visualizing slope, roof-wide baseline would require a pre-pass).
+      if (verts3d.length === 0) {
+        return { id: p.id, pts: [] as number[][], depth: 0, originalIdx };
+      }
+      const rotated = verts3d.map(([x, y, z]) => rotate(x, y, z));
+      const depth =
+        rotated.reduce((s, v) => s + v.depth, 0) / rotated.length;
       return {
         id: p.id,
-        pts: verts3d.map(([x, y, z]) => [
-          x + z * COS * Z_SCALE,
-          -y - z * SIN * Z_SCALE,
-        ]),
+        pts: rotated.map((v) => [v.sx, v.sy]),
+        depth,
+        originalIdx,
       };
     });
-  }, [panels]);
+    // Painter's algorithm: draw furthest first, so nearer panels occlude.
+    out.sort((a, b) => b.depth - a.depth);
+    return out;
+  }, [panels, rotate]);
 
   const bounds = useMemo(() => {
     const xs: number[] = [];
@@ -568,63 +594,118 @@ function IsoView({
         xs.push(pt[0]);
         ys.push(pt[1]);
       }
-    if (xs.length === 0)
-      return { minX: -10, minY: -10, maxX: 10, maxY: 10, pad: 2 };
+    if (xs.length === 0) return { minX: -10, minY: -10, w: 20, h: 20 };
     const minX = Math.min(...xs);
     const maxX = Math.max(...xs);
     const minY = Math.min(...ys);
     const maxY = Math.max(...ys);
-    const pad = Math.max((maxX - minX) * 0.08, (maxY - minY) * 0.08, 3);
-    return { minX, minY, maxX, maxY, pad };
-  }, [projected]);
+    const rawW = maxX - minX;
+    const rawH = maxY - minY;
+    const pad = Math.max(rawW, rawH) * 0.1;
+    const w = (rawW + pad * 2) / zoom;
+    const h = (rawH + pad * 2) / zoom;
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    return { minX: cx - w / 2, minY: cy - h / 2, w, h };
+  }, [projected, zoom]);
 
-  const vbW = bounds.maxX - bounds.minX + bounds.pad * 2;
-  const vbH = bounds.maxY - bounds.minY + bounds.pad * 2;
+  const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
+    setDrag({ x: e.clientX, y: e.clientY });
+  };
+  const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x;
+    const dy = e.clientY - drag.y;
+    setYaw((y) => y + dx * 0.008);
+    setTilt((t) => {
+      const next = t + dy * 0.008;
+      return Math.max(0.05, Math.min(Math.PI / 2 - 0.05, next));
+    });
+    setDrag({ x: e.clientX, y: e.clientY });
+  };
+  const onPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    (e.currentTarget as SVGSVGElement).releasePointerCapture?.(e.pointerId);
+    setDrag(null);
+  };
+  const onWheel = (e: React.WheelEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    setZoom((z) => Math.max(0.4, Math.min(4, z * (1 - e.deltaY * 0.001))));
+  };
+  const resetView = () => {
+    setYaw(DEFAULT_YAW);
+    setTilt(DEFAULT_TILT);
+    setZoom(1);
+  };
+
+  const fontSize = Math.max(bounds.w, bounds.h) / 45;
+  const strokeW = Math.max(bounds.w, bounds.h) / 400;
 
   return (
-    <svg
-      viewBox={`${bounds.minX - bounds.pad} ${bounds.minY - bounds.pad} ${vbW} ${vbH}`}
-      className="w-full h-[440px] bg-gradient-to-b from-sky-50 to-neutral-100"
-      preserveAspectRatio="xMidYMid meet"
-    >
-      {projected.map((p, i) => {
-        if (p.pts.length === 0) return null;
-        const color = PANEL_PALETTE[i % PANEL_PALETTE.length];
-        const isSelected = selectedId === p.id;
-        const points = p.pts.map((v) => `${v[0]},${v[1]}`).join(" ");
-        const cx = p.pts.reduce((s, v) => s + v[0], 0) / p.pts.length;
-        const cy = p.pts.reduce((s, v) => s + v[1], 0) / p.pts.length;
-        return (
-          <g
-            key={p.id}
-            style={{ cursor: "pointer" }}
-            onClick={() => onSelect(p.id)}
-          >
-            <polygon
-              points={points}
-              fill={isSelected ? `${color}cc` : `${color}88`}
-              stroke={isSelected ? "#2563eb" : "#334155"}
-              strokeWidth={isSelected ? 0.5 : 0.2}
-              strokeLinejoin="round"
-            />
-            <text
-              x={cx}
-              y={cy}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize={vbW / 45}
-              fill="#ffffff"
-              stroke="#111827"
-              strokeWidth={vbW / 400}
-              paintOrder="stroke"
-              fontWeight={700}
-              style={{ pointerEvents: "none" }}
+    <div className="relative">
+      <svg
+        viewBox={`${bounds.minX} ${bounds.minY} ${bounds.w} ${bounds.h}`}
+        className="w-full h-[440px] bg-gradient-to-b from-sky-50 to-neutral-100 touch-none select-none"
+        preserveAspectRatio="xMidYMid meet"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onWheel={onWheel}
+        style={{ cursor: drag ? "grabbing" : "grab" }}
+      >
+        {projected.map((p) => {
+          if (p.pts.length === 0) return null;
+          const color =
+            PANEL_PALETTE[p.originalIdx % PANEL_PALETTE.length];
+          const isSelected = selectedId === p.id;
+          const points = p.pts.map((v) => `${v[0]},${v[1]}`).join(" ");
+          const cx = p.pts.reduce((s, v) => s + v[0], 0) / p.pts.length;
+          const cy = p.pts.reduce((s, v) => s + v[1], 0) / p.pts.length;
+          return (
+            <g
+              key={p.id}
+              style={{ cursor: "pointer" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(p.id);
+              }}
             >
-              {p.id}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+              <polygon
+                points={points}
+                fill={isSelected ? `${color}cc` : `${color}88`}
+                stroke={isSelected ? "#2563eb" : "#334155"}
+                strokeWidth={isSelected ? strokeW * 2 : strokeW}
+                strokeLinejoin="round"
+              />
+              <text
+                x={cx}
+                y={cy}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize={fontSize}
+                fill="#ffffff"
+                stroke="#111827"
+                strokeWidth={strokeW}
+                paintOrder="stroke"
+                fontWeight={700}
+                style={{ pointerEvents: "none" }}
+              >
+                {p.id}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <button
+        onClick={resetView}
+        className="absolute top-2 right-2 rounded-md border border-neutral-200 bg-white/90 backdrop-blur px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-white shadow-sm"
+      >
+        Reset View
+      </button>
+      <div className="absolute bottom-2 left-2 text-[10px] text-neutral-500 bg-white/80 rounded px-1.5 py-0.5 pointer-events-none">
+        drag to orbit · scroll to zoom
+      </div>
+    </div>
   );
 }
