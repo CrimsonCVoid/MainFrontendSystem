@@ -213,6 +213,7 @@ export default function InteractiveCutSheet({ projectId }: Props) {
             (s, p) => s + (p.perimeter_ft || 0),
             0,
           ),
+          totalAreaSqft: data.totals.total_area_sqft,
           panelCount: data.totals.panel_count,
         }}
       />

@@ -14,6 +14,7 @@ import {
 
 export interface PanelTotals {
   totalPerimeterFt: number;
+  totalAreaSqft: number;
   panelCount: number;
 }
 
@@ -28,10 +29,18 @@ interface CoilRow {
 }
 
 function makeDefaultRow(totals: PanelTotals): CoilRow {
+  const defaultWidthIn = 16;
+  // Coil linear ft needed = roof sqft × 12 / panel_width_in. This is the
+  // actual stock consumed by panel fabrication. Perimeter is trim/flashing
+  // and isn't the primary coil draw.
+  const linearFtFromArea =
+    totals.totalAreaSqft > 0
+      ? (totals.totalAreaSqft * 12) / defaultWidthIn
+      : 0;
   return {
     id: Math.random().toString(36).slice(2),
-    linearFtRaw: Math.round(totals.totalPerimeterFt || 100),
-    widthIn: 16,
+    linearFtRaw: Math.round(linearFtFromArea || totals.totalPerimeterFt || 100),
+    widthIn: defaultWidthIn,
     material: "steel",
     gauge: "24ga",
     idIn: DEFAULT_ID_IN,
