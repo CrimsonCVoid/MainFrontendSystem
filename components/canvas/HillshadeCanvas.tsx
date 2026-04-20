@@ -56,6 +56,13 @@ interface HillshadeCanvasProps {
    * for this sample.
    */
   onHeatmapAvailabilityChange?: (available: boolean) => void;
+  /**
+   * True once the workspace's snapshot POST has resolved AND written a
+   * training_samples row. Until then, the canvas should show a loading
+   * overlay rather than the fallback empty-canvas banner — the data is
+   * still coming.
+   */
+  snapshotReady?: boolean;
 }
 
 export function HillshadeCanvas({
@@ -64,6 +71,7 @@ export function HillshadeCanvas({
   heatmapOpacity,
   cacheBust = 0,
   onHeatmapAvailabilityChange,
+  snapshotReady = false,
 }: HillshadeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -265,20 +273,23 @@ export function HillshadeCanvas({
         backgroundSize: "24px 24px",
       }}
     >
-      {imageStatus === "loading" && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-lg bg-white/95 border border-neutral-200 shadow-sm text-neutral-600 text-xs pointer-events-none flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-          Loading satellite imagery…
-        </div>
-      )}
-      {imageStatus === "failed" && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-2 rounded-lg bg-white/95 border border-amber-200 shadow-sm text-neutral-700 text-xs max-w-sm text-center pointer-events-none">
-          <span className="font-medium text-amber-700">
-            No aerial view available yet
-          </span>
-          <span className="block text-neutral-500 mt-0.5">
-            You can still draw and save panel outlines on the blank canvas.
-          </span>
+      {imageStatus !== "loaded" && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-neutral-50/85 backdrop-blur-sm pointer-events-none">
+          <div className="flex flex-col items-center gap-4 px-8 py-7 rounded-2xl bg-white border border-neutral-200 shadow-lg">
+            <div className="relative w-12 h-12">
+              <span className="absolute inset-0 rounded-full border-2 border-neutral-200" />
+              <span className="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-500 animate-spin" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-semibold text-neutral-900">
+                Preparing roof imagery
+              </p>
+              <p className="text-xs text-neutral-500 mt-1 max-w-[18rem]">
+                Loading high-resolution aerial and elevation data for this
+                property. This takes a few seconds.
+              </p>
+            </div>
+          </div>
         </div>
       )}
       <Stage

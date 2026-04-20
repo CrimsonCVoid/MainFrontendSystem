@@ -88,26 +88,27 @@ export function LabelingWorkspace({
     return cleanup;
   }, [projectId]);
 
-  // Fire-and-forget: ensure a training_samples row exists for this
-  // project by having the server capture an aerial snapshot from Google
-  // Static Maps and upload it to Supabase Storage. If the row already
-  // exists this short-circuits server-side. Canvas image loads from the
-  // sidecar once this resolves.
+  // Capture aerial imagery + DSM from Google Solar on mount. If already
+  // cached in training_samples, the server short-circuits. The labeler
+  // canvas shows a loading overlay until this resolves.
   const [snapshotVersion, setSnapshotVersion] = useState(0);
+  const [snapshotDone, setSnapshotDone] = useState(false);
   useEffect(() => {
-    if (latitude == null || longitude == null) return;
+    if (latitude == null || longitude == null) {
+      setSnapshotDone(true);
+      return;
+    }
     let cancelled = false;
+    setSnapshotDone(false);
     fetch(`/api/projects/${projectId}/snapshot`, { method: "POST" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (cancelled || !data) return;
-        // Bust the canvas image cache so it re-fetches from the sidecar
-        // with the freshly persisted row.
-        setSnapshotVersion((v) => v + 1);
+        if (cancelled) return;
+        if (data) setSnapshotVersion((v) => v + 1);
+        setSnapshotDone(true);
       })
       .catch(() => {
-        // Silent — HillshadeCanvas falls back to the "no aerial view"
-        // state which is still drawable.
+        if (!cancelled) setSnapshotDone(true);
       });
     return () => {
       cancelled = true;
@@ -270,6 +271,7 @@ export function LabelingWorkspace({
           heatmapOpacity={heatmapOpacity}
           cacheBust={snapshotVersion}
           onHeatmapAvailabilityChange={setHeatmapAvailable}
+          snapshotReady={snapshotDone && snapshotVersion > 0}
         />
       </div>
     </div>
