@@ -527,38 +527,44 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
       {/* Paper preview */}
       <div className="flex justify-center pb-16 px-4">
         <div
-          className="bg-white shadow-2xl rounded-sm w-full max-w-[600px] relative"
+          className="bg-white shadow-2xl rounded-sm w-full max-w-[820px] relative text-[14px]"
           style={{
-            borderTop: `4px solid ${accentColor}`,
-            padding: "40px 44px",
-            minHeight: "750px",
+            borderTop: `5px solid ${accentColor}`,
+            padding: "56px 64px",
+            minHeight: "1060px",
           }}
         >
-          {sections.filter((s) => s.enabled).map((s) => {
-            const Icon = SECTION_ICONS[s.type];
-            const isActive = activePanel === s.type;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setActivePanel(s.type)}
-                className={`group relative block w-full text-left rounded transition-all -mx-1.5 px-1.5 py-0.5 ${
-                  isActive
-                    ? "ring-1 ring-blue-400 bg-blue-50/40"
-                    : "hover:ring-1 hover:ring-blue-200 hover:bg-blue-50/20"
-                }`}
-              >
-                <PreviewSection type={s.type} />
-                <span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-0.5 text-[9px] font-medium text-blue-600 bg-white rounded-full px-1.5 py-0.5 shadow-sm border border-blue-100">
-                  <Icon className="w-2.5 h-2.5" /> Edit
-                </span>
-              </button>
-            );
-          })}
-          <div
-            className="mt-6 h-1 rounded-full"
-            style={{ backgroundColor: accentColor }}
-          />
+          {/* CSS zoom scales the absolute-px sizes inside PreviewSection
+              proportionally with the larger paper, without needing to
+              rewrite every text-[Npx] class. Preserves layout + hit
+              targets (zoom scales both). */}
+          <div style={{ zoom: 1.6 }}>
+            {sections.filter((s) => s.enabled).map((s) => {
+              const Icon = SECTION_ICONS[s.type];
+              const isActive = activePanel === s.type;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setActivePanel(s.type)}
+                  className={`group relative block w-full text-left rounded transition-all -mx-1.5 px-1.5 py-0.5 ${
+                    isActive
+                      ? "ring-1 ring-blue-400 bg-blue-50/40"
+                      : "hover:ring-1 hover:ring-blue-200 hover:bg-blue-50/20"
+                  }`}
+                >
+                  <PreviewSection type={s.type} />
+                  <span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-0.5 text-[9px] font-medium text-blue-600 bg-white rounded-full px-1.5 py-0.5 shadow-sm border border-blue-100">
+                    <Icon className="w-2.5 h-2.5" /> Edit
+                  </span>
+                </button>
+              );
+            })}
+            <div
+              className="mt-6 h-1 rounded-full"
+              style={{ backgroundColor: accentColor }}
+            />
+          </div>
         </div>
       </div>
 
