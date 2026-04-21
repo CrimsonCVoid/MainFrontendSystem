@@ -228,28 +228,28 @@ export default function SendForSignatureDialog({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="mt-4">
-              <Label className="text-xs text-neutral-500">Signing link</Label>
-              <div className="mt-1.5 flex items-center gap-2">
-                <div className="flex-1 min-w-0 bg-neutral-50 border border-neutral-200 rounded-md px-3 py-2 text-xs text-neutral-700 font-mono truncate">
-                  {state.signingUrl}
-                </div>
+            <div className="mt-4 min-w-0">
+              <div className="flex items-center justify-between mb-1.5">
+                <Label className="text-xs text-neutral-500">Signing link</Label>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleCopy}
-                  className="flex-shrink-0"
+                  className="h-7 text-xs"
                 >
                   {copied ? (
                     <>
-                      <Check className="w-3.5 h-3.5 mr-1" /> Copied
+                      <Check className="w-3 h-3 mr-1" /> Copied
                     </>
                   ) : (
                     <>
-                      <Copy className="w-3.5 h-3.5 mr-1" /> Copy
+                      <Copy className="w-3 h-3 mr-1" /> Copy link
                     </>
                   )}
                 </Button>
+              </div>
+              <div className="bg-neutral-50 border border-neutral-200 rounded-md px-3 py-2 text-[11px] text-neutral-700 font-mono break-all leading-relaxed max-h-24 overflow-y-auto">
+                {state.signingUrl}
               </div>
               <p className="text-xs text-neutral-500 mt-2">
                 You can also share this link via text or another channel. It
