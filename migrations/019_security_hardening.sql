@@ -195,6 +195,14 @@ GRANT EXECUTE ON FUNCTION public.consume_promo_credit(uuid) TO authenticated;
 COMMENT ON FUNCTION public.consume_promo_credit IS
   'Atomically decrements a user''s promo_project_credits by 1. Returns the new balance, or NULL if the user had no credits. Use instead of read-then-update to prevent double-spend under concurrent requests.';
 
+-- ---------------------------------------------------------------------------
+-- 6. Nudge PostgREST to reload its schema cache so the new function is
+--    reachable via supabase.rpc() without a ~60 s wait.
+--    Safe no-op when pgrst isn't listening.
+-- ---------------------------------------------------------------------------
+
+NOTIFY pgrst, 'reload schema';
+
 -- ============================================================================
 -- End of 019_security_hardening.sql
 -- ============================================================================
