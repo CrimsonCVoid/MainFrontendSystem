@@ -107,7 +107,16 @@ interface ProposalBuilderProps {
 export default function ProposalBuilder({ project, user, roofData }: ProposalBuilderProps) {
   const [sections, setSections] = useState<Section[]>(DEFAULT_SECTIONS);
   const [generating, setGenerating] = useState(false);
-  const [activePanel, setActivePanel] = useState<string | null>("company");
+  // Start with no section selected so the user sees the full preview
+  // and can choose where to click. A pulse-ring hint on each section
+  // makes "click me" obvious; as soon as they do, hasInteracted flips
+  // and the pulse stops for the rest of the session.
+  const [activePanel, setActivePanel] = useState<string | null>(null);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const selectPanel = (p: string | null) => {
+    if (p && !hasInteracted) setHasInteracted(true);
+    setActivePanel(p);
+  };
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
@@ -591,12 +600,12 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => setActivePanel(s.type)}
+                  onClick={() => selectPanel(s.type)}
                   className={`group relative block w-full text-left rounded transition-all -mx-1.5 px-1.5 py-0.5 ${
                     isActive
                       ? "ring-1 ring-blue-400 bg-blue-50/40"
                       : "hover:ring-1 hover:ring-blue-200 hover:bg-blue-50/20"
-                  }`}
+                  } ${!hasInteracted && !isActive ? "pulse-ring-hint" : ""}`}
                 >
                   <PreviewSection type={s.type} />
                   <span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-0.5 text-[9px] font-medium text-blue-600 bg-white rounded-full px-1.5 py-0.5 shadow-sm border border-blue-100">

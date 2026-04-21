@@ -80,4 +80,22 @@
       linear-gradient(90deg, currentColor 1px, transparent 1px);
     background-size: 20px 20px;
   }
+
+  /* Pulsing ring hint on ProposalBuilder preview sections before the
+     user has clicked anything — tells them the sections are clickable
+     without opening a drawer on mount. Stops once an interaction flips
+     off the class. */
+  .pulse-ring-hint {
+    animation: pulse-ring-hint 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.45);
+  }
+  @keyframes pulse-ring-hint {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.0);
+    }
+    50% {
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22);
+    }
+  }
 }
