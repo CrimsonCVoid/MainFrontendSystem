@@ -159,6 +159,19 @@ export async function GET(req: NextRequest) {
     .eq("project_id", projectId)
     .order("created_at", { ascending: false });
 
+  if (data) {
+    const counts: Record<string, number> = {};
+    for (const p of data as Array<{ status: string }>) {
+      counts[p.status] = (counts[p.status] ?? 0) + 1;
+    }
+    const summary = Object.entries(counts)
+      .map(([s, n]) => `${s}=${n}`)
+      .join(", ");
+    console.log(
+      `[proposals] project=${projectId} returned ${data.length} proposals${summary ? ` (${summary})` : ""}`,
+    );
+  }
+
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

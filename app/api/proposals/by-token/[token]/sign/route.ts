@@ -139,10 +139,20 @@ export async function POST(
     console.log(
       `[sign] idempotent — signature ${existing.id} already exists for proposal ${proposal.id}`,
     );
-    await svc
+    const { error: idemStatusErr } = await svc
       .from("proposals")
       .update({ status: "signed", signed_at: existing.signed_at } as never)
       .eq("id", proposal.id);
+    if (idemStatusErr) {
+      console.error(
+        `[sign] idempotent status update FAILED for ${proposal.id}:`,
+        idemStatusErr,
+      );
+    } else {
+      console.log(
+        `[sign] idempotent: proposal ${proposal.id} status set to signed`,
+      );
+    }
     return NextResponse.json({
       success: true,
       signedAt: existing.signed_at,
