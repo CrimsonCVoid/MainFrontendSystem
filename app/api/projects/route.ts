@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getOrgContext } from "@/lib/org-auth";
 
 export async function GET(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -18,6 +19,14 @@ export async function GET(req: NextRequest) {
     .order("created_at", { ascending: false });
 
   if (orgId) {
+    // IDOR fix (C-1, 2026-04-21 audit): validate user is a member of the
+    // requested org before scoping by organization_id. Prior code trusted
+    // whatever orgId the caller passed, letting any authed user enumerate
+    // any org's projects.
+    const orgContext = await getOrgContext(supabase, orgId);
+    if (!orgContext) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     query = query.eq("organization_id", orgId);
   } else {
     query = query.eq("user_id", user.id);
@@ -44,6 +53,17 @@ export async function POST(req: NextRequest) {
 
   // Map frontend field names to database columns
   const { orgId, ...rest } = body;
+
+  // IDOR fix (C-1, 2026-04-21 audit): if the caller claims an org for the
+  // new project, confirm they're actually a member. RLS on the projects
+  // INSERT policy should also catch this, but checking here gives a clean
+  // 403 instead of a vague database error.
+  if (orgId) {
+    const orgContext = await getOrgContext(supabase, orgId);
+    if (!orgContext) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
 
   const { data, error } = await supabase
     .from("projects")
