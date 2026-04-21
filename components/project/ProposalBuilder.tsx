@@ -20,7 +20,9 @@ import {
   ChevronUp,
   ChevronDown,
   Layers,
+  Send,
 } from "lucide-react";
+import SendForSignatureDialog from "@/components/project/SendForSignatureDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -106,6 +108,7 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
   const [sections, setSections] = useState<Section[]>(DEFAULT_SECTIONS);
   const [generating, setGenerating] = useState(false);
   const [activePanel, setActivePanel] = useState<string | null>("company");
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
 
@@ -530,13 +533,13 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
               </PopoverContent>
             </Popover>
 
-            {/* Download PDF */}
+            {/* Download PDF (draft) */}
             <Button
+              variant="outline"
               onClick={generatePDF}
               disabled={generating}
               size="sm"
-              className="gap-1.5 h-9 text-white"
-              style={{ backgroundColor: accentColor }}
+              className="gap-1.5 h-9"
             >
               {generating ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -544,7 +547,20 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
                 <Download className="w-3.5 h-3.5" />
               )}
               <span className="hidden sm:inline text-xs font-medium">
-                {generating ? "Generating…" : "Download PDF"}
+                {generating ? "Generating…" : "PDF"}
+              </span>
+            </Button>
+
+            {/* Send for Signature */}
+            <Button
+              onClick={() => setSendDialogOpen(true)}
+              size="sm"
+              className="gap-1.5 h-9 text-white"
+              style={{ backgroundColor: accentColor }}
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline text-xs font-medium">
+                Send for Signature
               </span>
             </Button>
           </div>
@@ -760,6 +776,60 @@ export default function ProposalBuilder({ project, user, roofData }: ProposalBui
           </div>
         </>
       )}
+
+      {/* Send for Signature dialog. Serializes the current proposal
+          state into the server's content_json; the server freezes it
+          + hashes it so the signer agrees to exactly this content. */}
+      <SendForSignatureDialog
+        open={sendDialogOpen}
+        onOpenChange={setSendDialogOpen}
+        projectId={project.id}
+        projectName={project.name}
+        companyName={companyName}
+        brandColor={accentColor}
+        content={{
+          companyName,
+          projectName: project.name,
+          brandColor: accentColor,
+          proposalTitle,
+          proposalNumber,
+          validDays,
+          sections: sections.filter((s) => s.enabled),
+          company: {
+            name: companyName,
+            phone: companyPhone,
+            email: companyEmail,
+            address: companyAddress,
+            website: companyWebsite,
+            logoUrl,
+          },
+          client: {
+            name: clientName,
+            email: clientEmail,
+            phone: clientPhone,
+            address: clientAddress,
+          },
+          projectMeta: {
+            address: projectAddr,
+            squareFootage: sqft,
+            planeCount: roofData?.planes?.length || 0,
+            measurements,
+          },
+          scopeText,
+          lineItems,
+          totals: {
+            subtotal,
+            discount,
+            discountPercent,
+            tax,
+            taxRate,
+            total,
+            deposit,
+            depositPercent,
+          },
+          notesText,
+        }}
+      />
     </div>
   );
 }

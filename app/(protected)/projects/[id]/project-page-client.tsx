@@ -33,6 +33,7 @@ import { type AddressData } from "@/components/project/AddressInput";
 import EstimationTab from "@/components/project/EstimationTab";
 import InteractiveCutSheet from "@/components/project/InteractiveCutSheet";
 import ProposalBuilder from "@/components/project/ProposalBuilder";
+import SignatureStatusCard from "@/components/project/SignatureStatusCard";
 import PhotoGalleryTab from "@/components/project/PhotoGalleryTab";
 import FinancialsTab from "@/components/project/FinancialsTab";
 import { DuplicateAddressDialog } from "@/components/project/DuplicateAddressDialog";
@@ -1069,7 +1070,9 @@ export default function ProjectPageClient({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              className="space-y-6"
             >
+              <SignatureStatusCard projectId={project.id} />
               <ProposalBuilder project={project} user={user} roofData={project.roof_data as any} />
             </motion.div>
           )}
