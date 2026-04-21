@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-auth";
-import { hasPermission, isValidSlug } from "@/lib/org-types";
+import { hasPermission } from "@/lib/org-types";
 
 interface RouteContext {
   params: Promise<{ orgId: string }>;
@@ -77,7 +77,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const { name, slug, logo_url, settings } = body;
+  // Slug is server-managed (generated on create, never exposed in the
+  // UI) so any attempt to PATCH it is silently ignored — future-proofs
+  // against stale clients.
+  const { name, logo_url, settings } = body;
   const updates: Record<string, any> = {};
 
   // Validate and prepare updates
@@ -86,31 +89,6 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Organization name must be at least 2 characters" }, { status: 400 });
     }
     updates.name = name.trim();
-  }
-
-  if (slug !== undefined) {
-    const normalizedSlug = slug.toLowerCase().trim();
-    if (!isValidSlug(normalizedSlug)) {
-      return NextResponse.json(
-        { error: "Invalid slug. Must be 3-50 characters, lowercase alphanumeric with hyphens" },
-        { status: 400 }
-      );
-    }
-
-    // Check slug uniqueness (exclude current org)
-    const { data: existing } = await supabase
-      .from("organizations")
-      .select("id")
-      .eq("slug", normalizedSlug)
-      .neq("id", orgId)
-      .limit(1)
-      .single();
-
-    if (existing) {
-      return NextResponse.json({ error: "This slug is already taken" }, { status: 400 });
-    }
-
-    updates.slug = normalizedSlug;
   }
 
   if (logo_url !== undefined) {

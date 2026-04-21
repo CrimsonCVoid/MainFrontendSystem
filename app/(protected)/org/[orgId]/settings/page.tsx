@@ -374,40 +374,49 @@ export default function OrgSettingsPage() {
   const billingStatusInfo = getBillingStatusInfo(org.billing_status || "inactive");
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-gradient-to-b from-neutral-50 to-neutral-100">
       <div className="max-w-5xl mx-auto p-6">
-        {/* Header */}
+        {/* Header — matches the rest of the app (gradient slate icon, subtle back-link) */}
         <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push("/dashboard")}
+            className="rounded-full hover:bg-neutral-200/60"
+          >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center">
-              <Building2 className="h-6 w-6 text-slate-500" />
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center text-white shadow-sm flex-shrink-0">
+              <Building2 className="h-6 w-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-neutral-900">{org.name}</h1>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${planBadge.className}`}>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl font-bold text-neutral-900 truncate">
+                  {org.name}
+                </h1>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${planBadge.className}`}
+                >
                   {planBadge.label}
                 </span>
               </div>
-              <p className="text-sm text-neutral-500">Organization Settings</p>
+              <p className="text-sm text-neutral-500">Organization settings</p>
             </div>
           </div>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            {error}
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
           </div>
         )}
 
         {success && (
-          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-600 text-sm flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-            {success}
+          <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-start gap-2">
+            <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <span>{success}</span>
           </div>
         )}
 
