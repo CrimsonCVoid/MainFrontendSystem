@@ -174,7 +174,13 @@ export async function sendSignedCopyEmail(data: {
   companyName: string;
   projectName: string;
   signerName: string;
+  signerEmail: string;
   signedAt: Date;
+  otpVerifiedAt: Date;
+  signerIp: string;
+  signerUa: string;
+  documentHash: string;
+  consentTextVersion: string;
   downloadUrl: string;
   brandColor?: string;
   audienceKind: "signer" | "sender";
@@ -191,6 +197,28 @@ export async function sendSignedCopyEmail(data: {
       ? `Thanks for signing! This is your signed copy of the proposal from <strong>${esc(data.companyName)}</strong>.`
       : `<strong>${esc(data.signerName)}</strong> has signed the proposal for <strong>${esc(data.projectName)}</strong>.`;
 
+  // Summarize UA into a short "Chrome on macOS" style string for the audit
+  // row; the full UA still lives in proposal_signatures.signer_ua.
+  const deviceSummary = _summarizeUa(data.signerUa);
+  const hashShort = data.documentHash.slice(0, 16) + "…" + data.documentHash.slice(-8);
+
+  const fmtAt = (d: Date) =>
+    d.toLocaleString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    });
+
+  // Audit row helper — inline-styled <tr> for email-client compatibility.
+  const row = (label: string, value: string, mono = false) => `
+<tr>
+  <td style="padding:6px 0;font-size:12px;color:#6b7280;width:42%;vertical-align:top;">${esc(label)}</td>
+  <td style="padding:6px 0;font-size:12px;color:#111827;${mono ? "font-family:'SFMono-Regular',Consolas,monospace;" : ""}word-break:break-all;">${esc(value)}</td>
+</tr>`;
+
   const html = `<!DOCTYPE html>
 <html><body style="${bodyStyle}">
 <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
@@ -203,22 +231,44 @@ export async function sendSignedCopyEmail(data: {
 <tr><td style="padding:28px 32px;color:#374151;line-height:1.6;font-size:15px;">
 <p style="margin:0 0 16px;">${data.recipientName ? `Hi ${esc(data.recipientName)},` : "Hi,"}</p>
 <p style="margin:0 0 16px;">${leadLine}</p>
-<p style="margin:0 0 16px;color:#6b7280;font-size:14px;">Signed ${data.signedAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} at ${data.signedAt.toLocaleTimeString("en-US")}.</p>
 <table cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td>
 <a href="${data.downloadUrl}" style="display:inline-block;padding:14px 28px;background:${accent};color:#fff;text-decoration:none;font-weight:600;border-radius:8px;font-size:15px;">Download Signed PDF</a>
 </td></tr></table>
-<p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">The signed PDF includes a Certificate of Completion with the full audit trail: signer email, IP address, timestamps, and email verification record.</p>
+
+<!-- Audit trail box ------------------------------------------------ -->
+<div style="margin-top:8px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
+<div style="padding:10px 16px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:600;letter-spacing:1px;color:#6b7280;text-transform:uppercase;">
+Audit Record
+</div>
+<div style="padding:12px 16px;">
+<table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+${row("Signer", data.signerName + " · " + data.signerEmail)}
+${row("Signed at", fmtAt(data.signedAt))}
+${row("Email verified at", fmtAt(data.otpVerifiedAt))}
+${row("Signer IP", data.signerIp, true)}
+${row("Device / browser", deviceSummary)}
+${row("Document hash (SHA-256)", hashShort, true)}
+${row("Consent version", data.consentTextVersion, true)}
+</table>
+</div>
+</div>
+
+<p style="margin:20px 0 0;font-size:12px;color:#9ca3af;line-height:1.5;">
+This record is the legal proof of execution for this proposal under the
+US ESIGN Act and UETA. Keep this email for your files. The signed PDF
+above contains the same audit trail as an attached Certificate of
+Completion page.
+</p>
 </td></tr>
 </table>
 </td></tr></table>
 </body></html>`;
 
   if (!client) {
-    console.log("📧 [Email] Would send signed copy:", {
-      to: data.to,
-      subject,
-      downloadUrl: data.downloadUrl,
-    });
+    console.warn(
+      "📧 [esign] signed-copy NOT SENT — RESEND_API_KEY is missing. " +
+        `Would have sent to ${data.to} from ${FROM_EMAIL}.`,
+    );
     return { success: true, messageId: "logged" };
   }
   try {
@@ -228,12 +278,38 @@ export async function sendSignedCopyEmail(data: {
       subject,
       html,
     });
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      console.error(
+        `📧 [esign] signed-copy REJECTED by Resend for ${data.to}: ${error.message}`,
+      );
+      return { success: false, error: error.message };
+    }
+    console.log(
+      `📧 [esign] signed-copy sent to ${data.to} (resend id=${res?.id})`,
+    );
     return { success: true, messageId: res?.id };
   } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Unknown error",
-    };
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    console.error(`📧 [esign] signed-copy threw for ${data.to}: ${msg}`);
+    return { success: false, error: msg };
   }
+}
+
+function _summarizeUa(ua: string): string {
+  if (!ua) return "Unknown device";
+  const mobile = /Mobile|iPhone|iPad|Android/i.test(ua);
+  const browser =
+    /Edg\//.test(ua) ? "Edge" :
+    /Chrome\//.test(ua) ? "Chrome" :
+    /Safari\//.test(ua) ? "Safari" :
+    /Firefox\//.test(ua) ? "Firefox" :
+    "Browser";
+  const os =
+    /Mac OS X/.test(ua) ? "macOS" :
+    /Windows/.test(ua) ? "Windows" :
+    /Android/.test(ua) ? "Android" :
+    /iPhone|iPad|iOS/.test(ua) ? "iOS" :
+    /Linux/.test(ua) ? "Linux" :
+    "Unknown OS";
+  return `${browser} on ${os}${mobile ? " (mobile)" : ""}`;
 }

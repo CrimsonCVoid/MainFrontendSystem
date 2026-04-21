@@ -218,6 +218,16 @@ export async function POST(
     .eq("id", proposal.created_by)
     .maybeSingle<{ email: string | null; full_name: string | null }>();
 
+  const auditFields = {
+    signerEmail: proposal.signer_email,
+    signedAt: now,
+    otpVerifiedAt: new Date(otp.verified_at),
+    signerIp: ip,
+    signerUa: ua,
+    documentHash: proposal.document_hash,
+    consentTextVersion: CONSENT_TEXT_VERSION,
+  };
+
   const notifyPromises: Promise<unknown>[] = [
     sendSignedCopyEmail({
       to: proposal.signer_email,
@@ -225,10 +235,10 @@ export async function POST(
       companyName,
       projectName,
       signerName: body.signerName,
-      signedAt: now,
       downloadUrl,
       brandColor,
       audienceKind: "signer",
+      ...auditFields,
     }),
   ];
   if (sender?.email) {
@@ -239,19 +249,26 @@ export async function POST(
         companyName,
         projectName,
         signerName: body.signerName,
-        signedAt: now,
         downloadUrl,
         brandColor,
         audienceKind: "sender",
+        ...auditFields,
       }),
     );
   }
+  console.log(
+    `[sign] dispatching ${notifyPromises.length} signed-copy email(s) ` +
+      `(signer=${proposal.signer_email}${sender?.email ? `, sender=${sender.email}` : ""})`,
+  );
   Promise.allSettled(notifyPromises).then((results) => {
-    for (const r of results) {
+    results.forEach((r, i) => {
+      const target = i === 0 ? "signer" : "sender";
       if (r.status === "rejected") {
-        console.warn("[sign] signed-copy email failed:", r.reason);
+        console.warn(`[sign] ${target} email rejected:`, r.reason);
+      } else if (!r.value || (r.value as { success?: boolean }).success === false) {
+        console.warn(`[sign] ${target} email failed:`, r.value);
       }
-    }
+    });
   });
 
   return NextResponse.json({
