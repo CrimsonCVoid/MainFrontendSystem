@@ -127,29 +127,68 @@ export async function POST(
   const ip = getClientIp(req);
   const ua = req.headers.get("user-agent") ?? "";
 
-  // Record the signature.
+  // Record the signature. Guard against retries: if a signature already
+  // exists for this proposal, treat as idempotent success (the earlier
+  // response may have been dropped before the client saw it).
+  const { data: existing } = await svc
+    .from("proposal_signatures")
+    .select("id, signed_at")
+    .eq("proposal_id", proposal.id)
+    .maybeSingle<{ id: string; signed_at: string }>();
+  if (existing) {
+    console.log(
+      `[sign] idempotent — signature ${existing.id} already exists for proposal ${proposal.id}`,
+    );
+    await svc
+      .from("proposals")
+      .update({ status: "signed", signed_at: existing.signed_at } as never)
+      .eq("id", proposal.id);
+    return NextResponse.json({
+      success: true,
+      signedAt: existing.signed_at,
+      downloadUrl: `${req.headers.get("origin") || req.nextUrl.origin}/sign/${token}?signed=1`,
+    });
+  }
+
+  const insertPayload = {
+    proposal_id: proposal.id,
+    signer_name: body.signerName,
+    signer_email: proposal.signer_email,
+    signature_data_url: body.signatureDataUrl,
+    signature_method: body.signatureMethod,
+    consent_to_esign: body.consentToEsign,
+    consent_to_terms: body.consentToTerms,
+    consent_text_version: CONSENT_TEXT_VERSION,
+    verifying_otp_id: otp.id,
+    otp_verified_at: otp.verified_at,
+    signed_at: now.toISOString(),
+    signer_ip: ip,
+    signer_ua: ua,
+    document_hash_at_sign: proposal.document_hash,
+  };
   const { error: sigErr } = await svc
     .from("proposal_signatures")
-    .insert({
-      proposal_id: proposal.id,
-      signer_name: body.signerName,
-      signer_email: proposal.signer_email,
-      signature_data_url: body.signatureDataUrl,
-      signature_method: body.signatureMethod,
-      consent_to_esign: body.consentToEsign,
-      consent_to_terms: body.consentToTerms,
-      consent_text_version: CONSENT_TEXT_VERSION,
-      verifying_otp_id: otp.id,
-      otp_verified_at: otp.verified_at,
-      signed_at: now.toISOString(),
-      signer_ip: ip,
-      signer_ua: ua,
-      document_hash_at_sign: proposal.document_hash,
-    } as never);
+    .insert(insertPayload as never);
 
   if (sigErr) {
+    console.error("[sign] insert failed:", {
+      message: sigErr.message,
+      details: (sigErr as { details?: string }).details,
+      hint: (sigErr as { hint?: string }).hint,
+      code: (sigErr as { code?: string }).code,
+      proposalId: proposal.id,
+      otpId: otp.id,
+      ip,
+      uaLen: ua.length,
+      sigDataUrlLen: body.signatureDataUrl.length,
+    });
     return NextResponse.json(
-      { error: "Could not save signature", detail: sigErr.message },
+      {
+        error: "Could not save signature",
+        detail: sigErr.message,
+        hint: (sigErr as { hint?: string }).hint,
+        code: (sigErr as { code?: string }).code,
+      },
       { status: 500 },
     );
   }
