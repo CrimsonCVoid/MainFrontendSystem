@@ -34,6 +34,16 @@ type ProposalRow = {
 type SignatureRow = {
   signed_at: string;
   signer_name: string;
+  signer_email: string;
+  signature_data_url: string;
+  signature_method: "drawn" | "typed";
+  signer_ip: string;
+  signer_ua: string;
+  otp_verified_at: string;
+  document_hash_at_sign: string;
+  consent_text_version: string;
+  consent_to_esign: boolean;
+  consent_to_terms: boolean;
 };
 
 export async function GET(
@@ -79,18 +89,48 @@ export async function GET(
       .then(() => {});
   }
 
-  // If already signed, fetch the signature summary (no sensitive fields).
-  let signature: { signedAt: string; signerName: string } | null = null;
+  // If already signed, return the full signature record so the signer
+  // page can render an audit certificate instead of the sign form. The
+  // data is shown to the token holder (the signer themselves), so IP /
+  // UA / hash are appropriate to surface — they're the signer's own.
+  let signature:
+    | {
+        signedAt: string;
+        signerName: string;
+        signerEmail: string;
+        signatureDataUrl: string;
+        signatureMethod: "drawn" | "typed";
+        signerIp: string;
+        signerUa: string;
+        otpVerifiedAt: string;
+        documentHash: string;
+        consentTextVersion: string;
+        consentToEsign: boolean;
+        consentToTerms: boolean;
+      }
+    | null = null;
   if (proposal.status === "signed") {
     const { data: sig } = await svc
       .from("proposal_signatures")
-      .select("signed_at, signer_name")
+      .select(
+        "signed_at, signer_name, signer_email, signature_data_url, signature_method, signer_ip, signer_ua, otp_verified_at, document_hash_at_sign, consent_text_version, consent_to_esign, consent_to_terms",
+      )
       .eq("proposal_id", proposal.id)
       .maybeSingle<SignatureRow>();
     if (sig) {
       signature = {
         signedAt: sig.signed_at,
         signerName: sig.signer_name,
+        signerEmail: sig.signer_email,
+        signatureDataUrl: sig.signature_data_url,
+        signatureMethod: sig.signature_method,
+        signerIp: sig.signer_ip,
+        signerUa: sig.signer_ua,
+        otpVerifiedAt: sig.otp_verified_at,
+        documentHash: sig.document_hash_at_sign,
+        consentTextVersion: sig.consent_text_version,
+        consentToEsign: sig.consent_to_esign,
+        consentToTerms: sig.consent_to_terms,
       };
     }
   }

@@ -59,24 +59,63 @@ export default function SignatureStatusCard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-    fetch(`/api/proposals?projectId=${encodeURIComponent(projectId)}`)
-      .then(async (r) => {
+    let cancelled = false;
+    const run = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const r = await fetch(
+          `/api/proposals?projectId=${encodeURIComponent(projectId)}`,
+          { cache: "no-store" },
+        );
         if (!r.ok) {
           const e = await r.json().catch(() => ({}));
           throw new Error(e.error || "Could not load proposals");
         }
-        return r.json();
-      })
-      .then((data: { proposals: Proposal[] }) =>
-        setProposals(data.proposals || []),
-      )
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [projectId, refreshKey]);
+        const data: { proposals: Proposal[] } = await r.json();
+        if (!cancelled) setProposals(data.proposals || []);
+      } catch (e) {
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "Load failed");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, refreshKey, tick]);
+
+  // Refresh when the contractor comes back to the tab — catches the
+  // case where the customer signed while they were elsewhere so the
+  // status card flips Sent → Signed without a manual reload.
+  useEffect(() => {
+    const onFocus = () => setTick((t) => t + 1);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") setTick((t) => t + 1);
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+
+  // Also poll every 30s while any proposal is still pending — low cost,
+  // covers the case where the user stays on the tab the whole time.
+  useEffect(() => {
+    const hasPending = (proposals ?? []).some(
+      (p) => p.status === "sent" || p.status === "viewed",
+    );
+    if (!hasPending) return;
+    const id = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, [proposals]);
 
   const handleCopy = async (p: Proposal) => {
     const url = `${window.location.origin}/sign/${p.signing_token}`;

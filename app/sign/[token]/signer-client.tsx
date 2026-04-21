@@ -81,7 +81,22 @@ interface ProposalInfo {
   content: ProposalContent;
   status: "sent" | "viewed" | "signed" | "expired" | "voided";
   expiresAt: string;
-  signature?: { signedAt: string; signerName: string } | null;
+  signature?: FullSignature | null;
+}
+
+interface FullSignature {
+  signedAt: string;
+  signerName: string;
+  signerEmail: string;
+  signatureDataUrl: string;
+  signatureMethod: "drawn" | "typed";
+  signerIp: string;
+  signerUa: string;
+  otpVerifiedAt: string;
+  documentHash: string;
+  consentTextVersion: string;
+  consentToEsign: boolean;
+  consentToTerms: boolean;
 }
 
 type Step = "review" | "verify" | "sign" | "done" | "error";
@@ -236,6 +251,18 @@ export default function SignerClient({ token }: { token: string }) {
           downloadUrl: data.downloadUrl,
         });
         setStep("done");
+        // Refetch so the audit cert has the full signature record
+        // (image, IP, UA, hash) instead of the minimal summary we
+        // already know about.
+        try {
+          const r2 = await fetch(`/api/proposals/by-token/${token}`);
+          if (r2.ok) {
+            const fresh: ProposalInfo = await r2.json();
+            setInfo(fresh);
+          }
+        } catch {
+          /* non-fatal — thin cert still renders from state */
+        }
       } catch (e) {
         setSubmitError(
           e instanceof Error ? e.message : "Could not submit signature",
@@ -336,13 +363,14 @@ export default function SignerClient({ token }: { token: string }) {
           />
         )}
         {step === "done" && (
-          <DoneStep
-            signerName={signerName || info.signature?.signerName || ""}
-            signedAt={doneInfo?.signedAt || info.signature?.signedAt || ""}
-            downloadUrl={doneInfo?.downloadUrl}
+          <AuditCertificate
+            info={info}
+            signature={info.signature ?? null}
+            signerNameFallback={signerName}
+            signedAtFallback={doneInfo?.signedAt}
             accent={accent}
-            projectName={projectName}
             companyName={companyName}
+            projectName={projectName}
           />
         )}
         {step === "error" && (
@@ -859,62 +887,235 @@ function escapeXml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function DoneStep({
-  signerName,
-  signedAt,
-  downloadUrl,
+/**
+ * Certificate of Completion view shown once a proposal is signed. This
+ * replaces the sign form on the /sign/[token] URL for any signed
+ * proposal — revisiting the link shows the audit record, never another
+ * form. The full signature record (signature image, IP, UA, doc hash,
+ * timestamps, consent acknowledgments) comes from the signed-proposal
+ * branch of the by-token GET route.
+ */
+function AuditCertificate({
+  info,
+  signature,
+  signerNameFallback,
+  signedAtFallback,
   accent,
-  projectName,
   companyName,
+  projectName,
 }: {
-  signerName: string;
-  signedAt: string;
-  downloadUrl?: string;
+  info: ProposalInfo;
+  signature: FullSignature | null;
+  signerNameFallback?: string;
+  signedAtFallback?: string;
   accent: string;
-  projectName: string;
   companyName: string;
+  projectName: string;
 }) {
-  const when = signedAt
-    ? new Date(signedAt).toLocaleString("en-US", {
+  const sig = signature;
+  const signerName = sig?.signerName || signerNameFallback || "Signer";
+  const signedAtIso = sig?.signedAt || signedAtFallback || "";
+  const when = signedAtIso
+    ? new Date(signedAtIso).toLocaleString("en-US", {
         month: "long",
         day: "numeric",
         year: "numeric",
         hour: "numeric",
         minute: "2-digit",
+        timeZoneName: "short",
       })
     : "";
+  const otpWhen = sig?.otpVerifiedAt
+    ? new Date(sig.otpVerifiedAt).toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : null;
+
   return (
-    <div className="bg-white rounded-2xl border border-neutral-200 p-10 shadow-sm max-w-md mx-auto text-center">
-      <div
-        className="w-16 h-16 rounded-full mx-auto flex items-center justify-center"
-        style={{ backgroundColor: accent + "20", color: accent }}
-      >
-        <CheckCircle2 className="w-9 h-9" />
-      </div>
-      <h2 className="mt-5 text-2xl font-semibold text-neutral-900">
-        Signed!
-      </h2>
-      <p className="mt-2 text-sm text-neutral-500">
-        {signerName ? `${signerName}, t` : "T"}hanks for signing the proposal
-        {projectName ? ` for ${projectName}` : ""}
-        {companyName ? ` from ${companyName}` : ""}.
-      </p>
-      {when && (
-        <p className="mt-4 text-xs text-neutral-400">Signed on {when}</p>
-      )}
-      <p className="mt-6 text-xs text-neutral-500">
-        A copy with the full audit certificate is on its way to your inbox.
-      </p>
-      {downloadUrl && (
-        <a
-          href={downloadUrl}
-          className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* Hero confirmation */}
+      <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
+        <div
+          className="px-6 py-5 text-white"
+          style={{ backgroundColor: accent }}
         >
-          View this page again <ArrowRight className="w-3.5 h-3.5" />
-        </a>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-wider opacity-85">
+                Certificate of Completion
+              </div>
+              <h2 className="text-xl font-semibold leading-tight">
+                {projectName || "Proposal"} — Signed
+              </h2>
+            </div>
+          </div>
+        </div>
+        <div className="p-6">
+          <p className="text-sm text-neutral-600 leading-relaxed">
+            This proposal was electronically signed by{" "}
+            <span className="font-semibold text-neutral-900">{signerName}</span>
+            {companyName ? ` on behalf of ${companyName}'s customer` : ""}.
+            It is legally binding under the US ESIGN Act and UETA. A copy
+            with this certificate has been emailed to both parties.
+          </p>
+          {when && (
+            <div className="mt-4 text-sm">
+              <span className="text-neutral-400">Signed at: </span>
+              <span className="font-medium text-neutral-800">{when}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Signature image */}
+      {sig?.signatureDataUrl && (
+        <div className="bg-white rounded-2xl border border-neutral-200 p-6 shadow-sm">
+          <div className="text-[11px] uppercase tracking-wider text-neutral-500 mb-3">
+            Signature
+          </div>
+          <div className="border border-neutral-200 rounded-lg bg-neutral-50 px-4 py-5 flex items-center justify-center min-h-[140px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={sig.signatureDataUrl}
+              alt={`Signature of ${signerName}`}
+              className="max-h-32 max-w-full"
+            />
+          </div>
+          <div className="mt-3 text-xs text-neutral-500">
+            Signed by{" "}
+            <span className="font-medium text-neutral-700">{signerName}</span>{" "}
+            · {sig.signerEmail} · method:{" "}
+            <span className="font-mono">{sig.signatureMethod}</span>
+          </div>
+        </div>
       )}
+
+      {/* Audit trail */}
+      {sig && (
+        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-3 border-b border-neutral-100 text-[11px] uppercase tracking-wider text-neutral-500">
+            Audit Trail
+          </div>
+          <dl className="divide-y divide-neutral-100">
+            <AuditRow label="Signer name" value={sig.signerName} />
+            <AuditRow label="Signer email" value={sig.signerEmail} />
+            <AuditRow label="Signed at" value={when} />
+            {otpWhen && (
+              <AuditRow
+                label="Email verified at"
+                value={otpWhen}
+                sublabel="via 6-digit code sent to the signer's email"
+              />
+            )}
+            <AuditRow label="Signer IP" value={sig.signerIp} mono />
+            <AuditRow
+              label="Device / browser"
+              value={summarizeUa(sig.signerUa)}
+              sublabel={sig.signerUa}
+              small
+            />
+            <AuditRow
+              label="Document hash"
+              value={sig.documentHash}
+              mono
+              wrap
+              sublabel="SHA-256 of the proposal content at signing time. Any later edit produces a different hash."
+            />
+            <AuditRow
+              label="Consent version"
+              value={sig.consentTextVersion}
+              mono
+            />
+            <AuditRow
+              label="Consented to e-signature"
+              value={sig.consentToEsign ? "✓ Yes" : "—"}
+              highlight={sig.consentToEsign}
+            />
+            <AuditRow
+              label="Consented to proposal terms"
+              value={sig.consentToTerms ? "✓ Yes" : "—"}
+              highlight={sig.consentToTerms}
+            />
+          </dl>
+        </div>
+      )}
+
+      <p className="text-center text-xs text-neutral-400 pb-4">
+        This page is the permanent audit record for this signature.
+        Returning to this link will always show this certificate; it cannot
+        be signed again.
+      </p>
     </div>
   );
+}
+
+function AuditRow({
+  label,
+  value,
+  sublabel,
+  mono,
+  wrap,
+  small,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  sublabel?: string;
+  mono?: boolean;
+  wrap?: boolean;
+  small?: boolean;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="px-6 py-3 grid grid-cols-[160px_1fr] gap-3 items-start">
+      <dt className="text-xs text-neutral-500 pt-0.5">{label}</dt>
+      <dd
+        className={
+          (mono ? "font-mono " : "") +
+          (wrap ? "break-all " : "truncate ") +
+          (small ? "text-xs " : "text-sm ") +
+          (highlight ? "text-emerald-700 font-medium " : "text-neutral-800 ")
+        }
+      >
+        {value || "—"}
+        {sublabel && (
+          <div
+            className={`mt-1 text-[11px] text-neutral-400 ${
+              wrap ? "" : "truncate"
+            } font-normal not-mono`}
+            style={{ fontFamily: "inherit" }}
+          >
+            {sublabel}
+          </div>
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function summarizeUa(ua: string): string {
+  if (!ua) return "—";
+  const isMobile = /Mobile|iPhone|iPad|Android/i.test(ua);
+  const browser =
+    /Edg\//.test(ua) ? "Edge" :
+    /Chrome\//.test(ua) ? "Chrome" :
+    /Safari\//.test(ua) ? "Safari" :
+    /Firefox\//.test(ua) ? "Firefox" :
+    "Browser";
+  const os =
+    /Mac OS X/.test(ua) ? "macOS" :
+    /Windows/.test(ua) ? "Windows" :
+    /Android/.test(ua) ? "Android" :
+    /iPhone|iPad|iOS/.test(ua) ? "iOS" :
+    /Linux/.test(ua) ? "Linux" :
+    "Unknown OS";
+  return `${browser} on ${os}${isMobile ? " (mobile)" : ""}`;
 }
 
 function ErrorCard({ message }: { message: string }) {
