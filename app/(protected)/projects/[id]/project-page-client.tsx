@@ -35,7 +35,6 @@ import InteractiveCutSheet from "@/components/project/InteractiveCutSheet";
 import ProposalBuilder from "@/components/project/ProposalBuilder";
 import SignatureStatusCard from "@/components/project/SignatureStatusCard";
 import PhotoGalleryTab from "@/components/project/PhotoGalleryTab";
-import FinancialsTab from "@/components/project/FinancialsTab";
 import { DuplicateAddressDialog } from "@/components/project/DuplicateAddressDialog";
 import { OwnershipBadge } from "@/components/project/OwnershipBadge";
 import { CreatorAvatar } from "@/components/project/CreatorAvatar";
@@ -77,7 +76,7 @@ export default function ProjectPageClient({
   const [project, setProject] = useState<ProjectRow>(initialProject);
   const [user, setUser] = useState<UserRow | null>(null);
   const [creator, setCreator] = useState<CreatorInfo | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "labeler" | "estimation" | "cut-sheet" | "proposal" | "photos" | "financials">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "labeler" | "estimation" | "cut-sheet" | "proposal" | "photos">("overview");
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
@@ -481,10 +480,9 @@ export default function ProjectPageClient({
   const tabs = [
     { id: "overview", label: "Overview", icon: FileText },
     { id: "labeler", label: "Labeler", icon: Pencil },
-    { id: "estimation", label: "Estimation", icon: DollarSign },
     { id: "cut-sheet", label: "Cut Sheet", icon: Layers },
     { id: "photos", label: "Photos", icon: Calendar },
-    { id: "financials", label: "Financials", icon: DollarSign },
+    { id: "estimation", label: "Estimation", icon: DollarSign },
     { id: "proposal", label: "Proposal", icon: FileText },
   ] as const;
 
@@ -1053,13 +1051,6 @@ export default function ProjectPageClient({
           {activeTab === "photos" && (
             <motion.div key="photos" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <PhotoGalleryTab projectId={project.id} organizationId={project.organization_id || org?.id || ""} userId={userId} />
-            </motion.div>
-          )}
-
-          {/* FINANCIALS TAB */}
-          {activeTab === "financials" && (
-            <motion.div key="financials" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <FinancialsTab projectId={project.id} organizationId={project.organization_id || org?.id || ""} userId={userId} clientId={project.client_id || undefined} />
             </motion.div>
           )}
 
