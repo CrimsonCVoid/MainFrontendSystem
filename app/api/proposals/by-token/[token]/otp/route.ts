@@ -137,10 +137,32 @@ export async function POST(
     expiresInMinutes: OTP_TTL_MINUTES,
   });
 
+  // Dev fallback: when Resend isn't configured the email helper returns
+  // messageId="logged" (i.e. dispatched nowhere). Surface the code back
+  // through the response so the signer page can display it and unblock
+  // testing. Never do this in production — gated on NODE_ENV.
+  const isLogged = emailResult.messageId === "logged";
+  const devUnblockCode =
+    isLogged && process.env.NODE_ENV !== "production" ? code : undefined;
+
   if (!emailResult.success) {
+    console.error(
+      `[otp] dispatch failed for ${proposal.signer_email}: ${emailResult.error}`,
+    );
     return NextResponse.json(
       { error: "Could not send verification email", detail: emailResult.error },
       { status: 502 },
+    );
+  }
+
+  if (isLogged) {
+    console.warn(
+      `[otp] RESEND_API_KEY not configured — code ${code} for ${proposal.signer_email} was NOT emailed. Returning inline for dev testing.`,
+    );
+  } else {
+    console.log(
+      `[otp] sent verification code to ${proposal.signer_email} ` +
+        `(resend id=${emailResult.messageId})`,
     );
   }
 
@@ -148,6 +170,8 @@ export async function POST(
     success: true,
     expiresInSeconds: OTP_TTL_MINUTES * 60,
     maskedEmail: maskEmail(proposal.signer_email),
+    emailDelivery: isLogged ? "not-configured" : "sent",
+    devCode: devUnblockCode,
   });
 }
 

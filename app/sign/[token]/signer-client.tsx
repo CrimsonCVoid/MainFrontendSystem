@@ -118,6 +118,11 @@ export default function SignerClient({ token }: { token: string }) {
   const [otpSent, setOtpSent] = useState(false);
   const [maskedEmail, setMaskedEmail] = useState<string | null>(null);
   const [otpInput, setOtpInput] = useState("");
+  // Dev-only: when RESEND_API_KEY is missing, the OTP route returns the
+  // code inline so testing isn't blocked on email setup. Shown in a
+  // yellow banner with a one-click "use it" button.
+  const [devCode, setDevCode] = useState<string | null>(null);
+  const [emailNotConfigured, setEmailNotConfigured] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpId, setOtpId] = useState<string | null>(null);
@@ -186,6 +191,8 @@ export default function SignerClient({ token }: { token: string }) {
         setMaskedEmail(data.maskedEmail ?? null);
         setOtpSent(true);
         setResendCooldown(30);
+        setEmailNotConfigured(data.emailDelivery === "not-configured");
+        setDevCode(typeof data.devCode === "string" ? data.devCode : null);
         if (!isResend) setStep("verify");
       } catch (e) {
         setOtpError(e instanceof Error ? e.message : "Could not send code");
@@ -349,6 +356,9 @@ export default function SignerClient({ token }: { token: string }) {
             resendCooldown={resendCooldown}
             otpSent={otpSent}
             accent={accent}
+            emailNotConfigured={emailNotConfigured}
+            devCode={devCode}
+            onApplyDevCode={(c) => setOtpInput(c)}
           />
         )}
         {step === "sign" && (
@@ -556,6 +566,9 @@ function VerifyStep({
   resendCooldown,
   otpSent,
   accent,
+  emailNotConfigured,
+  devCode,
+  onApplyDevCode,
 }: {
   maskedEmail: string;
   code: string;
@@ -567,6 +580,9 @@ function VerifyStep({
   resendCooldown: number;
   otpSent: boolean;
   accent: string;
+  emailNotConfigured?: boolean;
+  devCode?: string | null;
+  onApplyDevCode?: (code: string) => void;
 }) {
   return (
     <div className="bg-white rounded-2xl border border-neutral-200 p-8 shadow-sm max-w-md mx-auto">
@@ -583,6 +599,30 @@ function VerifyStep({
         We sent a 6-digit code to{" "}
         <span className="font-medium text-neutral-700">{maskedEmail}</span>
       </p>
+
+      {emailNotConfigured && devCode && (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-700">
+            Dev mode — email not configured
+          </div>
+          <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+            The server can&apos;t send email yet (missing RESEND_API_KEY).
+            Use this code to continue:
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <code className="flex-1 font-mono text-base font-bold tracking-[0.35em] text-amber-900 bg-white rounded px-3 py-1.5 border border-amber-200">
+              {devCode}
+            </code>
+            <button
+              type="button"
+              onClick={() => onApplyDevCode?.(devCode)}
+              className="text-xs font-medium text-amber-900 bg-amber-200/70 hover:bg-amber-200 rounded px-2.5 py-1.5"
+            >
+              Use it
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-6">
         <input

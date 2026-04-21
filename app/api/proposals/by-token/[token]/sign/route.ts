@@ -193,14 +193,27 @@ export async function POST(
     );
   }
 
-  // Mark the proposal signed.
-  await svc
+  // Mark the proposal signed. This is what makes the contractor's
+  // SignatureStatusCard flip from "Sent"/"Viewed" to "Signed" — if this
+  // update silently fails, the dashboard will stay stuck even though
+  // the signature row was written. Log explicitly so we can tell.
+  const { error: statusErr } = await svc
     .from("proposals")
     .update({
       status: "signed",
       signed_at: now.toISOString(),
     } as never)
     .eq("id", proposal.id);
+  if (statusErr) {
+    console.error(
+      `[sign] proposal.status update failed for ${proposal.id}:`,
+      statusErr,
+    );
+  } else {
+    console.log(
+      `[sign] proposal ${proposal.id} marked signed at ${now.toISOString()}`,
+    );
+  }
 
   // Notify both parties (fire-and-forget; errors logged but don't fail the sign).
   const content = proposal.content_json ?? {};
