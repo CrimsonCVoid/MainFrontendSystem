@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getOrgContext } from "@/lib/org-auth";
+
+const MAX_LIMIT = 200;
+const DEFAULT_LIMIT = 10;
 
 export async function GET(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -10,10 +14,21 @@ export async function GET(req: NextRequest) {
   }
 
   const orgId = req.nextUrl.searchParams.get("orgId");
-  const limit = parseInt(req.nextUrl.searchParams.get("limit") || "10");
+  const limitRaw = parseInt(req.nextUrl.searchParams.get("limit") || String(DEFAULT_LIMIT), 10);
+  const limit = Number.isFinite(limitRaw)
+    ? Math.max(1, Math.min(limitRaw, MAX_LIMIT))
+    : DEFAULT_LIMIT;
 
   if (!orgId) {
     return NextResponse.json([]);
+  }
+
+  // IDOR fix (C-2, 2026-04-21 audit): validate org membership before
+  // returning that org's approval queue. Approval shares reference
+  // project/customer data — non-members must not see the list.
+  const orgContext = await getOrgContext(supabase, orgId);
+  if (!orgContext) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { data, error } = await supabase
