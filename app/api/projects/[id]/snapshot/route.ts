@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getOrgContext } from "@/lib/org-auth";
 
 const GOOGLE_KEY =
   process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
@@ -216,7 +217,7 @@ export async function POST(
 
   const { data: projectData } = await userClient
     .from("projects")
-    .select("id, latitude, longitude, address, city, state, postal_code")
+    .select("id, latitude, longitude, address, city, state, postal_code, organization_id, user_id")
     .eq("id", projectId)
     .maybeSingle();
 
@@ -228,9 +229,28 @@ export async function POST(
     city: string | null;
     state: string | null;
     postal_code: string | null;
+    organization_id: string | null;
+    user_id: string | null;
   } | null;
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  // Defence-in-depth (C-4, 2026-04-21 audit): the user-scoped SELECT above
+  // is already guarded by the RLS policy on projects (migration 007) —
+  // non-members get null. But this endpoint then switches to a service_role
+  // client for storage uploads + a training_samples upsert, and service_role
+  // bypasses RLS. Verify explicitly that the caller either owns the project
+  // or is a member of its org before we spend a Solar API call + burn
+  // storage quota on their behalf.
+  const ownsProject = project.user_id === user.id;
+  let isOrgMember = false;
+  if (!ownsProject && project.organization_id) {
+    const orgContext = await getOrgContext(userClient, project.organization_id);
+    isOrgMember = !!orgContext;
+  }
+  if (!ownsProject && !isOrgMember) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   if (project.latitude == null || project.longitude == null) {
     return NextResponse.json(
