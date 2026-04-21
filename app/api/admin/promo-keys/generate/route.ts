@@ -52,18 +52,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Add proper admin role check
-    // For now, any authenticated user can generate keys
-    // In production, check user role from database:
-    // const { data: profile } = await supabase
-    //   .from("users")
-    //   .select("role")
-    //   .eq("id", user.id)
-    //   .single();
-    //
-    // if (profile?.role !== "admin") {
-    //   return NextResponse.json({ error: "Forbidden - admin only" }, { status: 403 });
-    // }
+    // Admin-gate fix (C-5, 2026-04-21 audit): prior code had an explicit
+    // "TODO: add proper admin role check" and let any authenticated user
+    // mint unlimited promo keys. Gated by PLATFORM_ADMIN_EMAILS env var —
+    // comma-separated list of email addresses that may call this endpoint.
+    // Defence-in-depth: migration 019 also forbids direct INSERT on
+    // promo_keys from anon/authed roles, so this route is the only mint path.
+    const adminList = (process.env.PLATFORM_ADMIN_EMAILS || "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (adminList.length === 0) {
+      console.error(
+        "[Admin] PLATFORM_ADMIN_EMAILS is not configured — refusing promo key generation",
+      );
+      return NextResponse.json(
+        { success: false, error: "Admin role not configured" },
+        { status: 503 }
+      );
+    }
+
+    const callerEmail = (user.email || "").toLowerCase();
+    if (!callerEmail || !adminList.includes(callerEmail)) {
+      console.warn(
+        `[Admin] non-admin user ${user.id} (${callerEmail || "no-email"}) attempted promo key generation`,
+      );
+      return NextResponse.json(
+        { success: false, error: "Forbidden - admin only" },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
     const count = body.count || 100;
