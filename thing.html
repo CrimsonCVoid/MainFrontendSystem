@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3DEP Lidar Probe</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Bitter:wght@500;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<style>
+  :root {
+    --bg: #0c0e10;
+    --panel: #14171a;
+    --panel-2: #1b1f23;
+    --ink: #e7ecef;
+    --ink-dim: #8a9199;
+    --accent: #ffb000;
+    --accent-2: #79c7ff;
+    --hot: #ff5a3c;
+    --line: #2a3138;
+    --ok: #6fd49d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--ink); }
+  body {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 1.45;
+    background-image:
+      linear-gradient(transparent 95%, rgba(255,176,0,0.035) 95%),
+      linear-gradient(90deg, transparent 95%, rgba(255,176,0,0.035) 95%);
+    background-size: 24px 24px;
+  }
+
+  header {
+    display: flex; align-items: baseline; gap: 18px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(12,14,16,0.85);
+    backdrop-filter: blur(6px);
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 {
+    font-family: 'Bitter', serif;
+    font-weight: 700;
+    font-size: 20px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  header h1 .amp { color: var(--accent); }
+  header .sub {
+    color: var(--ink-dim);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  header .spacer { flex: 1; }
+  header .status {
+    font-size: 11px;
+    color: var(--ink-dim);
+    padding: 4px 8px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+  }
+  header .status b { color: var(--ok); font-weight: 500; }
+
+  main {
+    display: grid;
+    grid-template-columns: 340px 1fr 360px;
+    gap: 14px;
+    padding: 14px;
+    height: calc(100vh - 54px);
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .panel h2 {
+    font-family: 'Bitter', serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .panel h2 .count {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--ink-dim);
+    font-weight: 400;
+    letter-spacing: 0.05em;
+  }
+  .panel .body { padding: 14px; overflow-y: auto; flex: 1; min-height: 0; }
+
+  label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--ink-dim); margin-bottom: 4px; margin-top: 10px; }
+  label:first-child { margin-top: 0; }
+  input[type="text"], input[type="number"], select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 7px 9px;
+    border-radius: 2px;
+    outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  button.go {
+    width: 100%;
+    margin-top: 14px;
+    padding: 10px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  button.go:hover { background: #ffc93c; }
+  button.go:disabled { background: var(--panel-2); color: var(--ink-dim); cursor: wait; }
+
+  button.ghost {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    padding: 6px 10px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  button.ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  #map { flex: 1; background: #0a0a0a; min-height: 0; }
+  .map-panel .body { padding: 0; }
+  .leaflet-container { background: #0a0a0a; font-family: inherit; }
+  .leaflet-tile { filter: grayscale(0.6) brightness(0.7) contrast(1.1); }
+
+  .project {
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background: var(--panel-2);
+    cursor: pointer;
+    transition: border-color 120ms;
+  }
+  .project:hover { border-color: var(--accent-2); }
+  .project.sel { border-color: var(--accent); }
+  .project .name {
+    font-weight: 700;
+    font-size: 12px;
+    margin-bottom: 4px;
+    word-break: break-word;
+  }
+  .project .meta {
+    font-size: 10px;
+    color: var(--ink-dim);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 8px;
+  }
+  .project .meta b { color: var(--ink); font-weight: 500; }
+  .project .ql {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    margin-right: 6px;
+    letter-spacing: 0.08em;
+  }
+  .ql-0, .ql-1 { background: var(--hot); color: #000; }
+  .ql-2 { background: var(--accent); color: #000; }
+  .ql-3 { background: var(--ink-dim); color: #000; }
+  .ql-other { background: var(--line); color: var(--ink); }
+
+  .project .actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .project .actions a {
+    font-size: 10px;
+    text-decoration: none;
+    color: var(--accent-2);
+    border: 1px solid var(--line);
+    padding: 3px 6px;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+  }
+  .project .actions a:hover { border-color: var(--accent-2); }
+
+  .placeholder {
+    color: var(--ink-dim);
+    font-size: 11px;
+    text-align: center;
+    padding: 24px 10px;
+    border: 1px dashed var(--line);
+    border-radius: 2px;
+  }
+
+  .elev-box {
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 12px;
+    margin-bottom: 14px;
+    background: var(--panel-2);
+  }
+  .elev-big {
+    font-family: 'Bitter', serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .elev-unit { color: var(--ink-dim); font-size: 14px; margin-left: 4px; }
+  .elev-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--ink-dim); margin-bottom: 6px; }
+
+  #transectChart { max-height: 180px; }
+
+  .tab-row { display: flex; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+  .tab {
+    flex: 1;
+    padding: 8px;
+    text-align: center;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    color: var(--ink-dim);
+    border-bottom: 2px solid transparent;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--panel); }
+
+  .tab-body { display: none; }
+  .tab-body.active { display: block; }
+
+  .crosshair-icon {
+    background: var(--accent);
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid #000;
+    box-shadow: 0 0 0 1px var(--accent), 0 0 12px var(--accent);
+  }
+
+  .err {
+    color: var(--hot);
+    font-size: 11px;
+    padding: 8px 10px;
+    border: 1px solid var(--hot);
+    border-radius: 2px;
+    background: rgba(255,90,60,0.08);
+    margin-bottom: 10px;
+  }
+
+  .hint {
+    font-size: 10px;
+    color: var(--ink-dim);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  a { color: var(--accent-2); }
+
+  .loader {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1s infinite;
+    margin-right: 6px;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+
+  /* Skinny scrollbars */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--panel); }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-dim); }
+
+  @media (max-width: 1100px) {
+    main { grid-template-columns: 1fr; height: auto; }
+    #map { height: 380px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>3DEP LIDAR <span class="amp">//</span> PROBE</h1>
+  <span class="sub">USGS Entwine Point Tiles + Elevation Query Service</span>
+  <div class="spacer"></div>
+  <div class="status" id="status">idle &middot; <b>ready</b></div>
+</header>
+
+<main>
+
+  <!-- LEFT PANEL: INPUT -->
+  <section class="panel">
+    <h2>REQUEST <span class="count">step 01</span></h2>
+    <div class="body">
+
+      <label>LATITUDE (deg, WGS84)</label>
+      <input type="number" id="lat" step="0.000001" value="35.7327">
+
+      <label>LONGITUDE (deg, WGS84)</label>
+      <input type="number" id="lon" step="0.000001" value="-78.8503">
+
+      <label>SEARCH RADIUS (m)</label>
+      <input type="number" id="radius" step="100" min="100" value="2000">
+
+      <label>QUALITY LEVEL FILTER</label>
+      <select id="qlfilter">
+        <option value="all">all</option>
+        <option value="ql0">QL0 / QL1 only</option>
+        <option value="ql2" selected>QL2 or better</option>
+      </select>
+
+      <button class="go" id="goBtn">PROBE LOCATION</button>
+
+      <p class="hint">
+        click the map to drop a pin, or type coords. the probe
+        queries the USGS 3DEP project index for any lidar collection
+        covering the point, pulls a ground elevation from EPQS, and
+        samples a transect you can plot.
+      </p>
+
+      <div style="margin-top: 20px; padding-top: 14px; border-top: 1px dashed var(--line);">
+        <label style="margin-top:0;">PRESETS</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+          <button class="ghost" data-preset="35.7327,-78.8503">Apex, NC</button>
+          <button class="ghost" data-preset="36.1627,-86.7816">Nashville</button>
+          <button class="ghost" data-preset="40.7484,-73.9857">Empire State</button>
+          <button class="ghost" data-preset="46.8523,-121.7603">Mt Rainier</button>
+          <button class="ghost" data-preset="36.0544,-112.1401">Grand Canyon</button>
+          <button class="ghost" data-preset="30.3937,-86.4958">Destin, FL</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CENTER: MAP -->
+  <section class="panel map-panel">
+    <h2>AREA OF INTEREST <span class="count" id="bboxLabel">no selection</span></h2>
+    <div class="body">
+      <div id="map"></div>
+    </div>
+  </section>
+
+  <!-- RIGHT PANEL: RESULTS -->
+  <section class="panel">
+    <div class="tab-row">
+      <div class="tab active" data-tab="elev">ELEVATION</div>
+      <div class="tab" data-tab="projects">PROJECTS</div>
+      <div class="tab" data-tab="raw">RAW</div>
+    </div>
+    <div class="body">
+
+      <div class="tab-body active" id="tab-elev">
+        <div class="elev-box">
+          <div class="elev-label">GROUND ELEVATION AT PIN</div>
+          <div><span class="elev-big" id="elevVal">&mdash;</span><span class="elev-unit" id="elevUnit">m</span></div>
+          <div class="hint" id="elevSrc">from USGS 3DEP Elevation Point Query Service (1/3 arc-second seamless DEM)</div>
+        </div>
+
+        <div class="elev-box">
+          <div class="elev-label">TRANSECT (E-W, 1 km)</div>
+          <canvas id="transectChart"></canvas>
+          <div class="hint" id="transectHint">probe a point to sample 25 elevations along a 1 km east-west line.</div>
+        </div>
+      </div>
+
+      <div class="tab-body" id="tab-projects">
+        <div id="projectList">
+          <div class="placeholder">drop a pin or click PROBE to find 3DEP lidar projects covering that area.</div>
+        </div>
+      </div>
+
+      <div class="tab-body" id="tab-raw">
+        <div class="hint" style="margin-bottom:10px;">
+          endpoints queried by the probe. swap these into curl, PDAL, or your own code.
+        </div>
+        <pre id="rawOut" style="font-size:10px; color:var(--ink-dim); white-space:pre-wrap; word-break:break-all; margin:0;"></pre>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<script>
+(function(){
+  'use strict';
+
+  // --- lib check -----------------------------------------------------------
+  if (typeof L === 'undefined' || typeof Chart === 'undefined') {
+    document.body.innerHTML =
+      '<div style="padding:40px;font-family:monospace;color:#ff5a3c;background:#0c0e10;min-height:100vh;">' +
+      '<h2>CDN LOAD FAILED</h2>' +
+      '<p>Could not load ' +
+        (typeof L === 'undefined' ? 'Leaflet' : '') +
+        (typeof L === 'undefined' && typeof Chart === 'undefined' ? ' and ' : '') +
+        (typeof Chart === 'undefined' ? 'Chart.js' : '') +
+      '.</p>' +
+      '<p style="color:#8a9199;">check your network / adblocker, or host the file with the libs bundled locally.</p>' +
+      '</div>';
+    return;
+  }
+
+  // --- endpoints -----------------------------------------------------------
+  // 3DEP Elevation Index MapServer, layer 21 = Lidar Point Cloud footprints
+  const LPC_LAYER_URL = 'https://index.nationalmap.gov/arcgis/rest/services/3DEPElevationIndex/MapServer/21/query';
+  // Elevation Point Query Service
+  const EPQS_URL = 'https://epqs.nationalmap.gov/v1/json';
+  // USGS Entwine Point Tiles index site (projects are directories under this)
+  const ENTWINE_BASE = 'https://s3-us-west-2.amazonaws.com/usgs-lidar-public';
+  // hosted Potree viewer that accepts resource= param
+  const POTREE_VIEWER = 'https://usgs.entwine.io/data/view.html';
+
+  // --- state ---------------------------------------------------------------
+  let pin = null;
+  let circle = null;
+  let footprints = L.layerGroup();
+  let selectedProject = null;
+  let transectChart = null;
+
+  // --- map -----------------------------------------------------------------
+  const map = L.map('map', { zoomControl: true, attributionControl: true }).setView([35.7327, -78.8503], 11);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    maxZoom: 19, subdomains: 'abcd'
+  }).addTo(map);
+  footprints.addTo(map);
+
+  const pinIcon = L.divIcon({ className: 'crosshair-icon', iconSize: [14,14], iconAnchor: [7,7] });
+
+  map.on('click', (e) => {
+    document.getElementById('lat').value = e.latlng.lat.toFixed(6);
+    document.getElementById('lon').value = e.latlng.lng.toFixed(6);
+    setPin(e.latlng.lat, e.latlng.lng);
+  });
+
+  function setPin(lat, lon) {
+    if (pin) map.removeLayer(pin);
+    pin = L.marker([lat, lon], { icon: pinIcon }).addTo(map);
+    const r = parseFloat(document.getElementById('radius').value) || 2000;
+    if (circle) map.removeLayer(circle);
+    circle = L.circle([lat, lon], { radius: r, color: '#ffb000', weight: 1, opacity: 0.6, fillOpacity: 0.04 }).addTo(map);
+    updateBboxLabel(lat, lon, r);
+  }
+
+  function updateBboxLabel(lat, lon, r) {
+    document.getElementById('bboxLabel').textContent =
+      lat.toFixed(4) + ', ' + lon.toFixed(4) + ' / r=' + r + 'm';
+  }
+
+  // --- tabs ----------------------------------------------------------------
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.tab-body').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+    });
+  });
+
+  // --- presets -------------------------------------------------------------
+  document.querySelectorAll('[data-preset]').forEach(b => {
+    b.addEventListener('click', () => {
+      const [la, lo] = b.dataset.preset.split(',').map(parseFloat);
+      document.getElementById('lat').value = la;
+      document.getElementById('lon').value = lo;
+      map.setView([la, lo], 12);
+      setPin(la, lo);
+    });
+  });
+
+  // --- status helper -------------------------------------------------------
+  function setStatus(txt, kind) {
+    const el = document.getElementById('status');
+    const color = kind === 'err' ? 'var(--hot)' : kind === 'ok' ? 'var(--ok)' : 'var(--accent)';
+    el.innerHTML = 'probe &middot; <b style="color:' + color + '">' + txt + '</b>';
+  }
+
+  // --- core probe ----------------------------------------------------------
+  const goBtn = document.getElementById('goBtn');
+  goBtn.addEventListener('click', runProbe);
+
+  async function runProbe() {
+    const lat = parseFloat(document.getElementById('lat').value);
+    const lon = parseFloat(document.getElementById('lon').value);
+    const radius = parseFloat(document.getElementById('radius').value) || 2000;
+
+    if (!isFinite(lat) || !isFinite(lon)) { setStatus('bad coords', 'err'); return; }
+
+    setPin(lat, lon);
+    map.setView([lat, lon], Math.max(map.getZoom(), 12));
+
+    goBtn.disabled = true;
+    goBtn.textContent = 'PROBING...';
+    setStatus('querying USGS...', null);
+
+    // clear raw log
+    const rawLog = [];
+    const logFetch = (label, url) => rawLog.push('# ' + label + '\n' + url + '\n');
+
+    // run three tasks in parallel
+    const [elevRes, projRes, transectRes] = await Promise.allSettled([
+      fetchElevation(lat, lon, logFetch),
+      fetchProjects(lat, lon, radius, logFetch),
+      fetchTransect(lat, lon, logFetch)
+    ]);
+
+    renderElevation(elevRes);
+    renderProjects(projRes, lat, lon);
+    renderTransect(transectRes, lon);
+
+    document.getElementById('rawOut').textContent = rawLog.join('\n');
+
+    goBtn.disabled = false;
+    goBtn.textContent = 'PROBE LOCATION';
+    setStatus('done', 'ok');
+  }
+
+  // --- elevation -----------------------------------------------------------
+  async function fetchElevation(lat, lon, logFetch) {
+    const url = EPQS_URL + '?x=' + lon + '&y=' + lat + '&units=Meters&wkid=4326&includeDate=false';
+    logFetch('EPQS ground elevation', url);
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('EPQS HTTP ' + r.status);
+    const j = await r.json();
+    // response shape: { location: {...}, value: "123.45", ...}
+    const v = parseFloat(j.value);
+    if (!isFinite(v)) throw new Error('EPQS returned no value (outside US?)');
+    return v;
+  }
+
+  function renderElevation(res) {
+    const val = document.getElementById('elevVal');
+    const src = document.getElementById('elevSrc');
+    if (res.status === 'fulfilled') {
+      val.textContent = res.value.toFixed(2);
+      src.textContent = 'from USGS 3DEP Elevation Point Query Service (seamless DEM)';
+      src.style.color = '';
+    } else {
+      val.textContent = 'err';
+      src.textContent = 'EPQS failed: ' + (res.reason && res.reason.message || res.reason);
+      src.style.color = 'var(--hot)';
+    }
+  }
+
+  // --- transect (1 km east-west, 25 samples) -------------------------------
+  async function fetchTransect(lat, lon, logFetch) {
+    const N = 25;
+    const halfKm = 0.5;
+    // 1 deg lon in meters at this latitude
+    const metersPerDegLon = 111320 * Math.cos(lat * Math.PI / 180);
+    const dLon = (halfKm * 1000) / metersPerDegLon;
+    const lons = [];
+    for (let i = 0; i < N; i++) {
+      lons.push(lon - dLon + (2 * dLon * i) / (N - 1));
+    }
+    logFetch('Transect EPQS batch (' + N + ' pts, 1 km E-W)', EPQS_URL + '?x=<lon>&y=' + lat);
+    const vals = await Promise.all(lons.map(async (lx) => {
+      try {
+        const url = EPQS_URL + '?x=' + lx + '&y=' + lat + '&units=Meters&wkid=4326&includeDate=false';
+        const r = await fetch(url);
+        if (!r.ok) return null;
+        const j = await r.json();
+        const v = parseFloat(j.value);
+        return isFinite(v) ? v : null;
+      } catch (e) { return null; }
+    }));
+    return { lons, vals };
+  }
+
+  function renderTransect(res, centerLon) {
+    const hint = document.getElementById('transectHint');
+    if (res.status !== 'fulfilled') {
+      hint.textContent = 'transect sample failed';
+      hint.style.color = 'var(--hot)';
+      return;
+    }
+    const { lons, vals } = res.value;
+    const good = vals.filter(v => v != null);
+    if (!good.length) {
+      hint.textContent = 'no DEM values along this transect (outside US coverage?)';
+      hint.style.color = 'var(--hot)';
+      return;
+    }
+    hint.textContent = 'E-W transect: min ' + Math.min(...good).toFixed(1) + ' m, max ' + Math.max(...good).toFixed(1) + ' m, delta ' + (Math.max(...good) - Math.min(...good)).toFixed(1) + ' m';
+    hint.style.color = '';
+
+    const labels = lons.map((lx, i) => {
+      const offsetM = Math.round((lx - centerLon) * 111320 * Math.cos(lons[0] * Math.PI / 180));
+      return offsetM + 'm';
+    });
+
+    const ctx = document.getElementById('transectChart').getContext('2d');
+    if (transectChart) transectChart.destroy();
+    transectChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'elevation (m)',
+          data: vals,
+          borderColor: '#ffb000',
+          backgroundColor: 'rgba(255,176,0,0.15)',
+          borderWidth: 1.5,
+          pointRadius: 1.5,
+          pointBackgroundColor: '#ffb000',
+          tension: 0.2,
+          fill: true,
+          spanGaps: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            ticks: { color: '#8a9199', font: { size: 9, family: 'JetBrains Mono' }, maxTicksLimit: 6 },
+            grid: { color: '#2a3138' }
+          },
+          y: {
+            ticks: { color: '#8a9199', font: { size: 9, family: 'JetBrains Mono' } },
+            grid: { color: '#2a3138' },
+            title: { display: true, text: 'meters', color: '#8a9199', font: { size: 10 } }
+          }
+        }
+      }
+    });
+  }
+
+  // --- projects (3DEP lidar footprints intersecting point) -----------------
+  async function fetchProjects(lat, lon, radius, logFetch) {
+    // ArcGIS REST query with a point geometry and small buffer via distance/units
+    const params = new URLSearchParams({
+      f: 'geojson',
+      geometry: JSON.stringify({ x: lon, y: lat, spatialReference: { wkid: 4326 } }),
+      geometryType: 'esriGeometryPoint',
+      inSR: '4326',
+      outSR: '4326',
+      spatialRel: 'esriSpatialRelIntersects',
+      distance: String(radius),
+      units: 'esriSRUnit_Meter',
+      outFields: '*',
+      returnGeometry: 'true'
+    });
+    const url = LPC_LAYER_URL + '?' + params.toString();
+    logFetch('3DEP LPC footprint query', url);
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('LPC index HTTP ' + r.status);
+    const gj = await r.json();
+    return gj;
+  }
+
+  function qlClass(ql) {
+    if (!ql) return 'ql-other';
+    const s = String(ql).toLowerCase();
+    if (s.includes('0')) return 'ql-0';
+    if (s.includes('1')) return 'ql-1';
+    if (s.includes('2')) return 'ql-2';
+    if (s.includes('3')) return 'ql-3';
+    return 'ql-other';
+  }
+
+  function renderProjects(res, lat, lon) {
+    const list = document.getElementById('projectList');
+    footprints.clearLayers();
+
+    if (res.status !== 'fulfilled') {
+      list.innerHTML = '<div class="err">project query failed: ' + (res.reason && res.reason.message || res.reason) + '</div>';
+      return;
+    }
+    const gj = res.value;
+    const feats = gj.features || [];
+
+    const qlf = document.getElementById('qlfilter').value;
+    let filtered = feats;
+    if (qlf === 'ql0') filtered = feats.filter(f => /QL\s*[01]/i.test(f.properties.ql || ''));
+    else if (qlf === 'ql2') filtered = feats.filter(f => /QL\s*[012]/i.test(f.properties.ql || ''));
+
+    document.querySelector('[data-tab="projects"]').innerHTML =
+      'PROJECTS <span style="color:var(--ink-dim);font-weight:400;">(' + filtered.length + ')</span>';
+
+    if (!filtered.length) {
+      list.innerHTML = '<div class="placeholder">no 3DEP lidar projects found for this area with current filter.<br><br>try widening the radius, loosening the QL filter, or picking a different spot. 3DEP coverage is US-only.</div>';
+      return;
+    }
+
+    // render footprints on map
+    L.geoJSON(filtered, {
+      style: { color: '#79c7ff', weight: 1, fillOpacity: 0.06, opacity: 0.7 }
+    }).addTo(footprints);
+
+    // render list
+    list.innerHTML = '';
+    filtered
+      .sort((a, b) => (b.properties.collect_end || '').localeCompare(a.properties.collect_end || ''))
+      .forEach(f => {
+        const p = f.properties;
+        const name = p.project || p.workunit || p.project_id || 'unnamed project';
+        const ql = p.ql || 'QL?';
+        const start = (p.collect_start || '').slice(0, 10);
+        const end = (p.collect_end || '').slice(0, 10);
+        const pub = (p.lpc_pub_date || '').slice(0, 10);
+        const prod = p.lpc_link || p.lpc || p.downloadurl || '';
+        const meta = p.metadata_link || p.meta_link || '';
+        // entwine URL guess (project -> bucket path). Some projects exist in EPT bucket, some don't.
+        const entwineProj = (p.project || '').replace(/[^A-Za-z0-9_\-]/g, '_');
+        const entwineURL = entwineProj ? ENTWINE_BASE + '/' + entwineProj + '/ept.json' : '';
+        const potreeURL = entwineProj ? POTREE_VIEWER + '?r=' + encodeURIComponent(ENTWINE_BASE + '/' + entwineProj) : '';
+
+        const el = document.createElement('div');
+        el.className = 'project';
+        el.innerHTML =
+          '<div class="name">' +
+            '<span class="ql ' + qlClass(ql) + '">' + ql + '</span>' +
+            name +
+          '</div>' +
+          '<div class="meta">' +
+            '<span>collected:</span><b>' + (start || '?') + ' &rarr; ' + (end || '?') + '</b>' +
+            '<span>published:</span><b>' + (pub || '?') + '</b>' +
+            '<span>spec:</span><b>' + (p.spec || '?') + '</b>' +
+            '<span>source DEM res:</span><b>' + (p.dem_gsd_meters != null ? p.dem_gsd_meters + ' m' : '?') + '</b>' +
+          '</div>' +
+          '<div class="actions">' +
+            (potreeURL ? '<a href="' + potreeURL + '" target="_blank" rel="noopener">&#9636; 3D viewer</a>' : '') +
+            (entwineURL ? '<a href="' + entwineURL + '" target="_blank" rel="noopener">EPT json</a>' : '') +
+            (prod ? '<a href="' + prod + '" target="_blank" rel="noopener">LAZ tiles</a>' : '') +
+            (meta ? '<a href="' + meta + '" target="_blank" rel="noopener">metadata</a>' : '') +
+          '</div>';
+        el.addEventListener('click', () => {
+          document.querySelectorAll('.project').forEach(x => x.classList.remove('sel'));
+          el.classList.add('sel');
+          selectedProject = p;
+          // zoom to this feature
+          const layer = L.geoJSON(f);
+          map.fitBounds(layer.getBounds(), { padding: [40,40], maxZoom: 12 });
+        });
+        list.appendChild(el);
+      });
+
+    // auto-switch to Projects tab if we have results
+    document.querySelector('[data-tab="projects"]').click();
+    // but put elevation tab back as default if user goes back
+    setTimeout(() => {
+      // no-op; let user drive tabs
+    }, 0);
+  }
+
+  // init pin
+  setPin(35.7327, -78.8503);
+
+})();
+</script>
+</body>
+</html>

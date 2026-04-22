@@ -10,7 +10,8 @@
       "Bash(npx next:*)"
     ],
     "additionalDirectories": [
-      "/Users/carterbrady/Backend-api/lazy"
+      "/Users/carterbrady/Backend-api/lazy",
+      "/Users/carterbrady/Backend-api"
     ]
   }
 }
